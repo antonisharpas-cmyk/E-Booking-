@@ -1,13 +1,35 @@
+# dependencies
 node_modules
+
+# build output
 .next
 out
 build
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# secrets — never commit these
 .env
 .env*.local
+
+# local SQLite database and its working files
 *.db
+*.db-wal
+*.db-shm
 *.db-journal
-prisma/dev.db*
+
+# vendored toolchains and archives (a local Node runtime, downloaded installers)
+.tools/
+*.zip
+*.7z
+*.msi
+
+# editor / OS
 .DS_Store
-next-env.d.ts
+Thumbs.db
+.idea
+.vscode/*
+!.vscode/settings.json
+
+# hosting
 .vercel
-tsconfig.tsbuildinfo

@@ -262,6 +262,39 @@ scripts/                  test suites
 public/brand/             logo and wordmark files
 ```
 
+## Troubleshooting
+
+**`Cannot find module '../server/require-hook'`**
+`npm install` had not finished when the command was run. Wait for
+`added N packages` before running anything else, then try again.
+
+**`Could not locate the bindings file` / no `.node` file in
+`node_modules/better-sqlite3`**
+The SQLite driver is a native module. It normally installs a prebuilt binary,
+but there is no prebuild for a Node version newer than the driver, in which case
+npm falls back to compiling — which needs Visual Studio build tools on Windows.
+Fixes, in order of preference:
+
+1. Make sure `better-sqlite3` is `^12.2.0` or newer in `package.json` (v12 has
+   prebuilds for Node 20, 22 and 24), then `npm install` again.
+2. Or install Node 22 LTS, delete `node_modules`, and `npm install`.
+3. Or `npm install --global windows-build-tools` (as administrator) so the
+   fallback compile can succeed.
+
+Check your Node version with `node -v`. Node 20 LTS or 22 LTS are the safest.
+
+**`AUTH_SECRET is missing or too short`**
+`.env` was not created. Run `npm run setup`, or copy `.env.example` to `.env`
+and paste any long random string into `AUTH_SECRET`.
+
+**"Buy pack" says payments are not switched on**
+Expected in a production build with no Stripe keys. Either add the Stripe test
+keys, or set `ALLOW_TEST_PAYMENTS="true"` in `.env` to grant credits without
+paying (fine for a staging demo, never on the live site). In `npm run dev` it
+already works with no keys.
+
+---
+
 ## Security notes
 
 - Passwords are hashed with bcrypt; sessions are signed JWTs in an httpOnly,
