@@ -1,0 +1,50 @@
+import Image from "next/image";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
+
+/**
+ * The official lockup, extracted from the brand files supplied by the studio.
+ * `tone="brown"` for light backgrounds, `tone="cream"` for dark ones.
+ */
+export function Wordmark({
+  tone = "brown",
+  className,
+  priority,
+}: {
+  tone?: "brown" | "cream";
+  className?: string;
+  priority?: boolean;
+}) {
+  const src =
+    tone === "cream" ? "/brand/wordmark-cream.png" : "/brand/wordmark-brown.png";
+  return (
+    <Image
+      src={src}
+      alt="APEX pilates by APEX Fitness Centre"
+      width={916}
+      height={300}
+      priority={priority}
+      className={cn("h-auto w-[168px] select-none", className)}
+    />
+  );
+}
+
+export function WordmarkLink({
+  tone = "brown",
+  className,
+  priority,
+}: {
+  tone?: "brown" | "cream";
+  className?: string;
+  priority?: boolean;
+}) {
+  return (
+    <Link
+      href="/"
+      aria-label="APEX pilates — home"
+      className="shrink-0 transition-opacity duration-500 hover:opacity-70"
+    >
+      <Wordmark tone={tone} className={className} priority={priority} />
+    </Link>
+  );
+}

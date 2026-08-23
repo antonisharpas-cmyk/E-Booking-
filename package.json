@@ -1,0 +1,47 @@
+{
+  "name": "apex-pilates",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "db:push": "drizzle-kit push --force",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:studio": "drizzle-kit studio",
+    "db:reset": "node -e \"require('fs').rmSync('dev.db',{force:true});require('fs').rmSync('dev.db-wal',{force:true});require('fs').rmSync('dev.db-shm',{force:true})\" && npm run db:push && npm run db:seed",
+    "setup": "node scripts/init-env.mjs && drizzle-kit push --force && npm run db:seed",
+    "test:flows": "tsx scripts/test-flows.ts",
+    "test:http": "node scripts/test-http.mjs"
+  },
+  "dependencies": {
+    "bcryptjs": "2.4.3",
+    "better-sqlite3": "^11.9.1",
+    "clsx": "2.1.1",
+    "date-fns": "4.1.0",
+    "drizzle-orm": "^0.40.1",
+    "framer-motion": "11.18.2",
+    "jose": "5.9.6",
+    "next": "15.3.1",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "stripe": "17.7.0",
+    "tailwind-merge": "2.6.0",
+    "zod": "3.24.2"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "2.4.6",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "22.14.0",
+    "@types/react": "19.1.0",
+    "@types/react-dom": "19.1.1",
+    "autoprefixer": "10.4.21",
+    "drizzle-kit": "^0.30.5",
+    "postcss": "8.5.3",
+    "tailwindcss": "3.4.17",
+    "tsx": "4.19.3",
+    "typescript": "5.8.3"
+  }
+}
