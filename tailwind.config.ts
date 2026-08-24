@@ -19,20 +19,27 @@ const config: Config = {
           900: "#2A2020",
           950: "#1A1414",
         },
+        /* sampled from the studio's own product renders */
         cream: {
-          DEFAULT: "#FAF5F2",
+          DEFAULT: "#FAF6F3",
           50: "#FEFCFB",
-          100: "#FAF5F2",
-          200: "#F3EBE6",
-          300: "#E9DDD6",
+          100: "#FAF6F3",
+          200: "#F3ECE6",
+          300: "#E9DED6",
         },
-        sand: "#E8DED6",
+        /* the reformer's upholstery */
+        taupe: "#746457",
+        /* its brushed metal and pale ash frame */
+        stone: "#9E968B",
+        sand: "#C2B9AA",
         clay: "#A08D85",
         gold: "#C9A227",
       },
       fontFamily: {
         sans: ["var(--font-jost)", "ui-sans-serif", "system-ui", "sans-serif"],
         display: ["var(--font-cormorant)", "Georgia", "serif"],
+        /* the hero headline, set to echo the wordmark's flared letterforms */
+        wordmark: ["var(--font-wordmark)", "var(--font-jost)", "serif"],
       },
       letterSpacing: {
         widest: "0.22em",

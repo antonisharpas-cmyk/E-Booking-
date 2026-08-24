@@ -62,7 +62,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     <div className="container-x flex min-h-[70vh] items-center justify-center py-16">
       <div className="w-full max-w-md">
         <div className="text-center">
-          <Monogram className="mx-auto h-11 w-11 text-clay/60" strokeWidth={2.4} />
+          <Monogram className="mx-auto h-11 w-11 text-clay/60" />
           <h1 className="h-display mt-8 text-4xl">
             {isLogin ? t.auth.loginTitle : t.auth.registerTitle}
           </h1>

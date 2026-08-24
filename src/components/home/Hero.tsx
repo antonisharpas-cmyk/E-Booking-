@@ -1,103 +1,97 @@
 "use client";
 
+import Image from "next/image";
 import { ButtonLink } from "@/components/ui/Button";
 import { Monogram } from "@/components/ui/Monogram";
-import { ReformerArt } from "@/components/ui/ReformerArt";
 import { useI18n } from "@/i18n/LanguageProvider";
+import { STUDIO } from "@/lib/studio";
 
 /**
- * Entrance choreography is plain CSS keyframes with staggered animation-delay.
- * Nothing here needs an animation library, and the hero is on the critical
- * path for every first visit — so it stays as light as possible.
+ * The cover: a full-viewport photograph of a class with the type centred over
+ * it. The header switches to its own centred-wordmark mode over this section
+ * (see Header.tsx), so the composition reads as one piece.
+ *
+ * The photograph is cropped below the faces — nobody in it is identifiable.
+ *
+ * TYPE: both lines of the headline share one face — `font-wordmark`, set to
+ * Marcellus, whose flared stems echo the wordmark's lettering. To try another,
+ * change `--font-wordmark` and the <link> in layout.tsx; nothing else needs
+ * touching. docs/type-preview.html renders the candidates at this size.
+ *
+ * The entrance is CSS keyframes with staggered delays. The hero is on the
+ * critical path of every first visit, so it carries no animation library.
  */
 export function Hero() {
   const { t } = useI18n();
-  const words = t.home.hero.title.split(" ");
-
-  const stats = [
-    { label: t.home.hero.stat1, value: t.home.hero.stat1v },
-    { label: t.home.hero.stat2, value: t.home.hero.stat2v },
-    { label: t.home.hero.stat3, value: t.home.hero.stat3v },
-  ];
 
   return (
-    <section className="relative overflow-hidden pb-16 pt-10 md:pb-24 md:pt-16">
-      {/* soft light behind the type */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute left-1/2 top-[-12%] h-[640px] w-[900px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(160,141,133,0.20),transparent_65%)] animate-breathe"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-cream-200/70"
-      />
+    <section className="relative -mt-24 flex h-[100svh] min-h-[560px] items-center justify-center overflow-hidden bg-mocha-800">
+      <div className="absolute inset-0">
+        <Image
+          src="/media/class.jpg"
+          alt="A Reformer Pilates class in progress at APEX pilates"
+          fill
+          priority
+          sizes="100vw"
+          quality={80}
+          className="kenburns object-cover object-[54%_38%]"
+        />
+        {/* Warm scrim: enough to carry cream type at any screen size, without
+            flattening the room's light. */}
+        <div className="absolute inset-0 bg-mocha-900/55" />
+        <div className="absolute inset-0 bg-gradient-to-t from-mocha-900/85 via-mocha-900/20 to-mocha-900/60" />
+        {/* lifts the centred type off the brightest part of the room */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_58%_46%_at_50%_46%,rgba(42,32,32,0.62),transparent_70%)]" />
+        <div className="absolute inset-0 grain" />
+      </div>
 
-      <div className="container-x relative">
-        <p className="eyebrow mb-8 flex animate-fade-up items-center gap-3">
-          <span className="h-px w-8 bg-clay/50" />
-          {t.home.hero.eyebrow}
-        </p>
-
-        <h1 className="h-display max-w-4xl text-[3rem] leading-[1.02] sm:text-[4.2rem] md:text-[5.6rem]">
-          {words.map((w, i) => (
-            <span
-              key={`${w}-${i}`}
-              className="mr-[0.28em] inline-block animate-fade-up"
-              style={{ animationDelay: `${100 + i * 90}ms` }}
-            >
-              {w}
-            </span>
-          ))}
+      {/* centred type, in the lettering of the wordmark */}
+      <div className="container-x relative flex flex-col items-center text-center">
+        <h1 className="flex flex-col items-center">
+          <span
+            className="block animate-fade-up font-wordmark text-[1.7rem] uppercase leading-none tracking-[0.30em] text-cream/85 sm:text-[2.5rem] md:text-[3.2rem]"
+            style={{ animationDelay: "160ms" }}
+          >
+            {t.home.hero.kicker}
+          </span>
+          <span
+            className="mt-2 block animate-fade-up font-wordmark text-[4.2rem] uppercase leading-[0.9] tracking-[0.01em] text-cream sm:text-[6.4rem] md:text-[8.6rem] lg:text-[10.5rem]"
+            style={{ animationDelay: "300ms" }}
+          >
+            {t.home.hero.word}
+          </span>
         </h1>
 
-        <div
-          className="mt-10 flex animate-fade-in flex-col gap-10 lg:flex-row lg:items-end lg:justify-between"
-          style={{ animationDelay: "500ms" }}
+        <p
+          className="mt-5 animate-fade-up font-wordmark text-[11px] uppercase tracking-[0.62em] text-cream/70 sm:text-[14px]"
+          style={{ animationDelay: "440ms" }}
         >
-          <p className="max-w-lg text-[15px] leading-relaxed text-mocha-500">
-            {t.home.hero.subtitle}
-          </p>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <ButtonLink href="/timetable" size="lg">
-              {t.home.hero.primary}
-            </ButtonLink>
-            <ButtonLink href="/pricing" variant="outline" size="lg">
-              {t.home.hero.secondary}
-            </ButtonLink>
-          </div>
-        </div>
-
-        {/* the machine */}
-        <div
-          className="relative mt-16 animate-fade-up md:mt-20"
-          style={{ animationDelay: "550ms" }}
-        >
-          <ReformerArt className="text-mocha-600" />
-          <div className="pointer-events-none absolute inset-x-0 -bottom-2 h-8 bg-[radial-gradient(ellipse_at_center,rgba(91,70,69,0.14),transparent_70%)]" />
-        </div>
+          {STUDIO.city}
+        </p>
 
         <div
-          className="mt-14 grid animate-fade-in grid-cols-2 gap-8 border-t border-mocha-200/70 pt-10 sm:grid-cols-4"
-          style={{ animationDelay: "900ms" }}
+          className="mt-14 flex animate-fade-in flex-wrap items-center justify-center gap-3"
+          style={{ animationDelay: "620ms" }}
         >
-          {stats.map((s) => (
-            <div key={s.label}>
-              <p className="font-display text-3xl font-light text-mocha-600">
-                {s.value}
-              </p>
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-clay">
-                {s.label}
-              </p>
-            </div>
-          ))}
-          <div className="flex items-center gap-3 text-clay">
-            <Monogram className="h-9 w-9" strokeWidth={2.4} />
-            <span className="text-[10px] uppercase tracking-widest">
-              APEX pilates™
-            </span>
-          </div>
+          <ButtonLink href="/timetable" variant="cream" size="lg">
+            {t.home.hero.primary}
+          </ButtonLink>
+          <ButtonLink
+            href="/pricing"
+            size="lg"
+            className="border border-cream/35 bg-transparent text-cream hover:bg-cream hover:text-mocha-700"
+          >
+            {t.home.hero.secondary}
+          </ButtonLink>
         </div>
+
+        {/* The mark closes the composition under the buttons. It is decorative,
+            so it is a mask over currentColor rather than another image
+            request. */}
+        <Monogram
+          className="mt-14 h-9 w-9 animate-fade-in text-cream/45 sm:mt-16 sm:h-11 sm:w-11"
+          style={{ animationDelay: "820ms" }}
+        />
       </div>
     </section>
   );

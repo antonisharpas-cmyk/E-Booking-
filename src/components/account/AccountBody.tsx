@@ -89,13 +89,17 @@ export function AccountBody(props: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bookingId: b.id }),
       });
-      const data = (await res.json()) as { ok?: boolean; refunded?: boolean };
+      const data = (await res.json()) as {
+        ok?: boolean;
+        refunded?: boolean;
+        error?: string;
+      };
       if (data.ok) {
-        setNotice(
-          data.refunded
-            ? `${t.booking.cancelled} ${t.booking.cancelRefund}`
-            : `${t.booking.cancelled} ${t.booking.cancelNoRefund}`,
-        );
+        setNotice(`${t.booking.cancelled} ${t.booking.cancelRefund}`);
+        setConfirming(null);
+        router.refresh();
+      } else if (data.error === "TOO_LATE_TO_CANCEL") {
+        setNotice(t.booking.cancelTooLate);
         setConfirming(null);
         router.refresh();
       } else {
@@ -254,7 +258,7 @@ export function AccountBody(props: Props) {
                         {el ? b.className.el : b.className.en}
                       </p>
                       <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-clay">
-                        <span className="tabular-nums text-mocha-500">
+                        <span className="lining-nums tabular-nums text-mocha-500">
                           {fmtShortDate(b.startsAt)} · {fmtTime(b.startsAt)}
                         </span>
                         {b.instructor && (
@@ -311,7 +315,7 @@ export function AccountBody(props: Props) {
                   >
                     <span className="text-mocha-600">
                       {el ? b.className.el : b.className.en}
-                      <span className="ml-3 text-[11px] tabular-nums text-clay">
+                      <span className="ml-3 text-[11px] lining-nums tabular-nums text-clay">
                         {fmtDayMonth(b.startsAt)} {fmtTime(b.startsAt)}
                       </span>
                     </span>
@@ -345,7 +349,7 @@ export function AccountBody(props: Props) {
                     </span>
                     <span
                       className={cn(
-                        "font-display text-lg tabular-nums",
+                        "font-display text-lg lining-nums tabular-nums",
                         l.delta > 0 ? "text-mocha-600" : "text-clay",
                       )}
                     >
@@ -379,7 +383,7 @@ export function AccountBody(props: Props) {
                         </span>
                       </span>
                       <span className="flex items-center gap-3">
-                        <span className="tabular-nums text-mocha-600">
+                        <span className="lining-nums tabular-nums text-mocha-600">
                           {fmtMoney(p.amountCents)}
                         </span>
                         <StatusPill status={p.status} />
@@ -393,7 +397,7 @@ export function AccountBody(props: Props) {
         </div>
 
         <div className="mt-20 flex items-center gap-3 border-t border-mocha-200/70 pt-10 text-[10px] uppercase tracking-widest text-clay">
-          <Monogram className="h-7 w-7" strokeWidth={3} />
+          <Monogram className="h-7 w-7" />
           <Link href="/terms" className="link-underline">
             {t.footer.terms}
           </Link>
@@ -412,12 +416,17 @@ export function AccountBody(props: Props) {
             <p className="mt-4 text-sm text-mocha-600">
               {new Date(confirming.freeCancellationUntil) > new Date()
                 ? t.booking.cancelRefund
-                : t.booking.cancelNoRefund}
+                : t.booking.cancelTooLate}
             </p>
             <div className="mt-8 flex gap-3">
               <Button
                 className="flex-1"
-                disabled={busy === confirming.id}
+                /* Past the window the booking is locked, so the action that
+                   would fail on the server is not offered. */
+                disabled={
+                  busy === confirming.id ||
+                  new Date(confirming.freeCancellationUntil) <= new Date()
+                }
                 onClick={() => cancel(confirming)}
               >
                 {busy === confirming.id ? t.common.loading : t.common.confirm}

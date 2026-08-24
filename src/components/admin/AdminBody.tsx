@@ -173,7 +173,7 @@ export function AdminBody({
               max={26}
               value={weeks}
               onChange={(e) => setWeeks(Number(e.target.value))}
-              className="w-16 rounded-xl border border-mocha-200 bg-white/80 px-3 py-2 text-sm tabular-nums"
+              className="w-16 rounded-xl border border-mocha-200 bg-white/80 px-3 py-2 text-sm lining-nums tabular-nums"
               aria-label={t.admin.weeks}
             />
             <Button size="sm" onClick={generate} disabled={busy === "generate"}>
@@ -198,7 +198,7 @@ export function AdminBody({
                   >
                     <div className="flex flex-wrap items-baseline justify-between gap-4">
                       <div>
-                        <p className="font-display text-2xl tabular-nums text-mocha-600">
+                        <p className="font-display text-2xl lining-nums tabular-nums text-mocha-600">
                           {fmtTime(s.startsAt)} – {fmtTime(s.endsAt)}
                         </p>
                         <p className="mt-1 text-sm text-mocha-500">
@@ -298,9 +298,9 @@ export function AdminBody({
                         )}
                       </td>
                       <td className="py-3 pr-4 text-clay">{m.email}</td>
-                      <td className="py-3 pr-4 tabular-nums">{m.credits}</td>
-                      <td className="py-3 pr-4 tabular-nums">{m.classes}</td>
-                      <td className="py-3 pr-4 tabular-nums">
+                      <td className="py-3 pr-4 lining-nums tabular-nums">{m.credits}</td>
+                      <td className="py-3 pr-4 lining-nums tabular-nums">{m.classes}</td>
+                      <td className="py-3 pr-4 lining-nums tabular-nums">
                         {fmtMoney(m.spentCents)}
                       </td>
                       <td className="py-3 text-right">
@@ -332,7 +332,7 @@ export function AdminBody({
               type="number"
               value={grantAmount}
               onChange={(e) => setGrantAmount(Number(e.target.value))}
-              className="input tabular-nums"
+              className="input lining-nums tabular-nums"
             />
             <p className="mt-2 text-[11px] text-clay">
               Negative numbers remove credits.

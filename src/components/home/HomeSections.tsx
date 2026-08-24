@@ -1,11 +1,14 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/Button";
 import { Monogram } from "@/components/ui/Monogram";
+import { Parallax } from "@/components/ui/Parallax";
 import { Reveal, RevealGroup, RevealItem } from "@/components/ui/Reveal";
 import { Section, SectionHead } from "@/components/ui/Section";
 import { useI18n } from "@/i18n/LanguageProvider";
+import { STUDIO } from "@/lib/studio";
 
 /* ------------------------------------------------------------------ marquee */
 
@@ -21,7 +24,7 @@ export function Marquee() {
             <span className="text-[11px] uppercase tracking-brand text-clay">
               {w}
             </span>
-            <Monogram className="h-4 w-4 shrink-0 text-clay/50" strokeWidth={3.4} />
+            <Monogram className="h-4 w-4 shrink-0 text-clay/50" />
           </span>
         ))}
       </div>
@@ -36,32 +39,67 @@ export function Intro() {
 
   return (
     <Section>
-      <div className="container-x grid gap-16 lg:grid-cols-[1fr_1.05fr] lg:gap-24">
+      {/* Two rows rather than two tall columns. The copy pairs off on the first
+          row and the arch pairs with the figures on the second, so neither
+          side is left holding an empty half-column. */}
+      <div className="container-x grid gap-10 lg:grid-cols-[1fr_1.05fr] lg:gap-24">
         <Reveal>
           <p className="eyebrow mb-5">{t.home.intro.eyebrow}</p>
           <h2 className="h-display text-balance text-[2.4rem] leading-[1.08] sm:text-5xl">
             {t.home.intro.title}
           </h2>
-          <ButtonLink href="/studio" variant="outline" className="mt-10">
+          <ButtonLink href="/studio" variant="outline" className="mt-9">
             {t.home.intro.cta}
           </ButtonLink>
         </Reveal>
 
-        <Reveal delay={0.12} className="lg:pt-4">
+        <Reveal delay={0.12} className="lg:pt-3">
           <p className="text-[15px] leading-[1.9] text-mocha-500">
             {t.home.intro.body}
           </p>
+        </Reveal>
+      </div>
 
-          <div className="mt-12 grid grid-cols-3 gap-6 border-t border-mocha-200/70 pt-8">
-            {t.home.method.items.slice(0, 3).map((m) => (
-              <div key={m.k}>
-                <p className="font-display text-2xl font-light text-clay">{m.k}</p>
-                <p className="mt-2 text-[11px] uppercase tracking-widest text-mocha-600">
-                  {m.t}
-                </p>
+      <div className="container-x mt-12 grid gap-10 lg:mt-10 lg:grid-cols-[1fr_1.05fr] lg:items-start lg:gap-24">
+        {/* An arch rather than a rectangle: the reformer is a long, low object,
+            and the doorway silhouette gives it a shape of its own instead of
+            one more card. No frame — the render already sits on this exact
+            cream, so the arch reads as a shape cut into the page. */}
+        <Reveal y={36}>
+          <figure className="arch-in relative aspect-[11/13] w-full max-w-[248px] overflow-hidden rounded-[999px_999px_1.5rem_1.5rem] border border-mocha-600 bg-cream sm:max-w-[268px]">
+            <Parallax strength={5} zoom={0.07}>
+              <Image
+                src="/media/reformer-arch.jpg"
+                alt="A Technogym Reform reformer, the machine used in every APEX pilates class"
+                fill
+                sizes="(min-width: 640px) 268px, 70vw"
+                quality={86}
+                className="object-cover"
+              />
+            </Parallax>
+          </figure>
+        </Reveal>
+
+        <Reveal delay={0.12}>
+          <dl className="grid grid-cols-3 gap-6 border-t border-mocha-200/70 pt-8">
+            {[
+              { v: String(STUDIO.capacity), k: t.home.hero.stat1 },
+              {
+                v: `${STUDIO.classLengthMinutes}\u2009min`,
+                k: t.home.hero.stat2,
+              },
+              { v: `${STUDIO.openDays}`, k: t.home.intro.daysLabel },
+            ].map((x) => (
+              <div key={x.k}>
+                <dd className="font-display text-3xl font-light text-mocha-600">
+                  {x.v}
+                </dd>
+                <dt className="mt-2 text-[11px] uppercase tracking-widest text-clay">
+                  {x.k}
+                </dt>
               </div>
             ))}
-          </div>
+          </dl>
         </Reveal>
       </div>
     </Section>
@@ -91,13 +129,14 @@ export function Method() {
                 <span className="font-display text-4xl font-light text-clay/60 transition-colors duration-700 group-hover:text-mocha-600">
                   {m.k}
                 </span>
-                <Monogram
-                  className="h-6 w-6 text-clay/30 transition-all duration-700 group-hover:rotate-45 group-hover:text-clay/70"
-                  strokeWidth={3}
-                />
+                <Monogram className="h-6 w-6 text-clay/30 transition-all duration-700 group-hover:rotate-45 group-hover:text-clay/70" />
               </div>
-              <h3 className="mt-8 text-[13px] uppercase tracking-widest">{m.t}</h3>
-              <p className="mt-3 text-sm leading-relaxed text-mocha-500">{m.d}</p>
+              <h3 className="mt-8 text-[13px] uppercase tracking-widest">
+                {m.t}
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed text-mocha-500">
+                {m.d}
+              </p>
             </RevealItem>
           ))}
         </RevealGroup>
@@ -119,7 +158,9 @@ export function Technogym() {
       />
       <div className="container-x relative grid gap-16 lg:grid-cols-2 lg:items-center">
         <Reveal>
-          <p className="eyebrow mb-5 text-cream/50">{t.home.technogym.eyebrow}</p>
+          <p className="eyebrow mb-5 text-cream/50">
+            {t.home.technogym.eyebrow}
+          </p>
           <h2 className="h-display text-balance text-[2.4rem] leading-[1.08] text-cream sm:text-5xl">
             {t.home.technogym.title}
           </h2>
@@ -138,14 +179,29 @@ export function Technogym() {
         </Reveal>
 
         <Reveal delay={0.15}>
-          <div className="relative rounded-3xl border border-cream/12 bg-cream/[0.04] p-10 backdrop-blur-sm">
+          <div className="relative rounded-3xl border border-cream/[0.12] bg-cream/[0.04] p-10 backdrop-blur-sm">
             <p className="text-[10px] uppercase tracking-brand text-cream/40">
               Powered by
             </p>
-            <p className="mt-4 font-display text-4xl font-light tracking-tight text-cream">
-              Technogym
-            </p>
-            <div className="mt-8 h-px w-full bg-cream/12" />
+
+            {/* The partner's own mark, traced to vector from the studio's
+                artwork so it stays sharp at any size. It stands in for the
+                Technogym wordmark that used to be set in type here. */}
+            <figure className="mx-auto mt-7 w-full max-w-[240px]">
+              <Parallax strength={3} zoom={0.04}>
+                <Image
+                  src="/brand/technogym.svg"
+                  alt="Technogym"
+                  width={2400}
+                  height={720}
+                  unoptimized
+                  className="h-auto w-full"
+                />
+              </Parallax>
+            </figure>
+
+            <div className="mt-9 h-px w-full bg-cream/[0.12]" />
+
             <dl className="mt-8 grid grid-cols-2 gap-8">
               <div>
                 <dt className="text-[10px] uppercase tracking-widest text-cream/40">
@@ -164,10 +220,8 @@ export function Technogym() {
                 </dd>
               </div>
             </dl>
-            <Monogram
-              className="mt-10 h-10 w-10 text-cream/25"
-              strokeWidth={2.4}
-            />
+
+            <Monogram className="mt-10 h-10 w-10 text-cream/25" />
           </div>
         </Reveal>
       </div>
@@ -181,65 +235,88 @@ export function TimetablePreview() {
   const { t } = useI18n();
 
   const rows = [
-    { label: t.home.timetable.weekday, blocks: ["06:00 – 12:00", "15:00 – 20:00"] },
+    {
+      label: t.home.timetable.weekday,
+      blocks: ["06:00 – 12:00", "15:00 – 20:00"],
+    },
     { label: t.home.timetable.saturday, blocks: ["07:00 – 11:00"] },
     { label: t.home.timetable.sunday, blocks: [] },
   ];
 
   return (
     <Section>
-      <div className="container-x grid gap-16 lg:grid-cols-[1fr_1fr] lg:gap-24">
-        <div>
+      <div className="container-x">
+        {/* Heading and call to action share one line, then the photograph and
+            the hours card sit side by side beneath, stretched to the same
+            height so the pair reads as one plate. */}
+        <div className="grid gap-8 md:grid-cols-[1fr_auto] md:items-end md:gap-12">
           <SectionHead
             eyebrow={t.home.timetable.eyebrow}
             title={t.home.timetable.title}
             body={t.home.timetable.body}
           />
           <Reveal delay={0.1}>
-            <ButtonLink href="/timetable" className="mt-10">
-              {t.home.timetable.cta}
-            </ButtonLink>
+            <ButtonLink href="/timetable">{t.home.timetable.cta}</ButtonLink>
           </Reveal>
         </div>
 
-        <Reveal delay={0.15}>
-          <div className="rounded-3xl border border-mocha-200/70 bg-white/60 p-8 backdrop-blur-sm md:p-10">
-            {rows.map((r, i) => (
-              <div
-                key={r.label}
-                className={
-                  i === 0
-                    ? "pb-6"
-                    : "border-t border-mocha-200/70 py-6 last:pb-0"
-                }
-              >
-                <p className="text-[11px] uppercase tracking-widest text-clay">
-                  {r.label}
-                </p>
-                {r.blocks.length ? (
-                  <div className="mt-3 flex flex-wrap gap-x-8 gap-y-2">
-                    {r.blocks.map((b) => (
-                      <p
-                        key={b}
-                        className="font-display text-3xl font-light tabular-nums text-mocha-600"
-                      >
-                        {b}
-                      </p>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-3 font-display text-2xl font-light text-clay/70">
-                    {t.home.timetable.closed}
+        <div className="mt-14 grid items-stretch gap-8 lg:mt-16 lg:grid-cols-[1fr_360px] lg:gap-12">
+          <Reveal
+            delay={0.15}
+            className="relative min-h-[300px] overflow-hidden rounded-3xl border border-mocha-200/70 bg-cream-200"
+          >
+            <Parallax strength={5} zoom={0.08}>
+              <Image
+                src="/media/class.jpg"
+                alt="The APEX pilates studio during a Reformer class"
+                fill
+                sizes="(min-width: 1024px) 58vw, 92vw"
+                quality={82}
+                className="object-cover object-[54%_46%]"
+              />
+            </Parallax>
+            <span className="pointer-events-none absolute inset-0 bg-mocha-900/10" />
+          </Reveal>
+
+          <Reveal delay={0.22}>
+            <div className="h-full rounded-3xl border border-mocha-200/70 bg-white/60 p-7 backdrop-blur-sm md:p-8">
+              {rows.map((r, i) => (
+                <div
+                  key={r.label}
+                  className={
+                    i === 0
+                      ? "pb-5"
+                      : "border-t border-mocha-200/70 py-5 last:pb-0"
+                  }
+                >
+                  <p className="text-[11px] uppercase tracking-widest text-clay">
+                    {r.label}
                   </p>
-                )}
+                  {r.blocks.length ? (
+                    <div className="mt-3 flex flex-col gap-1">
+                      {r.blocks.map((b) => (
+                        <p
+                          key={b}
+                          className="font-display text-2xl font-light lining-nums tabular-nums text-mocha-600"
+                        >
+                          {b}
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-3 font-display text-xl font-light text-clay/70">
+                      {t.home.timetable.closed}
+                    </p>
+                  )}
+                </div>
+              ))}
+              <div className="mt-7 flex items-center gap-3 border-t border-mocha-200/70 pt-5 text-[10px] uppercase tracking-widest text-clay">
+                <Monogram className="h-6 w-6" />
+                {STUDIO.classLengthMinutes}&thinsp;min · max {STUDIO.capacity}
               </div>
-            ))}
-            <div className="mt-8 flex items-center gap-3 border-t border-mocha-200/70 pt-6 text-[10px] uppercase tracking-widest text-clay">
-              <Monogram className="h-6 w-6" strokeWidth={3} />
-              50 min · max 8
             </div>
-          </div>
-        </Reveal>
+          </Reveal>
+        </div>
       </div>
     </Section>
   );
@@ -262,13 +339,15 @@ export function HowItWorks() {
           {t.home.how.items.map((s, i) => (
             <RevealItem key={s.t} className="relative">
               <div className="h-full rounded-3xl border border-mocha-200/70 bg-cream p-8">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-mocha-300 text-[11px] tabular-nums text-mocha-600">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-mocha-300 text-[11px] lining-nums tabular-nums text-mocha-600">
                   {i + 1}
                 </span>
                 <h3 className="mt-7 text-[13px] uppercase tracking-widest">
                   {s.t}
                 </h3>
-                <p className="mt-3 text-sm leading-relaxed text-mocha-500">{s.d}</p>
+                <p className="mt-3 text-sm leading-relaxed text-mocha-500">
+                  {s.d}
+                </p>
               </div>
             </RevealItem>
           ))}
@@ -291,7 +370,7 @@ export function FinalCta() {
       />
       <div className="container-x relative text-center">
         <Reveal>
-          <Monogram className="mx-auto h-12 w-12 text-cream/60" strokeWidth={2.2} />
+          <Monogram className="mx-auto h-12 w-12 text-cream/60" />
           <h2 className="h-display mx-auto mt-10 max-w-3xl text-balance text-[2.6rem] leading-[1.08] text-cream sm:text-5xl md:text-[3.6rem]">
             {t.home.cta.title}
           </h2>

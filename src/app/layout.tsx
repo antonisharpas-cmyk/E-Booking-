@@ -15,7 +15,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "APEX pilates — Reformer Pilates by APEX Fitness Centre",
+    default: "APEX pilates | Reformer Pilates by APEX Fitness Centre",
     template: "%s · APEX pilates",
   },
   description: dictionaries.en.meta.description,
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   ),
   icons: { icon: "/brand/logo-512.png", apple: "/brand/logo-512.png" },
   openGraph: {
-    title: "APEX pilates — Reformer Pilates by APEX Fitness Centre",
+    title: "APEX pilates | Reformer Pilates by APEX Fitness Centre",
     description: dictionaries.en.meta.description,
     type: "website",
     images: ["/brand/logo-square.png"],
@@ -66,13 +66,16 @@ export default async function RootLayout({
             editorial display face. Swap to next/font later if you prefer the
             fonts self-hosted — see README. */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Jost:wght@200;300;400;500&family=Cormorant+Garamond:wght@300;400;500&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Jost:wght@200;300;400;500&family=Cormorant+Garamond:wght@300;400;500&family=Marcellus&display=swap"
           rel="stylesheet"
         />
         <style
           // eslint-disable-next-line react/no-danger
           dangerouslySetInnerHTML={{
-            __html: `:root{--font-jost:'Jost';--font-cormorant:'Cormorant Garamond';}`,
+            __html:
+              `:root{--font-jost:'Jost';--font-cormorant:'Cormorant Garamond';` +
+              /* the headline face, closest to the flare of the wordmark */
+              `--font-wordmark:'Marcellus';}`,
           }}
         />
       </head>

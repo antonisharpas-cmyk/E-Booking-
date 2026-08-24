@@ -4,6 +4,7 @@ import {
   PricingPreview,
 } from "@/components/home/CatalogueSections";
 import { Hero } from "@/components/home/Hero";
+import { IntroReveal } from "@/components/home/IntroReveal";
 import {
   FinalCta,
   HowItWorks,
@@ -27,6 +28,7 @@ export default async function HomePage() {
 
   return (
     <>
+      <IntroReveal />
       <Hero />
       <Marquee />
       <Intro />

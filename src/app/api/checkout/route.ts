@@ -65,7 +65,7 @@ export async function POST(req: Request) {
       validityDays: pkg.validityDays,
       purchaseId: purchase.id,
       reason: "PURCHASE",
-      note: `DEV grant — ${pkg.nameEn}`,
+      note: `DEV grant: ${pkg.nameEn}`,
     });
 
     return NextResponse.json({ devGranted: true, credits: pkg.credits });
@@ -86,7 +86,7 @@ export async function POST(req: Request) {
             currency: "eur",
             unit_amount: pkg.priceCents,
             product_data: {
-              name: `APEX pilates — ${pkg.nameEn}`,
+              name: `APEX pilates ${pkg.nameEn}`,
               description: `${pkg.credits} class credit${pkg.credits > 1 ? "s" : ""}, valid ${pkg.validityDays} days`,
             },
           },

@@ -4,7 +4,7 @@ import { ContactBody } from "@/components/marketing/ContactBody";
 export const metadata: Metadata = {
   title: "Contact",
   description:
-    "Get in touch with APEX pilates — questions about levels, injuries, credit packs or private sessions.",
+    "Get in touch with APEX pilates about levels, injuries, credit packs or private sessions.",
 };
 
 export default function ContactPage() {

@@ -58,7 +58,7 @@ export function ClassesPageBody({
               {team.map((m) => (
                 <RevealItem key={m.id}>
                   <article className="flex h-full flex-col rounded-3xl border border-mocha-200/70 bg-cream p-8">
-                    <Monogram className="h-8 w-8 text-clay/50" strokeWidth={2.8} />
+                    <Monogram className="h-8 w-8 text-clay/50" />
                     <h3 className="h-display mt-8 text-2xl">{m.name}</h3>
                     <p className="mt-3 text-sm leading-relaxed text-mocha-500">
                       {el ? m.bioEl : m.bioEn}

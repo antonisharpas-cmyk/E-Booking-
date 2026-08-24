@@ -9,8 +9,12 @@ export function euro(cents: number) {
   return `€${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
 }
 
-/** Hours before class start when free cancellation closes. */
-export const FREE_CANCELLATION_HOURS = 12;
+/**
+ * Hours before a class starts when cancellation closes. Cancel before this and
+ * the session returns to the member's balance; after it the booking is locked,
+ * because the reformer is held and the class is capped at five.
+ */
+export const FREE_CANCELLATION_HOURS = 24;
 /** Minutes before class start when booking closes. */
 export const BOOKING_CUTOFF_MINUTES = 30;
 

@@ -7,7 +7,12 @@ import {
   instructors,
 } from "@/db/schema";
 import { refundOneCredit, spendOneCredit } from "./credits";
-import { isBookable, isFreeCancellation } from "./utils";
+import { repairScheduleOnce } from "./schedule-repair";
+import {
+  FREE_CANCELLATION_HOURS,
+  isBookable,
+  isFreeCancellation,
+} from "./utils";
 
 export type BookingResultCode =
   | "OK"
@@ -110,12 +115,25 @@ export type CancelResult =
   | { ok: true; refunded: boolean }
   | {
       ok: false;
-      code: "NOT_FOUND" | "NOT_YOURS" | "ALREADY_CANCELLED" | "PAST";
+      code:
+        | "NOT_FOUND"
+        | "NOT_YOURS"
+        | "ALREADY_CANCELLED"
+        | "PAST"
+        | "TOO_LATE_TO_CANCEL";
     };
 
 /**
- * Cancel a booking. Inside the free-cancellation window the credit goes back to
- * the batch it came from; after that it is consumed (the reformer was held).
+ * Cancel a booking and return the session to the member's balance.
+ *
+ * Cancellation is only open until FREE_CANCELLATION_HOURS before the start.
+ * Inside that window the booking is locked rather than silently swallowing the
+ * session: with five reformers in the room, a spot given up an hour before the
+ * class cannot be refilled, so the honest answer is "you can no longer cancel"
+ * rather than "cancelled, and you lost it".
+ *
+ * The refund goes back to the exact batch the session was spent from, so it
+ * keeps that batch's original expiry instead of being extended by a cancel.
  */
 export function cancelBooking(
   userId: string,
@@ -143,25 +161,24 @@ export function cancelBooking(
     if (session.startsAt.getTime() <= now.getTime())
       return { ok: false, code: "PAST" };
 
-    const free = isFreeCancellation(session.startsAt, now);
+    if (!isFreeCancellation(session.startsAt, now))
+      return { ok: false, code: "TOO_LATE_TO_CANCEL" };
 
-    if (free) {
-      refundOneCredit(userId, booking.creditBatchId, {
-        bookingId: booking.id,
-        note: "Cancelled inside free window",
-      });
-    }
+    refundOneCredit(userId, booking.creditBatchId, {
+      bookingId: booking.id,
+      note: "Cancelled inside the free window",
+    });
 
     db.update(bookings)
       .set({
         status: "CANCELLED",
         cancelledAt: now,
-        creditRefunded: free,
+        creditRefunded: true,
       })
       .where(eq(bookings.id, booking.id))
       .run();
 
-    return { ok: true, refunded: free };
+    return { ok: true, refunded: true };
   });
 }
 
@@ -196,6 +213,10 @@ export async function listSessions(opts: {
   to: Date;
   userId?: string | null;
 }): Promise<SessionView[]> {
+  /* Correct any classes still carrying an older room description before they
+     are shown. Runs once per process; see schedule-repair.ts. */
+  repairScheduleOnce();
+
   const rows = await db
     .select({
       s: classSessions,
@@ -278,7 +299,9 @@ export async function listMyBookings(userId: string) {
     endsAt: s.endsAt,
     className: { en: ct.nameEn, el: ct.nameEl },
     instructor: inst?.name ?? null,
-    freeCancellationUntil: new Date(s.startsAt.getTime() - 12 * 60 * 60 * 1000),
+    freeCancellationUntil: new Date(
+      s.startsAt.getTime() - FREE_CANCELLATION_HOURS * 60 * 60 * 1000,
+    ),
   }));
 
   const now = Date.now();

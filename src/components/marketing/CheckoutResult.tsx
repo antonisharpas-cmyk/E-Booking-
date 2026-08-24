@@ -42,7 +42,7 @@ export function CheckoutResult({
   return (
     <Section className="py-28 md:py-36">
       <div className="container-x max-w-2xl text-center">
-        <Monogram className="mx-auto h-14 w-14 text-clay/60" strokeWidth={2.2} />
+        <Monogram className="mx-auto h-14 w-14 text-clay/60" />
 
         <h1 className="h-display mt-10 text-[2.6rem] leading-tight sm:text-5xl">
           {success ? t.checkout.successTitle : t.checkout.cancelTitle}

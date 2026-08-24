@@ -13,6 +13,7 @@
  */
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
+import { STUDIO } from "@/lib/studio";
 import { db, sqlite } from "./index";
 import {
   classTemplates,
@@ -62,9 +63,9 @@ const CLASS_TYPES = [
     nameEn: "Reformer Foundations",
     nameEl: "Reformer Foundations",
     descEn:
-      "Your entry point. A full 50-minute class at an introductory pace: spring settings, footbar, straps and the six core positions explained before you load them. Leave knowing exactly what your body is doing.",
+      "Your entry point. A full 60-minute class at an introductory pace: spring settings, footbar, straps and the six core positions explained before you load them. Leave knowing exactly what your body is doing.",
     descEl:
-      "Το σημείο εκκίνησης. Πλήρες μάθημα 50 λεπτών σε εισαγωγικό ρυθμό: ρυθμίσεις ελατηρίων, footbar, λουριά και οι έξι βασικές θέσεις, εξηγημένες πριν προστεθεί φορτίο. Φεύγεις γνωρίζοντας τι κάνει το σώμα σου.",
+      "Το σημείο εκκίνησης. Πλήρες μάθημα 60 λεπτών σε εισαγωγικό ρυθμό: ρυθμίσεις ελατηρίων, footbar, λουριά και οι έξι βασικές θέσεις, εξηγημένες πριν προστεθεί φορτίο. Φεύγεις γνωρίζοντας τι κάνει το σώμα σου.",
     level: "BEGINNER",
     intensity: 1,
     focusEn: "Technique · Alignment · Confidence",
@@ -118,9 +119,9 @@ const CLASS_TYPES = [
     nameEn: "Stretch & Restore",
     nameEl: "Stretch & Restore",
     descEn:
-      "Low springs, long lines, deep breath. Assisted mobility for hips, thoracic spine and shoulders — the class your desk week is asking for.",
+      "Low springs, long lines, deep breath. Assisted mobility for hips, thoracic spine and shoulders, the class your desk week is asking for.",
     descEl:
-      "Χαμηλά ελατήρια, μακριές γραμμές, βαθιά αναπνοή. Υποβοηθούμενη κινητικότητα για ισχία, θωρακική μοίρα και ώμους — το μάθημα που ζητά η εβδομάδα στο γραφείο.",
+      "Χαμηλά ελατήρια, μακριές γραμμές, βαθιά αναπνοή. Υποβοηθούμενη κινητικότητα για ισχία, θωρακική μοίρα και ώμους, το μάθημα που ζητά η εβδομάδα στο γραφείο.",
     level: "ALL",
     intensity: 1,
     focusEn: "Mobility · Recovery · Breath",
@@ -243,6 +244,10 @@ const INSTRUCTORS = [
  *   Saturday 07:00–11:00
  * Classes are 50 minutes on the hour.
  */
+/* One source of truth for the two numbers the studio actually publishes. */
+const CLASS_LENGTH_MIN = STUDIO.classLengthMinutes;
+const CLASS_CAPACITY = STUDIO.capacity;
+
 const WEEKDAY_SLOTS = [6, 7, 8, 9, 10, 11, 15, 16, 17, 18, 19];
 const SATURDAY_SLOTS = [7, 8, 9, 10];
 
@@ -321,44 +326,110 @@ async function main() {
       .map((c) => [c.slug, c.id] as const),
   );
 
-  const hasSessions = sqlite
-    .prepare("select count(*) as n from class_sessions")
-    .get() as { n: number };
-
-  if (hasSessions.n === 0) {
-    sqlite.prepare("delete from class_templates").run();
-    let n = 0;
-    const plan: { day: number; hours: number[] }[] = [
-      { day: 1, hours: WEEKDAY_SLOTS },
-      { day: 2, hours: WEEKDAY_SLOTS },
-      { day: 3, hours: WEEKDAY_SLOTS },
-      { day: 4, hours: WEEKDAY_SLOTS },
-      { day: 5, hours: WEEKDAY_SLOTS },
-      { day: 6, hours: SATURDAY_SLOTS },
-    ];
-    for (const { day, hours } of plan) {
-      for (const [idx, hour] of hours.entries()) {
-        const slug = typeForSlot(day, hour);
-        const classTypeId = typeIds.get(slug);
-        if (!classTypeId) continue;
-        db.insert(classTemplates)
-          .values({
-            classTypeId,
-            instructorId:
-              instructorRows[(day + idx) % instructorRows.length]?.id ?? null,
-            dayOfWeek: day,
-            startMinutes: hour * 60,
-            durationMin: 50,
-            capacity: 8,
-            active: true,
-          })
+  /* The rota in this file is the studio's published timetable, so it is always
+     reconciled. Previously it was only written into an empty database, which
+     meant a change here (60 minutes instead of 50, five reformers instead of
+     eight) never reached an installation that had already been seeded.
+     Rows are matched on day + start time and updated in place rather than
+     deleted and recreated: generated classes carry a template_id, so wiping the
+     table trips the foreign key. Slots no longer in the rota are deactivated,
+     which also keeps their history intact. */
+  const existingTemplates = db.select().from(classTemplates).all();
+  const keptTemplateIds = new Set<string>();
+  let n = 0;
+  const plan: { day: number; hours: number[] }[] = [
+    { day: 1, hours: WEEKDAY_SLOTS },
+    { day: 2, hours: WEEKDAY_SLOTS },
+    { day: 3, hours: WEEKDAY_SLOTS },
+    { day: 4, hours: WEEKDAY_SLOTS },
+    { day: 5, hours: WEEKDAY_SLOTS },
+    { day: 6, hours: SATURDAY_SLOTS },
+  ];
+  for (const { day, hours } of plan) {
+    for (const [idx, hour] of hours.entries()) {
+      const slug = typeForSlot(day, hour);
+      const classTypeId = typeIds.get(slug);
+      if (!classTypeId) continue;
+      const values = {
+        classTypeId,
+        instructorId:
+          instructorRows[(day + idx) % instructorRows.length]?.id ?? null,
+        dayOfWeek: day,
+        startMinutes: hour * 60,
+        durationMin: CLASS_LENGTH_MIN,
+        capacity: CLASS_CAPACITY,
+        active: true,
+      };
+      const match = existingTemplates.find(
+        (x) => x.dayOfWeek === day && x.startMinutes === hour * 60,
+      );
+      if (match) {
+        db.update(classTemplates)
+          .set(values)
+          .where(eq(classTemplates.id, match.id))
           .run();
-        n++;
+        keptTemplateIds.add(match.id);
+      } else {
+        keptTemplateIds.add(
+          db.insert(classTemplates).values(values).returning().get().id,
+        );
       }
+      n++;
     }
-    console.log(`  ✓ ${n} weekly timetable slots`);
-  } else {
-    console.log("  · templates kept (sessions already exist)");
+  }
+  for (const tpl of existingTemplates) {
+    if (keptTemplateIds.has(tpl.id)) continue;
+    db.update(classTemplates)
+      .set({ active: false })
+      .where(eq(classTemplates.id, tpl.id))
+      .run();
+  }
+  console.log(`  ✓ ${n} weekly timetable slots`);
+
+  /* Bring already-generated future classes back in line with the rota above.
+     generateSessions() only ever adds missing slots, so without this a class
+     created under the old 50-minute, 8-place rota would keep those numbers for
+     as long as it sat in the database. Classes nobody has booked are dropped
+     and regenerated; classes with bookings are corrected in place, and their
+     capacity is never lowered below the number of people already in them. */
+  const now = Math.floor(Date.now() / 1000);
+  const stale = sqlite
+    .prepare(
+      `select s.id,
+              (select count(*) from bookings b
+                where b.session_id = s.id and b.status = 'CONFIRMED') as booked
+         from class_sessions s
+        where s.starts_at > ?
+          and (s.capacity != ? or (s.ends_at - s.starts_at) != ?)`,
+    )
+    .all(now, CLASS_CAPACITY, CLASS_LENGTH_MIN * 60) as {
+    id: string;
+    booked: number;
+  }[];
+
+  let dropped = 0;
+  let repaired = 0;
+  for (const row of stale) {
+    if (row.booked === 0) {
+      sqlite.prepare("delete from class_sessions where id = ?").run(row.id);
+      dropped++;
+    } else {
+      sqlite
+        .prepare(
+          `update class_sessions
+              set ends_at = starts_at + ?,
+                  capacity = max(?, ?)
+            where id = ?`,
+        )
+        .run(CLASS_LENGTH_MIN * 60, CLASS_CAPACITY, row.booked, row.id);
+      repaired++;
+    }
+  }
+  if (dropped || repaired) {
+    console.log(
+      `  ✓ realigned future classes to ${CLASS_LENGTH_MIN} min / ${CLASS_CAPACITY} places` +
+        ` (${dropped} regenerated, ${repaired} corrected in place)`,
+    );
   }
 
   /* Users */
@@ -388,7 +459,7 @@ async function main() {
       validityDays: 90,
       source: "GRANT",
       reason: "ADMIN_GRANT",
-      note: "Seed data — demo pack",
+      note: "Seed data, demo pack",
     });
     console.log("  ✓ demo member granted 10 credits");
   }

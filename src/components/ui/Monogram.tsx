@@ -1,30 +1,24 @@
 import { cn } from "@/lib/utils";
 
 /**
- * The APEX pilates mark — two crossed loops.
+ * The APEX pilates mark, traced from the studio's own artwork to vector.
  *
- * Vector so it scales and recolours cleanly. If the studio supplies the
- * original artwork, drop it in /public/brand/monogram.svg and swap this
- * component for an <Image> — every usage keeps working.
+ * Rendered as a CSS mask over `currentColor`, so it recolours with the
+ * surrounding text and the 18kB of path data stays in a cacheable file rather
+ * than in the JavaScript bundle of every page that shows it.
  */
 export function Monogram({
   className,
-  strokeWidth = 2.4,
+  style,
 }: {
   className?: string;
-  strokeWidth?: number;
+  style?: React.CSSProperties;
 }) {
   return (
-    <svg
-      viewBox="0 0 100 100"
-      fill="none"
+    <span
       aria-hidden="true"
-      className={cn("h-10 w-10", className)}
-    >
-      <g stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round">
-        <ellipse cx="50" cy="50" rx="38" ry="23" transform="rotate(-42 50 50)" />
-        <ellipse cx="50" cy="50" rx="38" ry="23" transform="rotate(42 50 50)" opacity="0.85" />
-      </g>
-    </svg>
+      className={cn("monogram h-10 w-10", className)}
+      style={style}
+    />
   );
 }

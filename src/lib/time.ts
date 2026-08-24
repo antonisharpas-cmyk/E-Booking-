@@ -98,12 +98,26 @@ export function studioDayOfWeek(instant: Date) {
   return new Date(Date.UTC(p.year, p.month - 1, p.day)).getUTCDay();
 }
 
-/** The list of calendar day keys starting at `from`, in the studio's timezone. */
-export function studioDayKeys(from: Date, count: number) {
+/**
+ * The calendar day keys covering `count` days from `from`, in the studio's
+ * timezone.
+ *
+ * `skipDays` drops whole weekdays from the result (0 = Sunday). The studio is
+ * closed on Sundays, so a Sunday chip in the date picker is a dead end: it can
+ * only ever say "no classes". The window itself still spans `count` calendar
+ * days, so it keeps rolling forward one day at a time.
+ */
+export function studioDayKeys(
+  from: Date,
+  count: number,
+  skipDays: number[] = [],
+) {
   const keys: string[] = [];
   const start = studioStartOfDay(from);
   for (let i = 0; i < count; i++) {
-    keys.push(studioDateKey(studioAddDays(start, i)));
+    const day = studioAddDays(start, i);
+    if (skipDays.includes(studioDayOfWeek(day))) continue;
+    keys.push(studioDateKey(day));
   }
   return keys;
 }

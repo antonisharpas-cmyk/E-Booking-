@@ -115,7 +115,7 @@ export function ContactBody() {
               </div>
             </div>
 
-            <Monogram className="h-10 w-10 text-clay/40" strokeWidth={2.4} />
+            <Monogram className="h-10 w-10 text-clay/40" />
           </Reveal>
         </div>
 
@@ -126,7 +126,7 @@ export function ContactBody() {
           >
             {state === "sent" ? (
               <div className="py-16 text-center">
-                <Monogram className="mx-auto h-12 w-12 text-mocha-500" strokeWidth={2.2} />
+                <Monogram className="mx-auto h-12 w-12 text-mocha-500" />
                 <p className="mt-8 text-[15px] text-mocha-600">
                   {t.contactPage.formSent}
                 </p>

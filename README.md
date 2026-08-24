@@ -27,14 +27,21 @@ overwrites an existing `.env`.
 | Admin  | `admin@apexpilates.cy`   | `apexadmin123`  |
 | Member | `member@example.com`     | `member123`     |
 
-The demo member starts with 10 credits so you can book straight away.
+The demo member starts with 10 sessions so you can book straight away.
 **Change or delete both accounts before going live.**
 
 ---
 
-## How the credit system works
+## How the session system works
 
-One credit = one class. This is the core of the product, so it is worth
+**Members see "sessions". The database calls them "credits".** The member-facing
+word is set in `src/i18n/dictionaries.ts`; the tables, columns and functions kept
+the original `credit` naming so no migration was needed. If you ever want the
+data layer renamed too, it is a mechanical find-and-replace across
+`src/db/schema.ts`, `src/lib/credits.ts` and `src/lib/booking.ts` plus a
+migration — worth doing only if it bothers you.
+
+One session = one class. This is the core of the product, so it is worth
 understanding before changing anything.
 
 - **Packs** (`credit_packages`) define credits, price and validity, e.g.
@@ -65,9 +72,10 @@ Both are covered by tests (below).
 | --------------------------- | ------------------------------------------------ | ------- |
 | Free-cancellation window    | `FREE_CANCELLATION_HOURS` in `src/lib/utils.ts`   | 12h     |
 | Booking cut-off before start| `BOOKING_CUTOFF_MINUTES` in `src/lib/utils.ts`    | 30 min  |
-| Class capacity              | `class_templates.capacity` (per slot)             | 8       |
-| Class length                | `class_templates.durationMin`                     | 50 min  |
-| Credit price / validity     | `credit_packages`                                 | see seed |
+| Class capacity              | `class_templates.capacity` (per slot)             | 5       |
+| Class length                | `class_templates.durationMin`                     | 60 min  |
+| Session price / validity    | `credit_packages`                                 | see seed |
+| Reformers, class length, city, open days | `src/lib/studio.ts`                  | 5 · 60min · Larnaca · 6 |
 
 ---
 
@@ -117,9 +125,10 @@ both are configured in the Stripe dashboard, no code change needed.
 ## Timezone
 
 All class times are **wall-clock times in the studio's timezone**
-(`Asia/Nicosia`, set in `src/lib/studio.ts`). A 06:00 template produces a 06:00
-Nicosia class whether the server runs in Cyprus or on Vercel in UTC, and a
-visitor browsing from London still sees 06:00. If the studio ever moves
+(`Asia/Nicosia`, set in `src/lib/studio.ts` — that is the IANA zone for the whole
+of Cyprus, Larnaca included). A 06:00 template produces a 06:00 Larnaca class
+whether the server runs in Cyprus or on Vercel in UTC, and a visitor browsing
+from London still sees 06:00. If the studio ever moves
 timezone, that one constant is the only change.
 
 ---
@@ -138,15 +147,51 @@ timezone, that one constant is the only change.
 
 ### Brand assets
 
-`public/brand/` holds the wordmark extracted from the files you supplied —
-cream for dark backgrounds, brown for light ones — plus the square logo used as
-the favicon and social image. The small looped mark is drawn in
-`src/components/ui/Monogram.tsx` as an approximation; if you have the original
-vector, drop it in `public/brand/` and swap that component for an `<Image>`.
+`public/brand/`
 
-The reformer illustration (`src/components/ui/ReformerArt.tsx`) is line art
-standing in for photography. When studio photos arrive, replace it in the hero
-and on the studio page — those are the two places it appears.
+- `wordmark-cream.png` / `wordmark-brown.png` — the lockup, rebuilt from the
+  studio's 1024px artwork. Cream for dark grounds, brown for light.
+- `monogram.svg` — the looped mark, traced to vector from the studio's own
+  artwork. Rendered through `Monogram.tsx` as a CSS mask over `currentColor`, so
+  it takes the colour of whatever text surrounds it and the path data stays out
+  of the JavaScript bundle.
+- `logo-square.png`, `logo-512.png` — favicon and social image.
+
+`public/media/`
+
+- `class.jpg` — the home page cover. Cropped from the studio's class photograph
+  below the faces, so nobody in it is identifiable.
+- `reformer.jpg` — the product render, used on the studio page.
+- `detail-wood.jpg`, `detail-footbar.jpg` — used on the studio page.
+- `reformer-side.jpg` — the "Meet your new standard" side view, spare.
+- `schedule-card.jpg` — the opening-hours card, spare.
+- `logo-reveal.mp4` / `.webm` / `-poster.jpg` — the logo animation, re-encoded
+  for the web (421kB down to 48kB) with the audio stripped, since autoplay
+  requires muted video anyway.
+
+### The opening animation
+
+`IntroReveal.tsx` plays the logo animation once per browser session, then fades
+into the hero. It is skippable by click, key or scroll, it is skipped outright
+for anyone whose system asks for reduced motion, and the page underneath is
+fully rendered the whole time — so it costs nothing in loading terms and search
+engines never see it. To change how long it holds, edit `HOLD_MS`. To retire it,
+delete the `<IntroReveal />` line from `src/app/page.tsx`.
+
+### The cover
+
+`Hero.tsx` is a full-viewport photograph with the type centred over it, and the
+header switches into a matching mode over it — centred wordmark, MENU control,
+navigation moved into the full-screen sheet (see `cover` in `Header.tsx`). Past
+the cover the header returns to the normal light navigation bar.
+
+If you get footage of a class, the cover is already built to sit over a dark
+image: swap the `<Image>` for a muted, looping `<video>` with `class.jpg` as its
+poster and nothing else needs to change.
+
+**Faces:** the cover photograph is cropped below every face on purpose. If you
+replace it with a photo of real members, get their written consent first, or crop
+the same way.
 
 ### Fonts
 
@@ -289,7 +334,7 @@ Measured on a production build with 354 classes seeded:
 
 | | Before | After |
 | --- | --- | --- |
-| JavaScript per route (transferred) | 175kB | **133kB** |
+| JavaScript per route (transferred) | 175kB | **138kB** |
 | Uncompressed JS (excl. legacy polyfill) | 590kB | **435kB** |
 | Server time (TTFB), slowest route | 26ms | **20ms** |
 | Timetable query, 14 days with occupancy | — | **0.18ms** |

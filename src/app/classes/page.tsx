@@ -5,7 +5,7 @@ import { getClassTypes, getInstructors } from "@/lib/catalogue";
 export const metadata: Metadata = {
   title: "Classes",
   description:
-    "Reformer Foundations, Flow, Sculpt, Jumpboard Cardio, Stretch & Restore and Athletic Reformer — every class 50 minutes, one credit.",
+    "Reformer Foundations, Flow, Sculpt, Jumpboard Cardio, Stretch & Restore and Athletic Reformer. Every class is 60 minutes and costs one session.",
 };
 
 export const dynamic = "force-dynamic";

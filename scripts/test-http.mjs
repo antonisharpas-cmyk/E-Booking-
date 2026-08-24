@@ -97,13 +97,17 @@ check("duplicate email refused", dupe.json?.error === "EMAIL_TAKEN", dupe.json);
 console.log("\n4. Account page now loads");
 const acct = await req("/account");
 check("GET /account → 200", acct.status === 200, acct.status);
-check("wallet shows on page", acct.text.includes("Credit wallet"));
+check("session balance shows on page", acct.text.includes("Session balance"));
 
 console.log("\n5. Booking without credits");
 const sess = await req("/api/sessions?days=10");
 const list = sess.json?.sessions ?? [];
 check("timetable API returns classes", list.length > 0, list.length);
-const target = list.find((s) => s.spotsLeft > 0 && new Date(s.startsAt) > new Date(Date.now() + 86400000));
+/* Comfortably outside the 24-hour cancellation window, so the cancel step
+   below exercises the refund path rather than the lock-out. */
+const target = list.find(
+  (s) => s.spotsLeft > 0 && new Date(s.startsAt) > new Date(Date.now() + 48 * 3600_000),
+);
 check("found a bookable class", Boolean(target));
 
 const noCredits = await req("/api/bookings", {
@@ -151,6 +155,19 @@ const bookingId = booked.json?.bookingId;
 const cancelled = await req("/api/bookings/cancel", { method: "POST", body: { bookingId } });
 check("cancel succeeds and refunds", cancelled.json?.ok && cancelled.json?.refunded, cancelled.json);
 check("balance back to 10", cancelled.json?.credits === 10, cancelled.json);
+
+/* Every class the studio runs is 60 minutes with five places. */
+const cap = list.every((s) => s.capacity === 5);
+check("every class has five places", cap, list.find((s) => s.capacity !== 5)?.capacity);
+const oneHour = list.every(
+  (s) => !s.endsAt || new Date(s.endsAt).getTime() - new Date(s.startsAt).getTime() === 3600_000,
+);
+check("class length is 60 minutes", oneHour);
+
+/* The page must render the hour it ends, not 50 minutes past the hour. */
+const tt = await req("/timetable");
+check("timetable shows whole-hour end times", !/0\d:50|1\d:50|2\d:50/.test(tt.text));
+check("timetable never offers a Sunday", !/>\s*SUN\s*</i.test(tt.text));
 
 const cancelAgain = await req("/api/bookings/cancel", { method: "POST", body: { bookingId } });
 check("double cancel refused", cancelAgain.status === 409, cancelAgain.status);

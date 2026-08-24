@@ -20,8 +20,8 @@ export function Wordmark({
     <Image
       src={cream ? "/brand/wordmark-cream.png" : "/brand/wordmark-brown.png"}
       alt="APEX pilates by APEX Fitness Centre"
-      width={480}
-      height={cream ? 153 : 165}
+      width={560}
+      height={cream ? 184 : 194}
       priority={priority}
       /* Rendered at ~130–200px. Without `sizes`, next/image would generate and
          serve the 1080w and 1920w variants of a 200px-wide logo. */
@@ -43,7 +43,7 @@ export function WordmarkLink({
   return (
     <Link
       href="/"
-      aria-label="APEX pilates — home"
+      aria-label="APEX pilates, home"
       className="shrink-0 transition-opacity duration-500 hover:opacity-70"
     >
       <Wordmark tone={tone} className={className} priority={priority} />

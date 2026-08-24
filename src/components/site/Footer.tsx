@@ -53,7 +53,7 @@ export function Footer() {
               {t.footer.tagline}
             </p>
             <div className="mt-8 flex items-center gap-3 text-[10px] uppercase tracking-widest text-cream/50">
-              <Monogram className="h-7 w-7 text-cream/70" strokeWidth={2.6} />
+              <Monogram className="h-7 w-7 text-cream/70" />
               {t.footer.partner}
             </div>
           </div>
@@ -79,7 +79,7 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="mt-16 grid gap-10 border-t border-cream/12 pt-10 md:grid-cols-3">
+        <div className="mt-16 grid gap-10 border-t border-cream/[0.12] pt-10 md:grid-cols-3">
           <div>
             <p className="mb-3 text-[10px] uppercase tracking-brand text-cream/45">
               {t.footer.visit}
@@ -133,7 +133,7 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col items-start justify-between gap-6 border-t border-cream/12 pt-8 sm:flex-row sm:items-center">
+        <div className="mt-12 flex flex-col items-start justify-between gap-6 border-t border-cream/[0.12] pt-8 sm:flex-row sm:items-center">
           <p className="text-[11px] text-cream/45">
             © {year} APEX pilates™. {t.footer.rights}
           </p>

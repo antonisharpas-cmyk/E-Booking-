@@ -61,7 +61,7 @@ export function PricingGrid({
       }
       const friendly: Record<string, string> = {
         PAYMENTS_NOT_CONFIGURED:
-          "Card payments are not switched on yet — please contact the studio to buy a pack.",
+          "Card payments are not switched on yet. Please contact the studio to buy a pack.",
         PAYMENT_PROVIDER_ERROR:
           "The payment provider could not be reached. Please try again in a moment.",
         UNAUTHENTICATED: t.pricingPage.buySignedOut,

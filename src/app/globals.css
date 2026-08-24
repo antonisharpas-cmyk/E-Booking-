@@ -19,6 +19,11 @@
   body {
     @apply bg-cream text-mocha-700 font-sans font-light antialiased;
     text-rendering: optimizeLegibility;
+    /* Cormorant Garamond defaults to old-style figures, which draw 1 as a
+       small roman I and drop 3, 4, 7 and 9 below the baseline. Dates, times
+       and balances have to read as numbers, so ask for lining figures. */
+    font-variant-numeric: lining-nums;
+    font-feature-settings: "lnum" 1;
   }
 
   ::selection {
@@ -91,6 +96,35 @@
 }
 
 @layer components {
+  /* ---- brand mark: one cacheable SVG, recoloured with currentColor ---- */
+  .monogram {
+    display: inline-block;
+    background-color: currentColor;
+    -webkit-mask-image: url("/brand/monogram.svg");
+    mask-image: url("/brand/monogram.svg");
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+  }
+
+  /* ---- slow drift on hero imagery ---- */
+  .kenburns {
+    animation: kenburns 26s ease-in-out infinite alternate;
+  }
+
+  /* ---- scroll cue ---- */
+  .scroll-cue span {
+    display: block;
+    width: 1px;
+    height: 56px;
+    background: linear-gradient(to bottom, currentColor, transparent);
+    transform-origin: top;
+    animation: cue 2.6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+
   /* ---- scroll reveal (replaces an animation library; see Reveal.tsx) ---- */
   .reveal {
     opacity: 0;
@@ -126,6 +160,38 @@
   .reveal-group > .reveal-item:nth-child(7) { transition-delay: calc(var(--reveal-stagger, 90ms) * 6); }
   .reveal-group > .reveal-item:nth-child(8) { transition-delay: calc(var(--reveal-stagger, 90ms) * 7); }
   .reveal-group > .reveal-item:nth-child(n + 9) { transition-delay: calc(var(--reveal-stagger, 90ms) * 8); }
+
+  /* ---- the arch draws itself in as its Reveal wrapper turns visible ----
+     Separate from .parallax below, which owns the inner image's transform. */
+  .arch-in {
+    clip-path: inset(38% 6% 0 6% round 999px 999px 1.5rem 1.5rem);
+    opacity: 0;
+    transition:
+      clip-path 1.25s cubic-bezier(0.16, 1, 0.3, 1) 120ms,
+      opacity 0.8s ease 120ms;
+  }
+  .reveal.is-visible .arch-in {
+    clip-path: inset(0 0 0 0 round 999px 999px 1.5rem 1.5rem);
+    opacity: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .arch-in {
+      clip-path: none;
+      opacity: 1;
+      transition: none;
+    }
+  }
+
+  /* ---- scroll-linked drift (see Parallax.tsx) ----
+     The JS only writes two custom properties; the transform itself is the
+     compositor's job, so this never touches layout while scrolling. */
+  .parallax {
+    height: 100%;
+    width: 100%;
+    transform: translate3d(0, var(--px-shift, 0%), 0)
+      scale(var(--px-scale, 1));
+    will-change: transform;
+  }
 
   /* ---- accordion: animates cleanly with no height measuring ---- */
   .accordion-panel {
@@ -182,8 +248,38 @@
   }
 }
 
+@keyframes kenburns {
+  from {
+    transform: scale(1.04) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.13) translate3d(-1.5%, -1.5%, 0);
+  }
+}
+
+@keyframes cue {
+  0% {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+  35% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(1) translateY(56px);
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* show revealed content outright rather than leaving it faded out */
+  .kenburns,
+  .scroll-cue span {
+    animation: none !important;
+    transform: none !important;
+  }
+
   .reveal,
   .reveal-item,
   .sheet-item {

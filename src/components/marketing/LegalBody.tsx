@@ -13,14 +13,14 @@ export function LegalBody({ kind }: { kind: "privacy" | "terms" }) {
 
   const privacy = el
     ? [
-        ["Ποια δεδομένα συλλέγουμε", "Όνομα, email, τηλέφωνο, ιστορικό κρατήσεων και ιστορικό αγορών. Τα στοιχεία κάρτας δεν αποθηκεύονται ποτέ στους διακομιστές μας — η πληρωμή γίνεται εξ ολοκλήρου μέσω του παρόχου πληρωμών."],
+        ["Ποια δεδομένα συλλέγουμε", "Όνομα, email, τηλέφωνο, ιστορικό κρατήσεων και ιστορικό αγορών. Τα στοιχεία κάρτας δεν αποθηκεύονται ποτέ στους διακομιστές μας. Η πληρωμή γίνεται εξ ολοκλήρου μέσω του παρόχου πληρωμών."],
         ["Γιατί", "Για να διαχειριστούμε τις κρατήσεις, τα credits και τις πληρωμές σου, και για να επικοινωνήσουμε μαζί σου σχετικά με το μάθημά σου."],
         ["Πόσο", "Όσο διατηρείς λογαριασμό. Μπορείς να ζητήσεις διαγραφή οποτεδήποτε."],
         ["Τα δικαιώματά σου", "Πρόσβαση, διόρθωση, διαγραφή και φορητότητα των δεδομένων σου, σύμφωνα με τον GDPR."],
         ["Επικοινωνία", "Για οποιοδήποτε αίτημα σχετικά με τα δεδομένα σου, επικοινώνησε με το στούντιο."],
       ]
     : [
-        ["What we collect", "Your name, email, phone, booking history and purchase history. Card details are never stored on our servers — payment is handled entirely by our payment provider."],
+        ["What we collect", "Your name, email, phone, booking history and purchase history. Card details are never stored on our servers. Payment is handled entirely by our payment provider."],
         ["Why", "To manage your bookings, credits and payments, and to contact you about your classes."],
         ["How long", "For as long as you keep an account. You can request deletion at any time."],
         ["Your rights", "Access, correction, deletion and portability of your data under GDPR."],

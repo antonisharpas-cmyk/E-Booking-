@@ -17,6 +17,15 @@ import {
 import { bookClass, cancelBooking } from "../src/lib/booking";
 import { getAvailableCredits, grantCredits } from "../src/lib/credits";
 import { hashPassword } from "../src/lib/auth";
+import { STUDIO } from "../src/lib/studio";
+import { repairSchedule } from "../src/lib/schedule-repair";
+import {
+  studioDayKeys,
+  studioDayOfWeek,
+  studioStartOfDay,
+} from "../src/lib/time";
+import { FREE_CANCELLATION_HOURS } from "../src/lib/utils";
+import { dictionaries } from "../src/i18n/dictionaries";
 
 let pass = 0;
 let fail = 0;
@@ -139,8 +148,10 @@ async function main() {
     c2,
   );
 
-  console.log("\n5. Late cancellation keeps the credit");
-  /* Create a session starting in 3 hours — inside the 12h window */
+  const fixtureSessionIds: string[] = [];
+
+  console.log("\n5. Cancellation closes 24 hours before the class");
+  /* A class 3 hours away is inside the 24-hour window, so it is locked. */
   const ct = db.select().from(classTypes).limit(1).get()!;
   const soon = new Date(Date.now() + 3 * 3600_000);
   const lateSession = db
@@ -148,11 +159,12 @@ async function main() {
     .values({
       classTypeId: ct.id,
       startsAt: soon,
-      endsAt: new Date(soon.getTime() + 50 * 60_000),
-      capacity: 8,
+      endsAt: new Date(soon.getTime() + STUDIO.classLengthMinutes * 60_000),
+      capacity: STUDIO.capacity,
     })
     .returning()
     .get();
+  fixtureSessionIds.push(lateSession.id);
   const rl = bookClass(user.id, lateSession.id);
   check("can book a class 3h away", rl.ok === true, rl);
   const balBeforeLate = await getAvailableCredits(user.id);
@@ -162,10 +174,48 @@ async function main() {
     .where(and(eq(bookings.userId, user.id), eq(bookings.sessionId, lateSession.id)))
     .get()!;
   const c3 = cancelBooking(user.id, lateBooking.id);
-  check("late cancel allowed but not refunded", c3.ok === true && c3.refunded === false, c3);
   check(
-    "credit not returned for late cancel",
+    "cancelling inside 24 hours is refused",
+    c3.ok === false && c3.code === "TOO_LATE_TO_CANCEL",
+    c3,
+  );
+  check(
+    "balance untouched by the refused cancel",
     (await getAvailableCredits(user.id)) === balBeforeLate,
+  );
+
+  /* And a class 25 hours out is still cancellable, with the session returned. */
+  const ahead = new Date(Date.now() + 25 * 3600_000);
+  const okSession = db
+    .insert(classSessions)
+    .values({
+      classTypeId: ct.id,
+      startsAt: ahead,
+      endsAt: new Date(ahead.getTime() + STUDIO.classLengthMinutes * 60_000),
+      capacity: STUDIO.capacity,
+    })
+    .returning()
+    .get();
+  fixtureSessionIds.push(okSession.id);
+  check("can book a class 25h away", bookClass(user.id, okSession.id).ok === true);
+  const balMid = await getAvailableCredits(user.id);
+  const okBooking = db
+    .select()
+    .from(bookings)
+    .where(and(eq(bookings.userId, user.id), eq(bookings.sessionId, okSession.id)))
+    .get()!;
+  const c4 = cancelBooking(user.id, okBooking.id);
+  check("cancelling outside 24 hours is refunded", c4.ok === true && c4.refunded === true, c4);
+  check(
+    "the session came back to the balance",
+    (await getAvailableCredits(user.id)) === balMid + 1,
+  );
+
+  /* The published copy has to state the same number the rules enforce. */
+  check(
+    `copy quotes the ${FREE_CANCELLATION_HOURS}-hour window`,
+    dictionaries.en.timetablePage.body.includes(`${FREE_CANCELLATION_HOURS} hours`) &&
+      dictionaries.el.timetablePage.body.includes(`${FREE_CANCELLATION_HOURS} ώρες`),
   );
 
   console.log("\n6. Booking cut-off");
@@ -175,11 +225,12 @@ async function main() {
     .values({
       classTypeId: ct.id,
       startsAt: past,
-      endsAt: new Date(past.getTime() + 50 * 60_000),
-      capacity: 8,
+      endsAt: new Date(past.getTime() + STUDIO.classLengthMinutes * 60_000),
+      capacity: STUDIO.capacity,
     })
     .returning()
     .get();
+  fixtureSessionIds.push(tooLate.id);
   const rt = bookClass(user.id, tooLate.id);
   check("booking closes 30 min before start", rt.ok === false && rt.code === "TOO_LATE", rt);
 
@@ -194,6 +245,7 @@ async function main() {
     })
     .returning()
     .get();
+  fixtureSessionIds.push(capSession.id);
   const fillers = [];
   for (let i = 0; i < 3; i++) {
     const u = db
@@ -237,6 +289,119 @@ async function main() {
     .get();
   const rb = bookClass(broke.id, future[2]!.id);
   check("member with no credits cannot book", rb.ok === false && rb.code === "NO_CREDITS", rb);
+
+
+  console.log("\n8b. The room the studio actually has");
+  {
+    /* Plant a class on the old rota and prove a read repairs it. This is the
+       bug that kept showing 06:00 to 06:50 with eight places. */
+    const future = new Date(Date.now() + 4 * 86_400_000);
+    const stale = db
+      .insert(classSessions)
+      .values({
+        classTypeId: ct.id,
+        startsAt: future,
+        endsAt: new Date(future.getTime() + 50 * 60_000),
+        capacity: 8,
+      })
+      .returning()
+      .get();
+    fixtureSessionIds.push(stale.id);
+
+    const fixed = repairSchedule();
+    check("repair touched the stale class", fixed >= 1, fixed);
+
+    const after = db
+      .select()
+      .from(classSessions)
+      .where(eq(classSessions.id, stale.id))
+      .get()!;
+    check(
+      `class is ${STUDIO.classLengthMinutes} minutes long`,
+      (after.endsAt.getTime() - after.startsAt.getTime()) / 60_000 ===
+        STUDIO.classLengthMinutes,
+      (after.endsAt.getTime() - after.startsAt.getTime()) / 60_000,
+    );
+    check(
+      `class has ${STUDIO.capacity} places`,
+      after.capacity === STUDIO.capacity,
+      after.capacity,
+    );
+
+    /* A class earlier today must be repaired too: the timetable window starts
+       at midnight, so a leftover from this morning is still on the page. */
+    const earlier = studioStartOfDay(new Date());
+    const thisMorning = db
+      .insert(classSessions)
+      .values({
+        classTypeId: ct.id,
+        startsAt: earlier,
+        endsAt: new Date(earlier.getTime() + 50 * 60_000),
+        capacity: 8,
+      })
+      .returning()
+      .get();
+    fixtureSessionIds.push(thisMorning.id);
+    repairSchedule();
+    const fixedToday = db
+      .select()
+      .from(classSessions)
+      .where(eq(classSessions.id, thisMorning.id))
+      .get()!;
+    check(
+      "a class earlier today is repaired as well",
+      fixedToday.capacity === STUDIO.capacity &&
+        (fixedToday.endsAt.getTime() - fixedToday.startsAt.getTime()) / 60_000 ===
+          STUDIO.classLengthMinutes,
+    );
+
+    /* Capacity is never pulled below the people already in the room. */
+    const held = db
+      .insert(classSessions)
+      .values({
+        classTypeId: ct.id,
+        startsAt: new Date(Date.now() + 6 * 86_400_000),
+        endsAt: new Date(Date.now() + 6 * 86_400_000 + 50 * 60_000),
+        capacity: 8,
+      })
+      .returning()
+      .get();
+    fixtureSessionIds.push(held.id);
+    for (const u of fillers.slice(0, 3)) {
+      db.insert(bookings)
+        .values({ userId: u.id, sessionId: held.id, status: "CONFIRMED" })
+        .run();
+    }
+    repairSchedule();
+    const heldAfter = db
+      .select()
+      .from(classSessions)
+      .where(eq(classSessions.id, held.id))
+      .get()!;
+    check(
+      "capacity is not dropped below the people already booked",
+      heldAfter.capacity >= 3,
+      heldAfter.capacity,
+    );
+  }
+
+  console.log("\n8c. Sundays never appear in the date picker");
+  {
+    const keys = studioDayKeys(studioStartOfDay(new Date()), 28, [0]);
+    const sundays = keys.filter(
+      (k) => studioDayOfWeek(new Date(`${k}T12:00:00Z`)) === 0,
+    );
+    check("no Sunday in a 28-day window", sundays.length === 0, sundays);
+    check("the window still spans four weeks", keys.length === 24, keys.length);
+  }
+
+  /* The fixtures above insert real classes into the timetable. Clean them up so
+     running the tests does not leave odd one-off times on the live schedule. */
+  for (const id of fixtureSessionIds) {
+    sqlite.prepare("delete from bookings where session_id = ?").run(id);
+    sqlite.prepare("delete from class_sessions where id = ?").run(id);
+  }
+  console.log(`  · removed ${fixtureSessionIds.length} fixture classes`);
 
   console.log("\n9. Ledger integrity");
   const ledgerSum =
