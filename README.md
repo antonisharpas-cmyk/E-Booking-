@@ -262,6 +262,81 @@ scripts/                  test suites
 public/brand/             logo and wordmark files
 ```
 
+## Performance
+
+Two diagnostics ship with the project. Run them against a **production** build —
+`npm run dev` compiles each page on first request and is several times slower by
+design, which is misleading.
+
+```bash
+npm run build
+npm start                 # in one terminal
+npm run diagnose          # in another — per-route TTFB, payload, JS weight
+npm run diagnose:db       # query timings and SQLite query plans
+```
+
+`diagnose` reports time-to-first-byte (server work), total document time, HTML
+size and the compressed JavaScript a modern browser actually downloads, then
+flags anything over budget: TTFB <200ms, total <400ms, HTML <120kB, JS <180kB.
+
+`diagnose:db` times every query the app runs on a page load and prints SQLite's
+own query plan, so you can see whether an index is being used (`SEARCH … USING
+INDEX`) or a table is being scanned (`SCAN`).
+
+### Where it stands
+
+Measured on a production build with 354 classes seeded:
+
+| | Before | After |
+| --- | --- | --- |
+| JavaScript per route (transferred) | 175kB | **133kB** |
+| Uncompressed JS (excl. legacy polyfill) | 590kB | **435kB** |
+| Server time (TTFB), slowest route | 26ms | **20ms** |
+| Timetable query, 14 days with occupancy | — | **0.18ms** |
+| Logo images | 112kB | **9kB** |
+
+The database was never the problem — every query is sub-millisecond and
+index-backed. The weight was client-side JavaScript, and the fix was removing an
+animation library that the shared layout pulled into every route (including
+static pages like the privacy policy) just to fade elements in on scroll. That
+is now a shared `IntersectionObserver` and a few CSS classes in
+`globals.css`/`Reveal.tsx`.
+
+### If you want to go further
+
+Neither of these is needed today; both are real wins if the studio's traffic
+grows or you care about first-visit speed on mobile data.
+
+1. **Self-host the fonts.** They currently load from Google Fonts via a
+   `<link>` in `src/app/layout.tsx`, which costs two extra connections before
+   text can render. Replace it with `next/font/google`:
+
+   ```tsx
+   import { Cormorant_Garamond, Jost } from "next/font/google";
+
+   const jost = Jost({ subsets: ["latin", "greek"], weight: ["200","300","400","500"], variable: "--font-jost", display: "swap" });
+   const cormorant = Cormorant_Garamond({ subsets: ["latin", "greek"], weight: ["300","400","500"], variable: "--font-cormorant", display: "swap" });
+   // then: <html className={`${jost.variable} ${cormorant.variable}`}>
+   ```
+
+   Delete the `<link>` tags and the inline `<style>` block. Next then serves the
+   font files from your own domain and preloads them. Note the `greek` subset —
+   the site is bilingual.
+
+2. **Ship one language at a time.** Both the English and Greek dictionaries are
+   sent to the browser so the toggle switches instantly with no reload. That is
+   roughly 12kB compressed. If you would rather send only the active language,
+   have the toggle set the cookie and call `router.refresh()`, and import the
+   dictionary per-locale — you trade an instant toggle for a smaller payload.
+
+### If class numbers grow a lot
+
+The timetable query counts bookings with a correlated subquery per class. At a
+few hundred classes that is 0.18ms. Past a few thousand, switch it to a single
+grouped join — `diagnose:db` will tell you when it starts to matter.
+
+---
+
 ## Troubleshooting
 
 **`Cannot find module '../server/require-hook'`**

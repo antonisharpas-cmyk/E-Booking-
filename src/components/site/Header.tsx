@@ -1,6 +1,5 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -148,72 +147,68 @@ export function Header({ user }: { user: HeaderUser }) {
         </div>
       </header>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4 }}
-            className="fixed inset-0 z-40 bg-cream lg:hidden"
-          >
-            <div className="container-x flex h-full flex-col justify-center gap-2 pt-20">
-              {links.map((l, i) => (
-                <motion.div
-                  key={l.href}
-                  initial={{ opacity: 0, y: 18 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.06 * i + 0.08, duration: 0.6 }}
-                >
-                  <Link
-                    href={l.href}
-                    className="block py-3 font-display text-4xl font-light text-mocha-600"
-                  >
-                    {l.label}
-                  </Link>
-                </motion.div>
-              ))}
-
-              <motion.div
-                initial={{ opacity: 0, y: 18 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.42, duration: 0.6 }}
-                className="mt-10 flex flex-col gap-3 border-t border-mocha-200 pt-8"
-              >
-                {user ? (
-                  <>
-                    <Link
-                      href="/account"
-                      className="flex items-center justify-between text-[11px] uppercase tracking-widest text-mocha-600"
-                    >
-                      {t.nav.account}
-                      <span className="rounded-full bg-mocha-600 px-2.5 py-1 text-cream">
-                        {user.credits} {t.common.credits}
-                      </span>
-                    </Link>
-                    <button
-                      onClick={signOut}
-                      className="self-start text-[11px] uppercase tracking-widest text-clay"
-                    >
-                      {t.nav.logout}
-                    </button>
-                  </>
-                ) : (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <ButtonLink href="/login" variant="outline" size="sm">
-                      {t.nav.login}
-                    </ButtonLink>
-                    <ButtonLink href="/register" size="sm">
-                      {t.nav.register}
-                    </ButtonLink>
-                  </div>
-                )}
-                <LanguageToggle className="mt-4 self-start" />
-              </motion.div>
-            </div>
-          </motion.div>
+      {/* Mobile sheet: always mounted, toggled with CSS so no animation
+          library is pulled into the shared layout (and every route). */}
+      <div
+        className={cn(
+          "sheet fixed inset-0 z-40 bg-cream lg:hidden",
+          open && "is-open",
         )}
-      </AnimatePresence>
+        aria-hidden={!open}
+      >
+        <div className="container-x flex h-full flex-col justify-center gap-2 pt-20">
+          {links.map((l) => (
+            <div key={l.href} className="sheet-item">
+              <Link
+                href={l.href}
+                tabIndex={open ? 0 : -1}
+                className="block py-3 font-display text-4xl font-light text-mocha-600"
+              >
+                {l.label}
+              </Link>
+            </div>
+          ))}
+
+          <div className="sheet-item mt-10 flex flex-col gap-3 border-t border-mocha-200 pt-8">
+            {user ? (
+              <>
+                <Link
+                  href="/account"
+                  tabIndex={open ? 0 : -1}
+                  className="flex items-center justify-between text-[11px] uppercase tracking-widest text-mocha-600"
+                >
+                  {t.nav.account}
+                  <span className="rounded-full bg-mocha-600 px-2.5 py-1 text-cream">
+                    {user.credits} {t.common.credits}
+                  </span>
+                </Link>
+                <button
+                  onClick={signOut}
+                  tabIndex={open ? 0 : -1}
+                  className="self-start text-[11px] uppercase tracking-widest text-clay"
+                >
+                  {t.nav.logout}
+                </button>
+              </>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3">
+                <ButtonLink
+                  href="/login"
+                  variant="outline"
+                  size="sm"
+                  tabIndex={open ? 0 : -1}
+                >
+                  {t.nav.login}
+                </ButtonLink>
+                <ButtonLink href="/register" size="sm" tabIndex={open ? 0 : -1}>
+                  {t.nav.register}
+                </ButtonLink>
+              </div>
+            )}
+            <LanguageToggle className="mt-4 self-start" />
+          </div>
+        </div>
+      </div>
     </>
   );
 }

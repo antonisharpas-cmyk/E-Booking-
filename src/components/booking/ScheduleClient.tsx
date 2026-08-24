@@ -1,6 +1,5 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -288,28 +287,25 @@ export function ScheduleClient({
       </div>
 
       {/* toast */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className={cn(
-              "mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border px-5 py-4 text-sm",
-              toast.kind === "ok" && "border-mocha-300 bg-white text-mocha-600",
-              toast.kind === "warn" && "border-gold/40 bg-[#FBF6E7] text-mocha-700",
-              toast.kind === "error" && "border-red-200 bg-red-50 text-red-700",
-            )}
-          >
-            <span>{toast.text}</span>
-            {toast.cta && (
-              <ButtonLink href={toast.cta.href} size="sm">
-                {toast.cta.label}
-              </ButtonLink>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {toast && (
+        <div
+          className={cn(
+            "animate-fade-up",
+            "mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border px-5 py-4 text-sm",
+            toast.kind === "ok" && "border-mocha-300 bg-white text-mocha-600",
+            toast.kind === "warn" && "border-gold/40 bg-[#FBF6E7] text-mocha-700",
+            toast.kind === "error" && "border-red-200 bg-red-50 text-red-700",
+          )}
+          role="status"
+        >
+          <span>{toast.text}</span>
+          {toast.cta && (
+            <ButtonLink href={toast.cta.href} size="sm">
+              {toast.cta.label}
+            </ButtonLink>
+          )}
+        </div>
+      )}
 
       {/* class list */}
       <div className="mt-8">

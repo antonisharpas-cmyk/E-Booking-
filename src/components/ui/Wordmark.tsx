@@ -15,15 +15,17 @@ export function Wordmark({
   className?: string;
   priority?: boolean;
 }) {
-  const src =
-    tone === "cream" ? "/brand/wordmark-cream.png" : "/brand/wordmark-brown.png";
+  const cream = tone === "cream";
   return (
     <Image
-      src={src}
+      src={cream ? "/brand/wordmark-cream.png" : "/brand/wordmark-brown.png"}
       alt="APEX pilates by APEX Fitness Centre"
-      width={916}
-      height={300}
+      width={480}
+      height={cream ? 153 : 165}
       priority={priority}
+      /* Rendered at ~130–200px. Without `sizes`, next/image would generate and
+         serve the 1080w and 1920w variants of a 200px-wide logo. */
+      sizes="200px"
       className={cn("h-auto w-[168px] select-none", className)}
     />
   );

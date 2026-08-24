@@ -1,6 +1,5 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 import { Reveal } from "@/components/ui/Reveal";
 import { useI18n } from "@/i18n/LanguageProvider";
@@ -40,21 +39,16 @@ export function Faq() {
               </span>
             </button>
 
-            <AnimatePresence initial={false}>
-              {isOpen && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                  className="overflow-hidden"
-                >
-                  <p className="max-w-2xl pb-8 text-sm leading-[1.9] text-mocha-500">
-                    {item.a}
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <div
+              className={cn("accordion-panel", isOpen && "is-open")}
+              aria-hidden={!isOpen}
+            >
+              <div>
+                <p className="max-w-2xl pb-8 text-sm leading-[1.9] text-mocha-500">
+                  {item.a}
+                </p>
+              </div>
+            </div>
           </Reveal>
         );
       })}

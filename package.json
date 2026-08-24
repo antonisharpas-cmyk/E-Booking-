@@ -14,7 +14,9 @@
     "db:reset": "node -e \"require('fs').rmSync('dev.db',{force:true});require('fs').rmSync('dev.db-wal',{force:true});require('fs').rmSync('dev.db-shm',{force:true})\" && npm run db:push && npm run db:seed",
     "setup": "node scripts/init-env.mjs && drizzle-kit push --force && npm run db:seed",
     "test:flows": "tsx scripts/test-flows.ts",
-    "test:http": "node scripts/test-http.mjs"
+    "test:http": "node scripts/test-http.mjs",
+    "diagnose": "node scripts/diagnose.mjs",
+    "diagnose:db": "node scripts/diagnose-db.mjs"
   },
   "dependencies": {
     "bcryptjs": "2.4.3",
@@ -22,7 +24,6 @@
     "clsx": "2.1.1",
     "date-fns": "4.1.0",
     "drizzle-orm": "^0.40.1",
-    "framer-motion": "11.18.2",
     "jose": "5.9.6",
     "next": "15.3.1",
     "react": "19.1.0",

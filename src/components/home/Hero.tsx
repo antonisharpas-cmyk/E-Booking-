@@ -1,15 +1,17 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
 import { ButtonLink } from "@/components/ui/Button";
 import { Monogram } from "@/components/ui/Monogram";
 import { ReformerArt } from "@/components/ui/ReformerArt";
 import { useI18n } from "@/i18n/LanguageProvider";
 
+/**
+ * Entrance choreography is plain CSS keyframes with staggered animation-delay.
+ * Nothing here needs an animation library, and the hero is on the critical
+ * path for every first visit — so it stays as light as possible.
+ */
 export function Hero() {
   const { t } = useI18n();
-  const reduce = useReducedMotion();
-
   const words = t.home.hero.title.split(" ");
 
   const stats = [
@@ -31,39 +33,26 @@ export function Hero() {
       />
 
       <div className="container-x relative">
-        <motion.p
-          initial={reduce ? undefined : { opacity: 0, y: 12 }}
-          animate={reduce ? undefined : { opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="eyebrow mb-8 flex items-center gap-3"
-        >
+        <p className="eyebrow mb-8 flex animate-fade-up items-center gap-3">
           <span className="h-px w-8 bg-clay/50" />
           {t.home.hero.eyebrow}
-        </motion.p>
+        </p>
 
         <h1 className="h-display max-w-4xl text-[3rem] leading-[1.02] sm:text-[4.2rem] md:text-[5.6rem]">
           {words.map((w, i) => (
-            <motion.span
+            <span
               key={`${w}-${i}`}
-              className="mr-[0.28em] inline-block"
-              initial={reduce ? undefined : { opacity: 0, y: 28 }}
-              animate={reduce ? undefined : { opacity: 1, y: 0 }}
-              transition={{
-                duration: 1,
-                delay: 0.1 + i * 0.09,
-                ease: [0.16, 1, 0.3, 1],
-              }}
+              className="mr-[0.28em] inline-block animate-fade-up"
+              style={{ animationDelay: `${100 + i * 90}ms` }}
             >
               {w}
-            </motion.span>
+            </span>
           ))}
         </h1>
 
-        <motion.div
-          initial={reduce ? undefined : { opacity: 0 }}
-          animate={reduce ? undefined : { opacity: 1 }}
-          transition={{ duration: 1, delay: 0.5 }}
-          className="mt-10 flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between"
+        <div
+          className="mt-10 flex animate-fade-in flex-col gap-10 lg:flex-row lg:items-end lg:justify-between"
+          style={{ animationDelay: "500ms" }}
         >
           <p className="max-w-lg text-[15px] leading-relaxed text-mocha-500">
             {t.home.hero.subtitle}
@@ -77,24 +66,20 @@ export function Hero() {
               {t.home.hero.secondary}
             </ButtonLink>
           </div>
-        </motion.div>
+        </div>
 
         {/* the machine */}
-        <motion.div
-          initial={reduce ? undefined : { opacity: 0, y: 40 }}
-          animate={reduce ? undefined : { opacity: 1, y: 0 }}
-          transition={{ duration: 1.4, delay: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className="relative mt-16 md:mt-20"
+        <div
+          className="relative mt-16 animate-fade-up md:mt-20"
+          style={{ animationDelay: "550ms" }}
         >
           <ReformerArt className="text-mocha-600" />
           <div className="pointer-events-none absolute inset-x-0 -bottom-2 h-8 bg-[radial-gradient(ellipse_at_center,rgba(91,70,69,0.14),transparent_70%)]" />
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={reduce ? undefined : { opacity: 0 }}
-          animate={reduce ? undefined : { opacity: 1 }}
-          transition={{ duration: 1, delay: 0.9 }}
-          className="mt-14 grid grid-cols-2 gap-8 border-t border-mocha-200/70 pt-10 sm:grid-cols-4"
+        <div
+          className="mt-14 grid animate-fade-in grid-cols-2 gap-8 border-t border-mocha-200/70 pt-10 sm:grid-cols-4"
+          style={{ animationDelay: "900ms" }}
         >
           {stats.map((s) => (
             <div key={s.label}>
@@ -112,7 +97,7 @@ export function Hero() {
               APEX pilates™
             </span>
           </div>
-        </motion.div>
+        </div>
       </div>
     </section>
   );

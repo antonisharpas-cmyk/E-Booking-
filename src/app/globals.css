@@ -90,6 +90,85 @@
   }
 }
 
+@layer components {
+  /* ---- scroll reveal (replaces an animation library; see Reveal.tsx) ---- */
+  .reveal {
+    opacity: 0;
+    transform: translateY(var(--reveal-y, 24px));
+    transition:
+      opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms),
+      transform 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms);
+    will-change: opacity, transform;
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  .reveal-item {
+    opacity: 0;
+    transform: translateY(var(--reveal-y, 22px));
+    transition:
+      opacity 0.85s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal-group.is-visible > .reveal-item {
+    opacity: 1;
+    transform: none;
+  }
+  /* stagger without needing the index in JavaScript */
+  .reveal-group > .reveal-item:nth-child(1) { transition-delay: calc(var(--reveal-stagger, 90ms) * 0); }
+  .reveal-group > .reveal-item:nth-child(2) { transition-delay: calc(var(--reveal-stagger, 90ms) * 1); }
+  .reveal-group > .reveal-item:nth-child(3) { transition-delay: calc(var(--reveal-stagger, 90ms) * 2); }
+  .reveal-group > .reveal-item:nth-child(4) { transition-delay: calc(var(--reveal-stagger, 90ms) * 3); }
+  .reveal-group > .reveal-item:nth-child(5) { transition-delay: calc(var(--reveal-stagger, 90ms) * 4); }
+  .reveal-group > .reveal-item:nth-child(6) { transition-delay: calc(var(--reveal-stagger, 90ms) * 5); }
+  .reveal-group > .reveal-item:nth-child(7) { transition-delay: calc(var(--reveal-stagger, 90ms) * 6); }
+  .reveal-group > .reveal-item:nth-child(8) { transition-delay: calc(var(--reveal-stagger, 90ms) * 7); }
+  .reveal-group > .reveal-item:nth-child(n + 9) { transition-delay: calc(var(--reveal-stagger, 90ms) * 8); }
+
+  /* ---- accordion: animates cleanly with no height measuring ---- */
+  .accordion-panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .accordion-panel.is-open {
+    grid-template-rows: 1fr;
+  }
+  .accordion-panel > * {
+    overflow: hidden;
+  }
+
+  /* ---- full-screen mobile menu ---- */
+  .sheet {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+  }
+  .sheet.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .sheet-item {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .sheet.is-open .sheet-item {
+    opacity: 1;
+    transform: none;
+  }
+  .sheet.is-open .sheet-item:nth-child(1) { transition-delay: 80ms; }
+  .sheet.is-open .sheet-item:nth-child(2) { transition-delay: 140ms; }
+  .sheet.is-open .sheet-item:nth-child(3) { transition-delay: 200ms; }
+  .sheet.is-open .sheet-item:nth-child(4) { transition-delay: 260ms; }
+  .sheet.is-open .sheet-item:nth-child(5) { transition-delay: 320ms; }
+  .sheet.is-open .sheet-item:nth-child(6) { transition-delay: 380ms; }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
@@ -104,6 +183,15 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* show revealed content outright rather than leaving it faded out */
+  .reveal,
+  .reveal-item,
+  .sheet-item {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
   *,
   *::before,
   *::after {

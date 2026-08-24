@@ -1,41 +1,94 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
-type Props = {
-  children: ReactNode;
-  delay?: number;
-  y?: number;
-  className?: string;
-  once?: boolean;
-};
+/**
+ * Scroll-into-view fade + rise.
+ *
+ * Deliberately dependency-free: one shared IntersectionObserver and two CSS
+ * classes. An animation library here would be pulled into every route by the
+ * shared layout — around 150kB of JavaScript to fade some text in.
+ *
+ * Reduced motion is handled in globals.css, which shows the content outright.
+ */
 
-/** Fade + rise as the element enters the viewport. Respects reduced motion. */
+let observer: IntersectionObserver | null = null;
+const seen = new WeakMap<Element, () => void>();
+
+function watch(el: Element, onVisible: () => void) {
+  if (typeof IntersectionObserver === "undefined") {
+    onVisible();
+    return () => {};
+  }
+  if (!observer) {
+    observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          seen.get(entry.target)?.();
+          observer!.unobserve(entry.target);
+          seen.delete(entry.target);
+        }
+      },
+      { rootMargin: "0px 0px -80px 0px", threshold: 0.01 },
+    );
+  }
+  seen.set(el, onVisible);
+  observer.observe(el);
+  return () => {
+    observer?.unobserve(el);
+    seen.delete(el);
+  };
+}
+
+function useInView<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    /* Already on screen at mount (above the fold) — show without waiting. */
+    const rect = el.getBoundingClientRect();
+    if (rect.top < window.innerHeight && rect.bottom > 0) {
+      setVisible(true);
+      return;
+    }
+    return watch(el, () => setVisible(true));
+  }, []);
+
+  return { ref, visible };
+}
+
 export function Reveal({
   children,
   delay = 0,
   y = 24,
   className,
-  once = true,
-}: Props) {
-  const reduce = useReducedMotion();
-  if (reduce) return <div className={className}>{children}</div>;
+}: {
+  children: ReactNode;
+  delay?: number;
+  y?: number;
+  className?: string;
+}) {
+  const { ref, visible } = useInView<HTMLDivElement>();
 
   return (
-    <motion.div
-      className={className}
-      initial={{ opacity: 0, y }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once, margin: "-80px" }}
-      transition={{ duration: 0.9, delay, ease: [0.16, 1, 0.3, 1] }}
+    <div
+      ref={ref}
+      className={cn("reveal", visible && "is-visible", className)}
+      style={{
+        "--reveal-delay": `${delay * 1000}ms`,
+        "--reveal-y": `${y}px`,
+      } as React.CSSProperties}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }
 
-/** Staggers its direct children. */
+/** Staggers its direct children — each child must be a <RevealItem>. */
 export function RevealGroup({
   children,
   className,
@@ -45,22 +98,16 @@ export function RevealGroup({
   className?: string;
   stagger?: number;
 }) {
-  const reduce = useReducedMotion();
-  if (reduce) return <div className={className}>{children}</div>;
+  const { ref, visible } = useInView<HTMLDivElement>();
 
   return (
-    <motion.div
-      className={className}
-      initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, margin: "-80px" }}
-      variants={{
-        hidden: {},
-        show: { transition: { staggerChildren: stagger } },
-      }}
+    <div
+      ref={ref}
+      className={cn("reveal-group", visible && "is-visible", className)}
+      style={{ "--reveal-stagger": `${stagger * 1000}ms` } as React.CSSProperties}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }
 
@@ -73,22 +120,12 @@ export function RevealItem({
   className?: string;
   y?: number;
 }) {
-  const reduce = useReducedMotion();
-  if (reduce) return <div className={className}>{children}</div>;
-
   return (
-    <motion.div
-      className={className}
-      variants={{
-        hidden: { opacity: 0, y },
-        show: {
-          opacity: 1,
-          y: 0,
-          transition: { duration: 0.85, ease: [0.16, 1, 0.3, 1] },
-        },
-      }}
+    <div
+      className={cn("reveal-item", className)}
+      style={{ "--reveal-y": `${y}px` } as React.CSSProperties}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }
