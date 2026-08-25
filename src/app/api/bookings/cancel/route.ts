@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
 import { cancelBooking } from "@/lib/booking";
 import { getAvailableCredits } from "@/lib/credits";
+import { cancelReminder } from "@/lib/reminders";
 
 export async function POST(req: Request) {
   const user = await currentUser();
@@ -16,6 +17,9 @@ export async function POST(req: Request) {
   if (!result.ok) {
     return NextResponse.json({ error: result.code }, { status: 409 });
   }
+
+  /* The class is no longer booked, so the reminder is no longer owed. */
+  cancelReminder(body.bookingId);
 
   return NextResponse.json({
     ok: true,

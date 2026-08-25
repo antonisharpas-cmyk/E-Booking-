@@ -83,14 +83,26 @@ check("invalid registration rejected", bad.status === 400, bad.status);
 
 const reg = await req("/api/auth/register", {
   method: "POST",
-  body: { name: "HTTP Tester", email, password: "test12345", phone: "+357 99 111 222" },
+  body: {
+    name: "HTTP Tester",
+    email,
+    password: "test12345",
+    phone: "+357 99 111 222",
+    serviceOptIn: true,
+  },
 });
 check("registration succeeds", reg.status === 200 && reg.json?.ok === true, reg.json);
 check("session cookie set", jar.has("apex_session"));
 
 const dupe = await req("/api/auth/register", {
   method: "POST",
-  body: { name: "HTTP Tester", email, password: "test12345" },
+  body: {
+    name: "HTTP Tester",
+    email,
+    password: "test12345",
+    phone: "+357 99 111 222",
+    serviceOptIn: true,
+  },
 });
 check("duplicate email refused", dupe.json?.error === "EMAIL_TAKEN", dupe.json);
 
@@ -119,6 +131,8 @@ check("booking refused with no credits", noCredits.json?.error === "NO_CREDITS",
 console.log("\n6. Buy a pack (dev grant path)");
 const pricing = await req("/pricing");
 check("pricing page renders €200 pack", pricing.text.includes("200"));
+check("the 3-class pack is no longer offered", !/Intro\s*·\s*3/.test(pricing.text));
+check("no 3-session pack anywhere on the page", !/"credits":3/.test(pricing.text));
 /* find the 10-class package id via the sessions-free admin-less route: parse from HTML is brittle,
    so use the seeded slug through a tiny lookup endpoint substitute: the checkout route needs an id.
    We read it from the page payload instead. */
@@ -177,7 +191,13 @@ const otherJarBackup = new Map(jar);
 jar.clear();
 await req("/api/auth/register", {
   method: "POST",
-  body: { name: "Second User", email: `other-${Date.now()}@apex.test`, password: "test12345" },
+  body: {
+    name: "Second User",
+    email: `other-${Date.now()}@apex.test`,
+    password: "test12345",
+    phone: "+357 99 222 333",
+    serviceOptIn: true,
+  },
 });
 const steal = await req("/api/bookings/cancel", { method: "POST", body: { bookingId } });
 check("other member cannot cancel it", steal.status === 409, steal.status);
@@ -211,6 +231,65 @@ const contact = await req("/api/contact", {
 check("contact message accepted", contact.json?.ok === true, contact.json);
 const badContact = await req("/api/contact", { method: "POST", body: { name: "x", email: "bad" } });
 check("bad contact message rejected", badContact.status === 400, badContact.status);
+
+/* Name, email and message are all required, and the message has a floor. */
+const missingName = await req("/api/contact", {
+  method: "POST",
+  body: { email: "hi@example.com", message: "A properly long enquiry about levels." },
+});
+check("contact needs a name", missingName.json?.error === "NAME_REQUIRED", missingName.json);
+
+const missingEmail = await req("/api/contact", {
+  method: "POST",
+  body: { name: "Test Person", message: "A properly long enquiry about levels." },
+});
+check("contact needs an email", missingEmail.json?.error === "EMAIL_INVALID", missingEmail.json);
+
+const shortMessage = await req("/api/contact", {
+  method: "POST",
+  body: { name: "Test Person", email: "hi@example.com", message: "hi" },
+});
+check(
+  "contact refuses a too-short message",
+  shortMessage.json?.error === "MESSAGE_TOO_SHORT",
+  shortMessage.json,
+);
+
+const noMessage = await req("/api/contact", {
+  method: "POST",
+  body: { name: "Test Person", email: "hi@example.com" },
+});
+check("contact needs a message", noMessage.status === 400, noMessage.status);
+
+console.log("\n12b. Studio details and social accounts");
+const contactPage = await req("/contact");
+for (const needle of [
+  "Grigori Afxentiou 9",
+  "Livadia, Larnaca 7060",
+  "facebook.com/profile.php?id=61593707540014",
+  "instagram.com/pilatesbyapex",
+]) {
+  check(`contact page shows ${needle}`, contactPage.text.includes(needle));
+}
+const home = await req("/");
+check("footer links Facebook", home.text.includes("facebook.com/profile.php?id=61593707540014"));
+check("footer links Instagram", home.text.includes("instagram.com/pilatesbyapex"));
+/* The accounts are shown as the platforms' own marks, not as words. */
+for (const page of [home, contactPage]) {
+  check("social marks render", page.text.includes("social-icon-instagram") && page.text.includes("social-icon-facebook"));
+  check("each mark carries the handle", page.text.includes("Instagram: @pilatesbyapex") && page.text.includes("Facebook: @pilatesbyapex"));
+}
+check(
+  "timetable line drops the real-time claim",
+  !(await req("/timetable")).text.includes("Availability updates in real time"),
+);
+check("contact promises a reply back soon", contactPage.text.includes("reply back soon"));
+
+console.log("\n12c. Instructor portraits");
+const classesPage = await req("/classes");
+for (const slug of ["maria-k", "elena-s", "andreas-p", "chris-m"]) {
+  check(`team card shows ${slug}`, classesPage.text.includes(`${slug}.jpg`));
+}
 
 console.log("\n13. Stripe webhook is protected");
 const hook = await req("/api/stripe/webhook", { method: "POST", body: { type: "checkout.session.completed" } });

@@ -110,6 +110,31 @@
     mask-size: contain;
   }
 
+  /* ---- social marks ----
+     Same trick as the monogram: the glyph is a mask over currentColor, so the
+     icon takes the colour of the text beside it (cream in the footer, brown on
+     the contact page) and the path data stays in a cacheable file instead of
+     the JavaScript bundle of every page with a footer. */
+  .social-icon {
+    display: inline-block;
+    flex: none;
+    background-color: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+  }
+  .social-icon-instagram {
+    -webkit-mask-image: url("/brand/instagram.svg");
+    mask-image: url("/brand/instagram.svg");
+  }
+  .social-icon-facebook {
+    -webkit-mask-image: url("/brand/facebook.svg");
+    mask-image: url("/brand/facebook.svg");
+  }
+
   /* ---- slow drift on hero imagery ---- */
   .kenburns {
     animation: kenburns 26s ease-in-out infinite alternate;

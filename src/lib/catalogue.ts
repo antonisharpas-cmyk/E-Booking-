@@ -1,6 +1,8 @@
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { classTypes, creditPackages, instructors } from "@/db/schema";
+import { repairCatalogueOnce } from "./catalogue-repair";
+import { INSTRUCTOR_PHOTOS } from "./packs";
 
 export async function getClassTypes() {
   return db
@@ -19,6 +21,9 @@ export async function getClassType(slug: string) {
 }
 
 export async function getPackages() {
+  /* Drop anything the studio no longer sells before listing. */
+  repairCatalogueOnce();
+
   return db
     .select()
     .from(creditPackages)
@@ -27,13 +32,24 @@ export async function getPackages() {
 }
 
 export async function getPackageById(id: string) {
-  return db.select().from(creditPackages).where(eq(creditPackages.id, id)).get();
+  return db
+    .select()
+    .from(creditPackages)
+    .where(eq(creditPackages.id, id))
+    .get();
 }
 
 export async function getInstructors() {
-  return db
+  const rows = await db
     .select()
     .from(instructors)
     .where(eq(instructors.active, true))
     .orderBy(asc(instructors.sortOrder));
+
+  /* A row's own photo wins; otherwise fall back to the portrait shipped with
+     the site, so the team cards have faces without needing a re-seed. */
+  return rows.map((r) => ({
+    ...r,
+    photoUrl: r.photoUrl ?? INSTRUCTOR_PHOTOS[r.name] ?? null,
+  }));
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { bookClass, listMyBookings } from "@/lib/booking";
 import { currentUser } from "@/lib/auth";
 import { getAvailableCredits } from "@/lib/credits";
+import { scheduleReminder } from "@/lib/reminders";
 import { bookSchema } from "@/lib/validation";
 
 export async function GET() {
@@ -31,9 +32,19 @@ export async function POST(req: Request) {
     );
   }
 
+  /* Queue the reminder outside the booking transaction: a reminder that fails
+     to schedule must never cost someone their booking. */
+  let reminderAt: string | null = null;
+  try {
+    reminderAt = scheduleReminder(result.bookingId)?.dueAt.toISOString() ?? null;
+  } catch {
+    reminderAt = null;
+  }
+
   return NextResponse.json({
     ok: true,
     bookingId: result.bookingId,
+    reminderAt,
     credits: await getAvailableCredits(user.id),
   });
 }

@@ -4,7 +4,9 @@ import { AccountBody } from "@/components/account/AccountBody";
 import { currentUser } from "@/lib/auth";
 import { listMyBookings } from "@/lib/booking";
 import { getCreditSummary, getLedger } from "@/lib/credits";
+import { gramsToKg } from "@/lib/profile";
 import { getMyPurchases } from "@/lib/purchases";
+import { hasAvatar } from "@/lib/avatars";
 
 export const metadata: Metadata = { title: "My account" };
 export const dynamic = "force-dynamic";
@@ -46,6 +48,21 @@ export default async function AccountPage() {
         })),
       }}
       classesTaken={taken}
+      profile={{
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        birthDate: user.birthDate,
+        heightCm: user.heightCm,
+        weightKg: user.weightGrams == null ? null : gramsToKg(user.weightGrams),
+        marketingOptIn: user.marketingOptIn,
+        serviceOptIn: user.serviceOptInAt !== null,
+        notifyEmail: user.notifyEmail,
+        notifySms: user.notifySms,
+        notifyPush: user.notifyPush,
+        reminderMinutes: user.reminderMinutes,
+        hasPhoto: await hasAvatar(user.id),
+      }}
       upcoming={bookings.upcoming.map(serialiseBooking)}
       past={bookings.past.slice(0, 20).map(serialiseBooking)}
       purchases={purchases.map((p) => ({

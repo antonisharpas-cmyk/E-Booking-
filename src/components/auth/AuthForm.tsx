@@ -30,8 +30,25 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             email: form.get("email"),
             phone: form.get("phone"),
             password: form.get("password"),
+            serviceOptIn: form.get("serviceOptIn") === "on",
             marketingOptIn: form.get("marketingOptIn") === "on",
           };
+
+    /* Said here in the reader's own language rather than leaving them to
+       press the button and read a code back from the server. */
+    if (mode === "register") {
+      const phone = String(form.get("phone") ?? "").trim();
+      if ((phone.match(/\d/g) ?? []).length < 8) {
+        setError(t.auth.errPhone);
+        setBusy(false);
+        return;
+      }
+      if (form.get("serviceOptIn") !== "on") {
+        setError(t.auth.errServiceConsent);
+        setBusy(false);
+        return;
+      }
+    }
 
     try {
       const res = await fetch(`/api/auth/${mode}`, {
@@ -46,9 +63,26 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         router.refresh();
         return;
       }
-      if (data.error === "EMAIL_TAKEN") setError(t.auth.emailTaken);
-      else if (data.error === "INVALID_CREDENTIALS") setError(t.auth.invalid);
-      else setError(data.error ?? t.common.somethingWrong);
+      const known: Record<string, string> = {
+        EMAIL_TAKEN: t.auth.emailTaken,
+        INVALID_CREDENTIALS: t.auth.invalid,
+        PHONE_REQUIRED: t.auth.errPhone,
+        PHONE_INVALID: t.auth.errPhone,
+        SERVICE_CONSENT_REQUIRED: t.auth.errServiceConsent,
+        NAME_REQUIRED: t.auth.errName,
+        EMAIL_INVALID: t.auth.errEmail,
+        PASSWORD_SHORT: t.auth.errPassword,
+      };
+      /* Fall back to the code itself rather than a bare "something went
+         wrong". An unmapped code is rare, but when it happens the person
+         staring at the screen needs something they can act on or quote,
+         not a shrug. */
+      setError(
+        known[data.error ?? ""] ??
+          (data.error
+            ? `${t.common.somethingWrong} (${data.error})`
+            : t.common.somethingWrong),
+      );
     } catch {
       setError(t.common.somethingWrong);
     } finally {
@@ -73,6 +107,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 
         <form
           onSubmit={submit}
+          noValidate
           className="mt-10 rounded-4xl border border-mocha-200/70 bg-white/70 p-8 backdrop-blur-sm"
         >
           <div className="space-y-5">
@@ -103,9 +138,19 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
               <div>
                 <label className="label" htmlFor="phone">
                   {t.common.phone}{" "}
-                  <span className="text-clay/60">({t.common.optional})</span>
+                  <span aria-hidden className="text-clay/70">
+                    *
+                  </span>
                 </label>
-                <input id="phone" name="phone" className="input" />
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  autoComplete="tel"
+                  required
+                  className="input"
+                />
+                <p className="mt-2 text-[11px] text-clay">{t.auth.phoneWhy}</p>
               </div>
             )}
 
@@ -123,19 +168,50 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                 className="input"
               />
               {!isLogin && (
-                <p className="mt-2 text-[11px] text-clay">{t.auth.passwordHint}</p>
+                <p className="mt-2 text-[11px] text-clay">
+                  {t.auth.passwordHint}
+                </p>
               )}
             </div>
 
             {!isLogin && (
-              <label className="flex cursor-pointer items-start gap-3 text-[12px] text-mocha-500">
-                <input
-                  type="checkbox"
-                  name="marketingOptIn"
-                  className="mt-0.5 h-4 w-4 rounded border-mocha-300 accent-mocha-600"
-                />
-                {t.auth.marketingOptIn}
-              </label>
+              <div className="space-y-4 border-t border-mocha-200/70 pt-5">
+                {/* Required. Without it the studio cannot tell someone their
+                    class has moved, which is the one message nobody should be
+                    able to miss. */}
+                <label className="flex cursor-pointer items-start gap-3 text-[12px] text-mocha-600">
+                  <input
+                    type="checkbox"
+                    name="serviceOptIn"
+                    required
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-mocha-300 accent-mocha-600"
+                  />
+                  <span>
+                    {t.auth.serviceOptIn}{" "}
+                    <span aria-hidden className="text-clay/70">
+                      *
+                    </span>
+                    <span className="mt-1 block text-clay">
+                      {t.auth.serviceOptInWhy}
+                    </span>
+                  </span>
+                </label>
+
+                {/* Optional, and clearly so. */}
+                <label className="flex cursor-pointer items-start gap-3 text-[12px] text-mocha-500">
+                  <input
+                    type="checkbox"
+                    name="marketingOptIn"
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-mocha-300 accent-mocha-600"
+                  />
+                  <span>
+                    {t.auth.marketingOptIn}
+                    <span className="mt-1 block text-clay">
+                      {t.auth.marketingOptInWhy}
+                    </span>
+                  </span>
+                </label>
+              </div>
             )}
           </div>
 

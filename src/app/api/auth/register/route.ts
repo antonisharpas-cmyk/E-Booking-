@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { createSession, hashPassword } from "@/lib/auth";
+import { REMINDER_DEFAULT_MINUTES } from "@/lib/profile";
 import { registerSchema } from "@/lib/validation";
 
 export async function POST(req: Request) {
@@ -28,9 +29,17 @@ export async function POST(req: Request) {
     .values({
       name,
       email,
-      phone: phone || null,
+      phone,
       passwordHash: await hashPassword(password),
+      /* Stamped with the moment it was given: a consent is a record, not a
+         checkbox that can quietly flip. Required to register, so it is always
+         set here. */
+      serviceOptInAt: new Date(),
       marketingOptIn: Boolean(marketingOptIn),
+      /* Reachable by email and reminded two hours before class until they say
+         otherwise. SMS and push stay off until asked for. */
+      notifyEmail: true,
+      reminderMinutes: REMINDER_DEFAULT_MINUTES,
     })
     .returning()
     .get();

@@ -37,8 +37,11 @@ export function Marquee() {
 export function Intro() {
   const { t } = useI18n();
 
+  /* Trimmed at the foot: the row below ends on a small arch and three short
+     figures, so the section's full rhythm left a band of empty cream under
+     them. */
   return (
-    <Section>
+    <Section className="pb-16 md:pb-24">
       {/* Two rows rather than two tall columns. The copy pairs off on the first
           row and the arch pairs with the figures on the second, so neither
           side is left holding an empty half-column. */}
@@ -64,15 +67,19 @@ export function Intro() {
         {/* An arch rather than a rectangle: the reformer is a long, low object,
             and the doorway silhouette gives it a shape of its own instead of
             one more card. No frame — the render already sits on this exact
-            cream, so the arch reads as a shape cut into the page. */}
+            cream, so the arch reads as a shape cut into the page.
+
+            Kept deliberately small, and the two sides finish level. Beside it
+            are three short figures, so a tall arch used to set the height of
+            the whole row and leave a band of empty cream under them. */}
         <Reveal y={36}>
-          <figure className="arch-in relative aspect-[11/13] w-full max-w-[248px] overflow-hidden rounded-[999px_999px_1.5rem_1.5rem] border border-mocha-600 bg-cream sm:max-w-[268px]">
+          <figure className="arch-in relative aspect-[11/13] w-full max-w-[188px] overflow-hidden rounded-[999px_999px_1.5rem_1.5rem] border border-mocha-600 bg-cream sm:max-w-[212px]">
             <Parallax strength={5} zoom={0.07}>
               <Image
                 src="/media/reformer-arch.jpg"
                 alt="A Technogym Reform reformer, the machine used in every APEX pilates class"
                 fill
-                sizes="(min-width: 640px) 268px, 70vw"
+                sizes="(min-width: 640px) 212px, 58vw"
                 quality={86}
                 className="object-cover"
               />
@@ -80,8 +87,13 @@ export function Intro() {
           </figure>
         </Reveal>
 
+        {/* Three across on a phone, a ruled list from lg up. The figures are
+            short and the arch is tall, so side by side as three columns they
+            finished a long way above it and left the hole this section was
+            criticised for. As rows they stand the same height as the arch and
+            the two sides end together. */}
         <Reveal delay={0.12}>
-          <dl className="grid grid-cols-3 gap-6 border-t border-mocha-200/70 pt-8">
+          <dl className="grid grid-cols-3 gap-6 border-t border-mocha-200/70 pt-8 lg:grid-cols-1 lg:gap-0 lg:border-t-0 lg:pt-0">
             {[
               { v: String(STUDIO.capacity), k: t.home.hero.stat1 },
               {
@@ -90,11 +102,14 @@ export function Intro() {
               },
               { v: `${STUDIO.openDays}`, k: t.home.intro.daysLabel },
             ].map((x) => (
-              <div key={x.k}>
+              <div
+                key={x.k}
+                className="lg:flex lg:items-baseline lg:justify-between lg:gap-8 lg:border-t lg:border-mocha-200/70 lg:py-6 lg:last:border-b"
+              >
                 <dd className="font-display text-3xl font-light text-mocha-600">
                   {x.v}
                 </dd>
-                <dt className="mt-2 text-[11px] uppercase tracking-widest text-clay">
+                <dt className="mt-2 text-[11px] uppercase tracking-widest text-clay lg:mt-0">
                   {x.k}
                 </dt>
               </div>

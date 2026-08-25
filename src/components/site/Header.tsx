@@ -2,17 +2,20 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LanguageToggle } from "@/components/site/LanguageToggle";
 import { ButtonLink } from "@/components/ui/Button";
 import { WordmarkLink } from "@/components/ui/Wordmark";
 import { useI18n } from "@/i18n/LanguageProvider";
+import { UserAvatar } from "@/components/account/UserAvatar";
+import { ACCOUNT_TABS } from "@/components/account/AccountTabs";
 import { cn } from "@/lib/utils";
 
 export type HeaderUser = {
   name: string;
   role: string;
   credits: number;
+  hasPhoto: boolean;
 } | null;
 
 export function Header({ user }: { user: HeaderUser }) {
@@ -45,6 +48,7 @@ export function Header({ user }: { user: HeaderUser }) {
   const cover = onDark;
 
   const links = [
+    { href: "/", label: t.nav.home },
     { href: "/studio", label: t.nav.studio },
     { href: "/classes", label: t.nav.classes },
     { href: "/timetable", label: t.nav.timetable },
@@ -55,6 +59,17 @@ export function Header({ user }: { user: HeaderUser }) {
   async function signOut() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/");
+    router.refresh();
+  }
+
+  /* Tapping a nav item for the page you are already on used to do nothing at
+     all: Link treats it as a no-op, and the sheet only closes when the path
+     changes, so it just sat there open. Take the tap at face value — close the
+     sheet, go back to the top of that page and refresh it. */
+  function follow(href: string) {
+    setOpen(false);
+    if (href !== pathname) return;
+    window.scrollTo({ top: 0, behavior: "smooth" });
     router.refresh();
   }
 
@@ -71,7 +86,9 @@ export function Header({ user }: { user: HeaderUser }) {
         <div
           className={cn(
             "container-x flex items-center gap-6",
-            cover ? "justify-between md:grid md:grid-cols-3" : "justify-between",
+            cover
+              ? "justify-between md:grid md:grid-cols-3"
+              : "justify-between",
           )}
         >
           {cover && (
@@ -100,7 +117,9 @@ export function Header({ user }: { user: HeaderUser }) {
 
           <nav
             className={cn(
-              "items-center gap-8",
+              /* Six items now that Home is among them, so the gap tightens at
+                 lg and opens back up once there is room for it. */
+              "items-center gap-6 xl:gap-8",
               cover ? "hidden" : "hidden lg:flex",
             )}
           >
@@ -108,6 +127,7 @@ export function Header({ user }: { user: HeaderUser }) {
               <Link
                 key={l.href}
                 href={l.href}
+                onClick={() => follow(l.href)}
                 className={cn(
                   "link-underline text-[11px] uppercase tracking-widest transition-colors",
                   onDark
@@ -125,10 +145,7 @@ export function Header({ user }: { user: HeaderUser }) {
           </nav>
 
           <div
-            className={cn(
-              "flex items-center gap-3",
-              cover && "md:justify-end",
-            )}
+            className={cn("flex items-center gap-3", cover && "md:justify-end")}
           >
             {cover && (
               <button
@@ -151,39 +168,28 @@ export function Header({ user }: { user: HeaderUser }) {
             )}
 
             {user && !cover ? (
-              <div className="hidden items-center gap-3 lg:flex">
-                <Link
-                  href="/account"
-                  className={cn(
-                    "group flex items-center gap-2 rounded-full border px-3.5 py-2 transition-colors",
-                    onDark
-                      ? "border-cream/30 hover:border-cream/60"
-                      : "border-mocha-200 hover:border-mocha-400",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "text-[11px] uppercase tracking-widest",
-                      onDark ? "text-cream" : "text-mocha-600",
-                    )}
-                  >
-                    {user.name.split(" ")[0]}
-                  </span>
-                  <span
-                    className={cn(
-                      "rounded-full px-2 py-0.5 text-[10px] lining-nums tabular-nums",
-                      onDark
-                        ? "bg-cream text-mocha-700"
-                        : "bg-mocha-600 text-cream",
-                    )}
-                  >
-                    {user.credits}
-                  </span>
-                </Link>
+              /* The chip is on every screen size now, not just the laptop: on a
+                 phone it drops the first name and keeps the face and the
+                 session count, which is the part anyone actually checks. */
+              <div
+                className={cn(
+                  "flex items-center gap-2 sm:gap-3",
+                  /* the sheet carries its own account row, so the chip steps
+                     aside while it is open, as the wordmark does */
+                  open && "invisible",
+                )}
+              >
+                <AccountMenu user={user} onDark={onDark} onSignOut={signOut} />
+                {/* Between lg and xl the bar is carrying six nav items, the
+                    language toggle and the chip, and this was the piece that
+                    buckled into three lines. A signed-in member has Timetable
+                    in the nav and Book another class on their account, so it
+                    waits for the room instead. */}
                 <ButtonLink
                   href="/timetable"
                   size="sm"
                   variant={onDark ? "cream" : "solid"}
+                  className="hidden whitespace-nowrap xl:inline-flex"
                 >
                   {t.nav.book}
                 </ButtonLink>
@@ -193,7 +199,7 @@ export function Header({ user }: { user: HeaderUser }) {
                 <Link
                   href="/login"
                   className={cn(
-                    "link-underline text-[11px] uppercase tracking-widest transition-colors",
+                    "link-underline whitespace-nowrap text-[11px] uppercase tracking-widest transition-colors",
                     onDark
                       ? "text-cream/75 hover:text-cream"
                       : "text-mocha-500 hover:text-mocha-600",
@@ -205,6 +211,7 @@ export function Header({ user }: { user: HeaderUser }) {
                   href="/timetable"
                   size="sm"
                   variant={onDark ? "cream" : "solid"}
+                  className="whitespace-nowrap"
                 >
                   {t.nav.book}
                 </ButtonLink>
@@ -245,10 +252,7 @@ export function Header({ user }: { user: HeaderUser }) {
       {/* Mobile sheet: always mounted, toggled with CSS so no animation
           library is pulled into the shared layout (and every route). */}
       <div
-        className={cn(
-          "sheet fixed inset-0 z-40 bg-cream",
-          open && "is-open",
-        )}
+        className={cn("sheet fixed inset-0 z-40 bg-cream", open && "is-open")}
         aria-hidden={!open}
       >
         <button
@@ -262,13 +266,16 @@ export function Header({ user }: { user: HeaderUser }) {
           </span>
         </button>
 
-        <div className="container-x flex h-full flex-col justify-center gap-2 pt-20">
+        {/* Six items rather than five, so the list is a shade tighter and the
+            sheet can scroll on a short phone instead of running off the end. */}
+        <div className="container-x flex h-full flex-col justify-center gap-1.5 overflow-y-auto py-20">
           {links.map((l) => (
             <div key={l.href} className="sheet-item">
               <Link
                 href={l.href}
                 tabIndex={open ? 0 : -1}
-                className="block py-3 font-display text-4xl font-light text-mocha-600"
+                onClick={() => follow(l.href)}
+                className="block py-2.5 font-display text-[2rem] font-light text-mocha-600 sm:text-4xl"
               >
                 {l.label}
               </Link>
@@ -283,7 +290,14 @@ export function Header({ user }: { user: HeaderUser }) {
                   tabIndex={open ? 0 : -1}
                   className="flex items-center justify-between text-[11px] uppercase tracking-widest text-mocha-600"
                 >
-                  {t.nav.account}
+                  <span className="flex items-center gap-2.5">
+                    <UserAvatar
+                      hasPhoto={user.hasPhoto}
+                      name={user.name}
+                      className="h-7 w-7"
+                    />
+                    {t.nav.account}
+                  </span>
                   <span className="rounded-full bg-mocha-600 px-2.5 py-1 text-cream">
                     {user.credits} {t.common.credits}
                   </span>
@@ -316,5 +330,133 @@ export function Header({ user }: { user: HeaderUser }) {
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * The member's chip, and the menu behind it.
+ *
+ * It used to be a plain link to /account, which meant reaching Payments took a
+ * page load and then a hunt for the right pill. Pressing the face now opens the
+ * six sections and each one links straight to its own tab, so the header is the
+ * shortest path to any of them. Sign out lives here too — on a phone it was
+ * otherwise buried in the menu sheet.
+ */
+function AccountMenu({
+  user,
+  onDark,
+  onSignOut,
+}: {
+  user: NonNullable<HeaderUser>;
+  onDark: boolean;
+  onSignOut: () => void;
+}) {
+  const { t } = useI18n();
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+
+  useEffect(() => setOpen(false), [pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!wrap.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={wrap} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={t.nav.account}
+        className={cn(
+          "flex items-center gap-2 rounded-full border px-2.5 py-1.5 transition-colors sm:px-3.5 sm:py-2",
+          onDark
+            ? "border-cream/30 hover:border-cream/60"
+            : "border-mocha-200 hover:border-mocha-400",
+          open && (onDark ? "border-cream/70" : "border-mocha-500"),
+        )}
+      >
+        {/* Their own face in the corner of every page: the quickest way to know
+            which account you are looking at. Falls back to the plain user mark
+            until a photo is uploaded. */}
+        <UserAvatar
+          hasPhoto={user.hasPhoto}
+          name={user.name}
+          className={cn(
+            "h-6 w-6 border-0",
+            onDark ? "bg-cream/15" : "bg-mocha-100",
+          )}
+        />
+        <span
+          className={cn(
+            "hidden text-[11px] uppercase tracking-widest sm:inline",
+            onDark ? "text-cream" : "text-mocha-600",
+          )}
+        >
+          {user.name.split(" ")[0]}
+        </span>
+        <span
+          className={cn(
+            "rounded-full px-2 py-0.5 text-[10px] lining-nums tabular-nums",
+            onDark ? "bg-cream text-mocha-700" : "bg-mocha-600 text-cream",
+          )}
+        >
+          {user.credits}
+        </span>
+      </button>
+
+      {/* Kept mounted and toggled with CSS, like the menu sheet: no animation
+          library on a component that ships with every page. */}
+      <div
+        role="menu"
+        aria-hidden={!open}
+        className={cn(
+          "absolute right-0 top-[calc(100%+0.65rem)] z-50 w-60 rounded-3xl border border-mocha-200 bg-cream p-2 shadow-lift transition-all duration-300 ease-silk",
+          open
+            ? "visible translate-y-0 opacity-100"
+            : "invisible -translate-y-1 opacity-0",
+        )}
+      >
+        {ACCOUNT_TABS.map((id) => (
+          <Link
+            key={id}
+            role="menuitem"
+            tabIndex={open ? 0 : -1}
+            href={id === "profile" ? "/account" : `/account?tab=${id}`}
+            onClick={() => setOpen(false)}
+            className="block rounded-2xl px-4 py-2.5 text-[11px] uppercase tracking-widest text-mocha-500 transition-colors hover:bg-cream-200 hover:text-mocha-700"
+          >
+            {t.accountTabs[id]}
+          </Link>
+        ))}
+        <div className="my-1.5 h-px bg-mocha-200/70" />
+        <button
+          type="button"
+          role="menuitem"
+          tabIndex={open ? 0 : -1}
+          onClick={() => {
+            setOpen(false);
+            void onSignOut();
+          }}
+          className="block w-full rounded-2xl px-4 py-2.5 text-left text-[11px] uppercase tracking-widest text-clay transition-colors hover:bg-cream-200 hover:text-mocha-700"
+        >
+          {t.nav.logout}
+        </button>
+      </div>
+    </div>
   );
 }

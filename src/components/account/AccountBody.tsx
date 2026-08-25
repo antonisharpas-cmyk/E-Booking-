@@ -1,14 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/Button";
+import {
+  ProfilePanel,
+  type ProfileValues,
+} from "@/components/account/ProfilePanel";
 import { Monogram } from "@/components/ui/Monogram";
 import { Reveal } from "@/components/ui/Reveal";
 import { Section } from "@/components/ui/Section";
 import { useI18n } from "@/i18n/LanguageProvider";
 import { cn } from "@/lib/utils";
+import {
+  AccountTabs,
+  isAccountTab,
+  type AccountTab,
+} from "@/components/account/AccountTabs";
 
 type BookingRow = {
   id: string;
@@ -42,6 +51,7 @@ type Props = {
     }[];
   };
   classesTaken: number;
+  profile: ProfileValues;
   upcoming: BookingRow[];
   past: BookingRow[];
   purchases: {
@@ -72,14 +82,66 @@ const REASON: Record<string, { en: string; el: string }> = {
 };
 
 export function AccountBody(props: Props) {
-  const { t, locale, fmtShortDate, fmtDayMonth, fmtFullDate, fmtMonthYear, fmtTime, fmtMoney } =
-    useI18n();
+  const {
+    t,
+    locale,
+    fmtShortDate,
+    fmtDayMonth,
+    fmtFullDate,
+    fmtMonthYear,
+    fmtTime,
+    fmtMoney,
+  } = useI18n();
   const router = useRouter();
   const el = locale === "el";
 
   const [busy, setBusy] = useState<string | null>(null);
+  /* Which sub-section is open. Everything stays on one page and one route:
+     the wallet at the top is what a member came for, and losing it behind a
+     navigation on every tab would be worse than the scroll it saves.
+
+     The section is addressable all the same — ?tab=payments — because the menu
+     under the face in the header links straight into each one. */
+  const params = useSearchParams();
+  const requested = params.get("tab");
+  const [tab, setTab] = useState<AccountTab>(
+    isAccountTab(requested) ? requested : "profile",
+  );
   const [notice, setNotice] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<BookingRow | null>(null);
+
+  useEffect(() => {
+    if (isAccountTab(requested)) setTab(requested);
+  }, [requested]);
+
+  /* Asked for a section by name, from the header: take them to it rather than
+     leaving the right pill selected somewhere below the fold. Once only, so it
+     never fights the member's own scrolling afterwards.
+     The short wait is not decoration — a navigation resets the scroll position
+     to the top of the page, and without it that reset lands on top of this and
+     the page never moves. */
+  const jumped = useRef(false);
+  useEffect(() => {
+    if (jumped.current || !isAccountTab(requested)) return;
+    jumped.current = true;
+    const id = window.setTimeout(() => {
+      document
+        .getElementById("account-sections")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 180);
+    return () => window.clearTimeout(id);
+  }, [requested]);
+
+  function chooseTab(next: AccountTab) {
+    setTab(next);
+    /* Keeps the address bar honest — and the section shareable — without a
+       server round trip for a click that only changes what is already here. */
+    window.history.replaceState(
+      null,
+      "",
+      next === "profile" ? "/account" : `/account?tab=${next}`,
+    );
+  }
 
   async function cancel(b: BookingRow) {
     setBusy(b.id);
@@ -233,7 +295,7 @@ export function AccountBody(props: Props) {
         </Reveal>
 
         {/* upcoming */}
-        <Reveal delay={0.12} className="mt-16">
+        <Reveal delay={0.1} className="mt-16">
           <h2 className="text-[13px] uppercase tracking-widest">
             {t.account.upcomingTitle}
           </h2>
@@ -298,16 +360,48 @@ export function AccountBody(props: Props) {
           )}
         </Reveal>
 
-        {/* history + ledger */}
-        <div className="mt-16 grid gap-12 lg:grid-cols-2">
-          <Reveal delay={0.05}>
-            <h2 className="text-[13px] uppercase tracking-widest">
-              {t.account.historyTitle}
-            </h2>
+        {/* Sub-sections. Everything above this belongs to the member as a
+            whole — their balance, and the classes they are booked into. The
+            pills below it only ever change the panel underneath, so anything
+            that is not a panel has to sit above them or it reads as one. */}
+        <Reveal
+          delay={0.12}
+          id="account-sections"
+          className="mt-16 scroll-mt-28"
+        >
+          <AccountTabs
+            active={tab}
+            onChange={chooseTab}
+            counts={{
+              classes: props.past.length,
+              payments: props.purchases.length,
+              activity: props.ledger.length,
+            }}
+            /* A dot on Profile when there is something to ask: offers not
+               accepted, or no birthday on file. Both are the studio's only
+               chance to reach someone who has not opted in. */
+            needsAttention={
+              !props.profile.marketingOptIn || !props.profile.birthDate
+            }
+          />
+        </Reveal>
+
+        {/* profile / notifications / password */}
+        {(tab === "profile" ||
+          tab === "notifications" ||
+          tab === "password") && (
+          <Reveal key={tab} delay={0.05} className="mt-12">
+            <ProfilePanel initial={props.profile} section={tab} />
+          </Reveal>
+        )}
+
+        {/* past classes */}
+        {tab === "classes" && (
+          <Reveal delay={0.05} className="mt-12">
             {props.past.length === 0 ? (
-              <p className="mt-6 text-sm text-clay">{t.account.historyEmpty}</p>
+              <p className="text-sm text-clay">{t.account.historyEmpty}</p>
             ) : (
-              <ul className="mt-6 space-y-4">
+              <ul className="space-y-4">
                 {props.past.map((b) => (
                   <li
                     key={b.id}
@@ -325,15 +419,15 @@ export function AccountBody(props: Props) {
               </ul>
             )}
           </Reveal>
+        )}
 
-          <Reveal delay={0.1}>
-            <h2 className="text-[13px] uppercase tracking-widest">
-              {t.account.ledgerTitle}
-            </h2>
+        {/* session activity: every session added, spent or returned */}
+        {tab === "activity" && (
+          <Reveal delay={0.05} className="mt-12">
             {props.ledger.length === 0 ? (
-              <p className="mt-6 text-sm text-clay">{t.account.purchasesEmpty}</p>
+              <p className="text-sm text-clay">{t.account.purchasesEmpty}</p>
             ) : (
-              <ul className="mt-6 space-y-3">
+              <ul className="space-y-3">
                 {props.ledger.map((l) => (
                   <li
                     key={l.id}
@@ -360,13 +454,17 @@ export function AccountBody(props: Props) {
                 ))}
               </ul>
             )}
+          </Reveal>
+        )}
 
-            {props.purchases.length > 0 && (
+        {/* payment history */}
+        {tab === "payments" && (
+          <Reveal delay={0.05} className="mt-12">
+            {props.purchases.length === 0 ? (
+              <p className="text-sm text-clay">{t.account.purchasesEmpty}</p>
+            ) : (
               <>
-                <h2 className="mt-12 text-[13px] uppercase tracking-widest">
-                  {t.account.purchasesTitle}
-                </h2>
-                <ul className="mt-6 space-y-3">
+                <ul className="space-y-3">
                   {props.purchases.map((p) => (
                     <li
                       key={p.id}
@@ -394,7 +492,7 @@ export function AccountBody(props: Props) {
               </>
             )}
           </Reveal>
-        </div>
+        )}
 
         <div className="mt-20 flex items-center gap-3 border-t border-mocha-200/70 pt-10 text-[10px] uppercase tracking-widest text-clay">
           <Monogram className="h-7 w-7" />
@@ -408,7 +506,9 @@ export function AccountBody(props: Props) {
       {confirming && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-mocha-900/40 p-6 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-3xl bg-cream p-8 shadow-lift">
-            <h3 className="h-display text-2xl">{t.booking.cancelConfirmTitle}</h3>
+            <h3 className="h-display text-2xl">
+              {t.booking.cancelConfirmTitle}
+            </h3>
             <p className="mt-3 text-sm text-mocha-500">
               {el ? confirming.className.el : confirming.className.en} ·{" "}
               {fmtDayMonth(confirming.startsAt)} {fmtTime(confirming.startsAt)}
@@ -459,7 +559,11 @@ function Stat({
     <div className="rounded-4xl border border-mocha-200/70 bg-white/60 p-8 backdrop-blur-sm">
       <p className="text-[10px] uppercase tracking-brand text-clay">{label}</p>
       <p className="mt-6 font-display text-4xl text-mocha-600">{value}</p>
-      {sub && <p className="mt-2 text-[11px] uppercase tracking-widest text-clay/70">{sub}</p>}
+      {sub && (
+        <p className="mt-2 text-[11px] uppercase tracking-widest text-clay/70">
+          {sub}
+        </p>
+      )}
     </div>
   );
 }
@@ -473,9 +577,18 @@ function StatusPill({
 }) {
   const { t } = useI18n();
   const map: Record<string, { text: string; className: string }> = {
-    CONFIRMED: { text: t.common.booked, className: "border-mocha-300 text-mocha-600" },
-    ATTENDED: { text: t.account.attended, className: "border-mocha-400 text-mocha-600" },
-    NO_SHOW: { text: t.account.noShow, className: "border-red-200 text-red-600" },
+    CONFIRMED: {
+      text: t.common.booked,
+      className: "border-mocha-300 text-mocha-600",
+    },
+    ATTENDED: {
+      text: t.account.attended,
+      className: "border-mocha-400 text-mocha-600",
+    },
+    NO_SHOW: {
+      text: t.account.noShow,
+      className: "border-red-200 text-red-600",
+    },
     CANCELLED: {
       text: refunded ? `${t.account.cancelled} ↩` : t.account.cancelled,
       className: "border-mocha-200 text-clay",
@@ -485,7 +598,10 @@ function StatusPill({
     FAILED: { text: "Failed", className: "border-red-200 text-red-600" },
     REFUNDED: { text: "Refunded", className: "border-mocha-200 text-clay" },
   };
-  const s = map[status] ?? { text: status, className: "border-mocha-200 text-clay" };
+  const s = map[status] ?? {
+    text: status,
+    className: "border-mocha-200 text-clay",
+  };
   return (
     <span
       className={cn(

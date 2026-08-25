@@ -38,15 +38,68 @@ export const users = sqliteTable(
     passwordHash: text("password_hash").notNull(),
     /** MEMBER | STAFF | ADMIN */
     role: text("role").notNull().default("MEMBER"),
+    /* ---- consents -------------------------------------------------------
+       Two deliberately separate things. serviceOptIn covers the messages a
+       member cannot sensibly opt out of and still use the studio: a class
+       moved, an instructor swapped, the room closed. It is required to hold an
+       account, so it is recorded with the date it was given rather than as a
+       flag that can drift. marketingOptIn covers offers and news, is never
+       required, and can be withdrawn at any time. */
+    serviceOptInAt: integer("service_opt_in_at", { mode: "timestamp" }),
     marketingOptIn: integer("marketing_opt_in", { mode: "boolean" })
       .notNull()
       .default(false),
+
+    /* ---- how we are allowed to reach them ---- */
+    notifyEmail: integer("notify_email", { mode: "boolean" })
+      .notNull()
+      .default(true),
+    notifySms: integer("notify_sms", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    notifyPush: integer("notify_push", { mode: "boolean" })
+      .notNull()
+      .default(false),
+
+    /* Minutes before a class starts to send its reminder. Null means the
+       member does not want one. See REMINDER_STEP_MINUTES in lib/profile.ts. */
+    reminderMinutes: integer("reminder_minutes"),
+
+    /* ---- optional profile ----
+       Date of birth rather than an age: an age written down is wrong within a
+       year, and the studio needs it for screening, not for a birthday card. */
+    birthDate: text("birth_date"),
+    heightCm: integer("height_cm"),
+    weightGrams: integer("weight_grams"),
+
     /** Studio notes: injuries, goals, spring preferences */
     notes: text("notes"),
     createdAt: now().notNull(),
   },
   (t) => [uniqueIndex("users_email_idx").on(t.email)],
 );
+
+/**
+ * Profile photographs, kept out of the users row and out of the filesystem.
+ *
+ * A separate table because a blob on `users` would be read on every session
+ * lookup for no reason. In the database rather than on disk because this app
+ * ships as one SQLite file: a backup or a move then carries the photos with
+ * it, and there is no upload directory to get lost, go read-only on a
+ * serverless host, or fall out of sync with the rows pointing at it.
+ * Images are resized in the browser first and capped again on the server.
+ */
+export const userAvatars = sqliteTable("user_avatars", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  contentType: text("content_type").notNull(),
+  bytes: integer("bytes").notNull(),
+  data: text("data").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
 
 export const instructors = sqliteTable("instructors", {
   id: id(),
@@ -251,6 +304,41 @@ export const contactMessages = sqliteTable("contact_messages", {
 });
 
 /* --------------------------------------------------------------- Relations */
+
+/**
+ * One row per reminder owed to a member for a booked class.
+ *
+ * The queue is written when the class is booked and removed when it is
+ * cancelled, so what is owed is always derivable from a single table rather
+ * than recomputed by scanning bookings. `dueAt` is stamped at scheduling time
+ * from the member's chosen lead time, which means changing that preference
+ * later does not silently move reminders that were already promised.
+ *
+ * `sentAt` closes the row. Nothing here sends anything: delivery belongs to
+ * whatever provider the studio picks, and /api/reminders/due hands it the
+ * list. See lib/reminders.ts.
+ */
+export const bookingReminders = sqliteTable(
+  "booking_reminders",
+  {
+    id: id(),
+    bookingId: text("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    dueAt: integer("due_at", { mode: "timestamp" }).notNull(),
+    /** email | sms | push, as chosen when the reminder was scheduled */
+    channels: text("channels").notNull(),
+    sentAt: integer("sent_at", { mode: "timestamp" }),
+    createdAt: now().notNull(),
+  },
+  (t) => [
+    index("booking_reminders_due_idx").on(t.dueAt),
+    uniqueIndex("booking_reminders_booking_idx").on(t.bookingId),
+  ],
+);
 
 export const usersRelations = relations(users, ({ many }) => ({
   bookings: many(bookings),

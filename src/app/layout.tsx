@@ -10,6 +10,7 @@ import {
 } from "@/i18n/dictionaries";
 import { LanguageProvider } from "@/i18n/LanguageProvider";
 import { currentUser } from "@/lib/auth";
+import { hasAvatar } from "@/lib/avatars";
 import { getAvailableCredits } from "@/lib/credits";
 import "./globals.css";
 
@@ -54,6 +55,7 @@ export default async function RootLayout({
         name: user.name,
         role: user.role,
         credits: await getAvailableCredits(user.id),
+        hasPhoto: await hasAvatar(user.id),
       }
     : null;
 
@@ -61,7 +63,11 @@ export default async function RootLayout({
     <html lang={locale}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin=""
+        />
         {/* Jost carries the geometric feel of the wordmark; Cormorant is the
             editorial display face. Swap to next/font later if you prefer the
             fonts self-hosted — see README. */}

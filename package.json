@@ -17,7 +17,9 @@
     "test:http": "node scripts/test-http.mjs",
     "diagnose": "node scripts/diagnose.mjs",
     "diagnose:db": "node scripts/diagnose-db.mjs",
-    "check:classes": "node scripts/check-classes.mjs"
+    "check:classes": "node scripts/check-classes.mjs",
+    "test:profile": "node scripts/test-profile.mjs",
+    "doctor": "node scripts/doctor.mjs"
   },
   "dependencies": {
     "bcryptjs": "2.4.3",

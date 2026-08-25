@@ -13,6 +13,9 @@
  */
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
+import { repairCatalogue } from "@/lib/catalogue-repair";
+import { PACKS } from "@/lib/packs";
+import { REMINDER_DEFAULT_MINUTES } from "@/lib/profile";
 import { STUDIO } from "@/lib/studio";
 import { db, sqlite } from "./index";
 import {
@@ -34,13 +37,26 @@ function upsertUser(row: {
   role: string;
   phone?: string;
 }) {
-  const existing = db.select().from(users).where(eq(users.email, row.email)).get();
+  const existing = db
+    .select()
+    .from(users)
+    .where(eq(users.email, row.email))
+    .get();
   if (existing) {
     db.update(users)
-      .set({ name: row.name, role: row.role, phone: row.phone })
+      .set({
+        name: row.name,
+        role: row.role,
+        phone: row.phone,
+        /* Seeded accounts predate the consent and reminder columns, so give
+           them the same starting point a new member gets. Only fills what is
+           missing: a real member's own choices are never overwritten. */
+        serviceOptInAt: existing.serviceOptInAt ?? new Date(),
+        reminderMinutes: existing.reminderMinutes ?? REMINDER_DEFAULT_MINUTES,
+      })
       .where(eq(users.id, existing.id))
       .run();
-    return existing;
+    return db.select().from(users).where(eq(users.id, existing.id)).get()!;
   }
   return db
     .insert(users)
@@ -50,6 +66,9 @@ function upsertUser(row: {
       phone: row.phone,
       role: row.role,
       passwordHash: hash(row.password),
+      serviceOptInAt: new Date(),
+      notifyEmail: true,
+      reminderMinutes: REMINDER_DEFAULT_MINUTES,
     })
     .returning()
     .get();
@@ -146,60 +165,7 @@ const CLASS_TYPES = [
 
 /* ------------------------------------------------------------- credit packs */
 
-const PACKAGES = [
-  {
-    slug: "single",
-    nameEn: "Single class",
-    nameEl: "Μονό μάθημα",
-    credits: 1,
-    priceCents: 2500,
-    validityDays: 30,
-    badge: null,
-    sortOrder: 1,
-  },
-  {
-    slug: "intro-3",
-    nameEn: "Intro · 3 classes",
-    nameEl: "Intro · 3 μαθήματα",
-    credits: 3,
-    priceCents: 5500,
-    validityDays: 30,
-    badge: null,
-    sortOrder: 2,
-  },
-  {
-    slug: "pack-5",
-    nameEn: "5 classes",
-    nameEl: "5 μαθήματα",
-    credits: 5,
-    priceCents: 11000,
-    validityDays: 60,
-    badge: null,
-    sortOrder: 3,
-  },
-  {
-    slug: "pack-10",
-    nameEn: "10 classes",
-    nameEl: "10 μαθήματα",
-    credits: 10,
-    priceCents: 20000,
-    validityDays: 90,
-    badge: "POPULAR",
-    sortOrder: 4,
-  },
-  {
-    slug: "pack-20",
-    nameEn: "20 classes",
-    nameEl: "20 μαθήματα",
-    credits: 20,
-    priceCents: 36000,
-    validityDays: 180,
-    badge: "BEST_VALUE",
-    sortOrder: 5,
-  },
-] as const;
-
-/* ------------------------------------------------------------- instructors */
+const PACKAGES = PACKS;
 
 const INSTRUCTORS = [
   {
@@ -208,6 +174,7 @@ const INSTRUCTORS = [
       "Comprehensive Reformer certification, ten years teaching. Specialises in post-injury return to movement.",
     bioEl:
       "Ολοκληρωμένη πιστοποίηση Reformer, δέκα χρόνια διδασκαλίας. Ειδικεύεται στην επιστροφή στην κίνηση μετά από τραυματισμό.",
+    photoUrl: "/team/maria-k.jpg",
     sortOrder: 1,
   },
   {
@@ -216,6 +183,7 @@ const INSTRUCTORS = [
       "Strength coach turned Pilates instructor. Teaches the athletic classes and works with the gym's PT clients.",
     bioEl:
       "Από προπονητής δύναμης σε instructor Pilates. Διδάσκει τα athletic μαθήματα και συνεργάζεται με τους personal trainers του γυμναστηρίου.",
+    photoUrl: "/team/andreas-p.jpg",
     sortOrder: 2,
   },
   {
@@ -224,6 +192,7 @@ const INSTRUCTORS = [
       "Dance background, obsessive about alignment. Her Flow classes are the studio's most requested.",
     bioEl:
       "Με υπόβαθρο στον χορό και εμμονή στην ευθυγράμμιση. Τα μαθήματα Flow της είναι τα πιο ζητούμενα του στούντιο.",
+    photoUrl: "/team/elena-s.jpg",
     sortOrder: 3,
   },
   {
@@ -232,6 +201,7 @@ const INSTRUCTORS = [
       "Early mornings and Jumpboard. Believes 06:00 is the best hour of the day.",
     bioEl:
       "Πρωινά και Jumpboard. Πιστεύει ότι οι 06:00 είναι η καλύτερη ώρα της ημέρας.",
+    photoUrl: "/team/chris-m.jpg",
     sortOrder: 4,
   },
 ] as const;
@@ -252,7 +222,10 @@ const WEEKDAY_SLOTS = [6, 7, 8, 9, 10, 11, 15, 16, 17, 18, 19];
 const SATURDAY_SLOTS = [7, 8, 9, 10];
 
 /** Deterministic class-type rota so the week has a sensible mix. */
-function typeForSlot(day: number, hour: number): (typeof CLASS_TYPES)[number]["slug"] {
+function typeForSlot(
+  day: number,
+  hour: number,
+): (typeof CLASS_TYPES)[number]["slug"] {
   if (hour === 6) return day % 2 === 1 ? "flow" : "jumpboard";
   if (hour === 7) return "flow";
   if (hour === 8) return day === 6 ? "foundations" : "sculpt";
@@ -279,9 +252,14 @@ async function main() {
       .where(eq(classTypes.slug, ct.slug))
       .get();
     if (found) {
-      db.update(classTypes).set({ ...ct }).where(eq(classTypes.id, found.id)).run();
+      db.update(classTypes)
+        .set({ ...ct })
+        .where(eq(classTypes.id, found.id))
+        .run();
     } else {
-      db.insert(classTypes).values({ ...ct }).run();
+      db.insert(classTypes)
+        .values({ ...ct })
+        .run();
     }
   }
   console.log(`  ✓ ${CLASS_TYPES.length} class types`);
@@ -299,20 +277,42 @@ async function main() {
         .where(eq(creditPackages.id, found.id))
         .run();
     } else {
-      db.insert(creditPackages).values({ ...p }).run();
+      db.insert(creditPackages)
+        .values({ ...p })
+        .run();
     }
   }
-  console.log(`  ✓ ${PACKAGES.length} credit packs`);
+  /* Packs the studio no longer sells are deactivated rather than deleted:
+     past purchases and credit batches still point at those rows. Shared with
+     the read path so both agree on what is on sale. */
+  const retired = repairCatalogue();
+  console.log(
+    `  ✓ ${PACKAGES.length} credit packs` +
+      (retired ? `, ${retired} withdrawn from sale` : ""),
+  );
 
   /* Instructors */
   const instructorRows = [];
   for (const i of INSTRUCTORS) {
-    const found = db.select().from(instructors).all().find((x) => x.name === i.name);
+    const found = db
+      .select()
+      .from(instructors)
+      .all()
+      .find((x) => x.name === i.name);
     if (found) {
-      db.update(instructors).set({ ...i }).where(eq(instructors.id, found.id)).run();
+      db.update(instructors)
+        .set({ ...i })
+        .where(eq(instructors.id, found.id))
+        .run();
       instructorRows.push(found);
     } else {
-      instructorRows.push(db.insert(instructors).values({ ...i }).returning().get());
+      instructorRows.push(
+        db
+          .insert(instructors)
+          .values({ ...i })
+          .returning()
+          .get(),
+      );
     }
   }
   console.log(`  ✓ ${instructorRows.length} instructors`);

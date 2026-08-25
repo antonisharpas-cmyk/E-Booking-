@@ -65,11 +65,14 @@ export function Reveal({
   children,
   delay = 0,
   y = 24,
+  id,
   className,
 }: {
   children: ReactNode;
   delay?: number;
   y?: number;
+  /** For scroll targets — the account page jumps to its section row. */
+  id?: string;
   className?: string;
 }) {
   const { ref, visible } = useInView<HTMLDivElement>();
@@ -77,11 +80,14 @@ export function Reveal({
   return (
     <div
       ref={ref}
+      id={id}
       className={cn("reveal", visible && "is-visible", className)}
-      style={{
-        "--reveal-delay": `${delay * 1000}ms`,
-        "--reveal-y": `${y}px`,
-      } as React.CSSProperties}
+      style={
+        {
+          "--reveal-delay": `${delay * 1000}ms`,
+          "--reveal-y": `${y}px`,
+        } as React.CSSProperties
+      }
     >
       {children}
     </div>
@@ -104,7 +110,9 @@ export function RevealGroup({
     <div
       ref={ref}
       className={cn("reveal-group", visible && "is-visible", className)}
-      style={{ "--reveal-stagger": `${stagger * 1000}ms` } as React.CSSProperties}
+      style={
+        { "--reveal-stagger": `${stagger * 1000}ms` } as React.CSSProperties
+      }
     >
       {children}
     </div>

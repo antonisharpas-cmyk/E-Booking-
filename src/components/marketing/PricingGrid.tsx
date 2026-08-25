@@ -76,7 +76,14 @@ export function PricingGrid({
 
   return (
     <div>
-      <RevealGroup className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+      {/* The widest row follows the number of packs on sale, so withdrawing one
+          does not leave a single card orphaned on a row of its own. */}
+      <RevealGroup
+        className={cn(
+          "grid gap-6 sm:grid-cols-2",
+          packages.length % 4 === 0 ? "xl:grid-cols-4" : "xl:grid-cols-3",
+        )}
+      >
         {packages.map((p) => {
           const perClass = Math.round(p.priceCents / p.credits);
           const highlight = p.badge === "POPULAR";

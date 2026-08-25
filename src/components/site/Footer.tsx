@@ -5,6 +5,7 @@ import { LanguageToggle } from "@/components/site/LanguageToggle";
 import { Monogram } from "@/components/ui/Monogram";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { useI18n } from "@/i18n/LanguageProvider";
+import { SocialLinks } from "@/components/ui/SocialLinks";
 import { STUDIO } from "@/lib/studio";
 
 export function Footer() {
@@ -100,7 +101,9 @@ export function Footer() {
               <span className="block">
                 {t.home.timetable.weekday}: 06:00 – 12:00 · 15:00 – 20:00
               </span>
-              <span className="block">{t.home.timetable.saturday}: 07:00 – 11:00</span>
+              <span className="block">
+                {t.home.timetable.saturday}: 07:00 – 11:00
+              </span>
               <span className="block text-cream/45">
                 {t.home.timetable.sunday}: {t.home.timetable.closed}
               </span>
@@ -110,17 +113,13 @@ export function Footer() {
             <p className="mb-3 text-[10px] uppercase tracking-brand text-cream/45">
               {t.contactPage.followTitle}
             </p>
-            <a
-              href={STUDIO.instagram}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="link-underline text-sm text-cream/80 hover:text-cream"
-            >
-              @pilatesbyapex
-            </a>
+            <SocialLinks
+              className="gap-3"
+              itemClassName="text-cream/80 hover:text-cream"
+            />
             <a
               href={`mailto:${STUDIO.email}`}
-              className="mt-2 block link-underline text-sm text-cream/80 hover:text-cream"
+              className="mt-4 block link-underline text-sm text-cream/80 hover:text-cream"
             >
               {STUDIO.email}
             </a>

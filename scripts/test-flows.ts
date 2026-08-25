@@ -4,7 +4,9 @@
  *
  * It creates a throwaway user, so it is safe to run against dev.db.
  */
-import { and, eq, gt, sql } from "drizzle-orm";
+import Database from "better-sqlite3";
+import { and, eq, getTableColumns, gt, sql } from "drizzle-orm";
+import { ensureSchema } from "../src/db/migrate";
 import { db, sqlite } from "../src/db";
 import {
   bookings,
@@ -18,6 +20,9 @@ import { bookClass, cancelBooking } from "../src/lib/booking";
 import { getAvailableCredits, grantCredits } from "../src/lib/credits";
 import { hashPassword } from "../src/lib/auth";
 import { STUDIO } from "../src/lib/studio";
+import { getInstructors, getPackages } from "../src/lib/catalogue";
+import { repairCatalogue } from "../src/lib/catalogue-repair";
+import { OFFERED_PACK_SLUGS } from "../src/lib/packs";
 import { repairSchedule } from "../src/lib/schedule-repair";
 import {
   studioDayKeys,
@@ -43,7 +48,11 @@ async function main() {
   const email = `test-${Date.now()}@apex.test`;
   const user = db
     .insert(users)
-    .values({ email, name: "Test Runner", passwordHash: await hashPassword("x".repeat(10)) })
+    .values({
+      email,
+      name: "Test Runner",
+      passwordHash: await hashPassword("x".repeat(10)),
+    })
     .returning()
     .get();
 
@@ -57,7 +66,10 @@ async function main() {
     source: "PURCHASE",
     note: "test pack",
   });
-  check("10-credit pack lands in wallet", (await getAvailableCredits(user.id)) === 10);
+  check(
+    "10-credit pack lands in wallet",
+    (await getAvailableCredits(user.id)) === 10,
+  );
 
   /* Expired batch must not count (written directly, with its ledger row) */
   const expiredBatch = db
@@ -105,17 +117,34 @@ async function main() {
     r2.ok === false && r2.code === "ALREADY_BOOKED",
     r2,
   );
-  check("no extra credit taken on refusal", (await getAvailableCredits(user.id)) === 9);
+  check(
+    "no extra credit taken on refusal",
+    (await getAvailableCredits(user.id)) === 9,
+  );
 
   console.log("\n3. Booking spends the soonest-expiring credit first");
-  grantCredits({ userId: user.id, credits: 2, validityDays: 7, note: "short pack" });
+  grantCredits({
+    userId: user.id,
+    credits: 2,
+    validityDays: 7,
+    note: "short pack",
+  });
   const before = db
     .select()
     .from(creditBatches)
-    .where(and(eq(creditBatches.userId, user.id), gt(creditBatches.creditsRemaining, 0)))
+    .where(
+      and(
+        eq(creditBatches.userId, user.id),
+        gt(creditBatches.creditsRemaining, 0),
+      ),
+    )
     .all()
-    .sort((a, b) => (a.expiresAt?.getTime() ?? 0) - (b.expiresAt?.getTime() ?? 0));
-  const soonest = before.find((b) => (b.expiresAt?.getTime() ?? 0) > Date.now())!;
+    .sort(
+      (a, b) => (a.expiresAt?.getTime() ?? 0) - (b.expiresAt?.getTime() ?? 0),
+    );
+  const soonest = before.find(
+    (b) => (b.expiresAt?.getTime() ?? 0) > Date.now(),
+  )!;
   bookClass(user.id, future[1]!.id);
   const after = db
     .select()
@@ -136,7 +165,11 @@ async function main() {
     .where(and(eq(bookings.userId, user.id), eq(bookings.sessionId, s1.id)))
     .get()!;
   const c1 = cancelBooking(user.id, myBooking.id);
-  check("cancel far ahead is refunded", c1.ok === true && c1.refunded === true, c1);
+  check(
+    "cancel far ahead is refunded",
+    c1.ok === true && c1.refunded === true,
+    c1,
+  );
   check(
     "credit returned to wallet",
     (await getAvailableCredits(user.id)) === balBefore + 1,
@@ -171,7 +204,9 @@ async function main() {
   const lateBooking = db
     .select()
     .from(bookings)
-    .where(and(eq(bookings.userId, user.id), eq(bookings.sessionId, lateSession.id)))
+    .where(
+      and(eq(bookings.userId, user.id), eq(bookings.sessionId, lateSession.id)),
+    )
     .get()!;
   const c3 = cancelBooking(user.id, lateBooking.id);
   check(
@@ -197,15 +232,24 @@ async function main() {
     .returning()
     .get();
   fixtureSessionIds.push(okSession.id);
-  check("can book a class 25h away", bookClass(user.id, okSession.id).ok === true);
+  check(
+    "can book a class 25h away",
+    bookClass(user.id, okSession.id).ok === true,
+  );
   const balMid = await getAvailableCredits(user.id);
   const okBooking = db
     .select()
     .from(bookings)
-    .where(and(eq(bookings.userId, user.id), eq(bookings.sessionId, okSession.id)))
+    .where(
+      and(eq(bookings.userId, user.id), eq(bookings.sessionId, okSession.id)),
+    )
     .get()!;
   const c4 = cancelBooking(user.id, okBooking.id);
-  check("cancelling outside 24 hours is refunded", c4.ok === true && c4.refunded === true, c4);
+  check(
+    "cancelling outside 24 hours is refunded",
+    c4.ok === true && c4.refunded === true,
+    c4,
+  );
   check(
     "the session came back to the balance",
     (await getAvailableCredits(user.id)) === balMid + 1,
@@ -214,8 +258,12 @@ async function main() {
   /* The published copy has to state the same number the rules enforce. */
   check(
     `copy quotes the ${FREE_CANCELLATION_HOURS}-hour window`,
-    dictionaries.en.timetablePage.body.includes(`${FREE_CANCELLATION_HOURS} hours`) &&
-      dictionaries.el.timetablePage.body.includes(`${FREE_CANCELLATION_HOURS} ώρες`),
+    dictionaries.en.timetablePage.body.includes(
+      `${FREE_CANCELLATION_HOURS} hours`,
+    ) &&
+      dictionaries.el.timetablePage.body.includes(
+        `${FREE_CANCELLATION_HOURS} ώρες`,
+      ),
   );
 
   console.log("\n6. Booking cut-off");
@@ -232,7 +280,11 @@ async function main() {
     .get();
   fixtureSessionIds.push(tooLate.id);
   const rt = bookClass(user.id, tooLate.id);
-  check("booking closes 30 min before start", rt.ok === false && rt.code === "TOO_LATE", rt);
+  check(
+    "booking closes 30 min before start",
+    rt.ok === false && rt.code === "TOO_LATE",
+    rt,
+  );
 
   console.log("\n7. Capacity");
   const capSession = db
@@ -274,7 +326,9 @@ async function main() {
   check(
     "no credit taken from the rejected member",
     (await getAvailableCredits(fillers[2]!.id)) === 1 ||
-      (await getAvailableCredits(fillers.find((_, i) => !results[i]!.ok)!.id)) === 1,
+      (await getAvailableCredits(
+        fillers.find((_, i) => !results[i]!.ok)!.id,
+      )) === 1,
   );
 
   console.log("\n8. No credits");
@@ -288,8 +342,11 @@ async function main() {
     .returning()
     .get();
   const rb = bookClass(broke.id, future[2]!.id);
-  check("member with no credits cannot book", rb.ok === false && rb.code === "NO_CREDITS", rb);
-
+  check(
+    "member with no credits cannot book",
+    rb.ok === false && rb.code === "NO_CREDITS",
+    rb,
+  );
 
   console.log("\n8b. The room the studio actually has");
   {
@@ -351,7 +408,8 @@ async function main() {
     check(
       "a class earlier today is repaired as well",
       fixedToday.capacity === STUDIO.capacity &&
-        (fixedToday.endsAt.getTime() - fixedToday.startsAt.getTime()) / 60_000 ===
+        (fixedToday.endsAt.getTime() - fixedToday.startsAt.getTime()) /
+          60_000 ===
           STUDIO.classLengthMinutes,
     );
 
@@ -403,6 +461,131 @@ async function main() {
   }
   console.log(`  · removed ${fixtureSessionIds.length} fixture classes`);
 
+  console.log("\n8d. The catalogue heals itself without a re-seed");
+  {
+    /* This is the bug the studio hit twice: the change was in the seed script,
+       the seed script had not been run, and the page kept showing the old
+       catalogue. A read has to be enough. */
+    sqlite
+      .prepare("update credit_packages set active = 1 where slug = 'intro-3'")
+      .run();
+    sqlite.prepare("update instructors set photo_url = NULL").run();
+
+    const withdrawn = repairCatalogue();
+    check(
+      "a withdrawn pack is taken off sale by a read",
+      withdrawn >= 1,
+      withdrawn,
+    );
+
+    const onSale = (await getPackages()).map((p) => p.slug);
+    check(
+      "the 3-class pack is not on sale",
+      !onSale.includes("intro-3"),
+      onSale,
+    );
+    check(
+      "packs on sale match the offered list",
+      onSale.every((slug) => OFFERED_PACK_SLUGS.has(slug)),
+      onSale,
+    );
+
+    /* The row survives, because purchases point at it. */
+    const stillThere = sqlite
+      .prepare("select active from credit_packages where slug = 'intro-3'")
+      .get() as { active: number } | undefined;
+    check("the withdrawn pack row is kept, not deleted", Boolean(stillThere));
+
+    const team = await getInstructors();
+    check(
+      "every instructor has a portrait with no photo_url in the database",
+      team.length > 0 && team.every((m) => Boolean(m.photoUrl)),
+      team.map((m) => `${m.name}:${m.photoUrl}`),
+    );
+  }
+
+  console.log("\n8e. An older database is brought up to date on connect");
+  {
+    /* The crash that prompted this: a machine set up before the profile
+       columns existed loaded the homepage and got
+       `no such column: service_opt_in_at`. Opening the database has to be
+       enough to fix that, because "remember to run db:push" plainly is not. */
+    const probe = new Database(":memory:");
+    probe.exec(`
+      create table users (
+        id text primary key not null,
+        email text not null,
+        name text not null,
+        phone text,
+        password_hash text not null,
+        role text default 'MEMBER' not null,
+        created_at integer not null
+      );
+      create table bookings (id text primary key not null);
+      create table instructors (id text primary key not null, name text not null);
+    `);
+
+    const applied = ensureSchema(probe);
+    check(
+      "the migration reports what it added",
+      applied.length > 0,
+      applied.length,
+    );
+
+    const cols = new Set(
+      (
+        probe.prepare("pragma table_info(users)").all() as { name: string }[]
+      ).map((c) => c.name),
+    );
+    for (const col of [
+      "service_opt_in_at",
+      "marketing_opt_in",
+      "notify_email",
+      "notify_sms",
+      "notify_push",
+      "reminder_minutes",
+      "birth_date",
+      "height_cm",
+      "weight_grams",
+    ]) {
+      check(`users.${col} exists after migrating`, cols.has(col));
+    }
+
+    const tables = new Set(
+      (
+        probe
+          .prepare("select name from sqlite_master where type='table'")
+          .all() as { name: string }[]
+      ).map((t) => t.name),
+    );
+    check("user_avatars exists", tables.has("user_avatars"));
+    check("booking_reminders exists", tables.has("booking_reminders"));
+
+    /* Running it twice must be a no-op, since it runs on every boot. */
+    check("running it again changes nothing", ensureSchema(probe).length === 0);
+    probe.close();
+  }
+
+  /* Every column in the schema must be known to the migration, or the next
+     one added will crash an existing install exactly as this one did. */
+  {
+    const declared = new Set(Object.keys(getTableColumns(users)).map((k) => k));
+    const sqlNames = new Set(
+      Object.values(getTableColumns(users)).map((c) => c.name),
+    );
+    const live = new Set(
+      (
+        sqlite.prepare("pragma table_info(users)").all() as { name: string }[]
+      ).map((c) => c.name),
+    );
+    const missing = [...sqlNames].filter((n) => !live.has(n));
+    check(
+      `every users column in the schema exists in the database (${declared.size} fields)`,
+      missing.length === 0,
+      missing,
+    );
+  }
+
   console.log("\n9. Ledger integrity");
   const ledgerSum =
     db
@@ -434,7 +617,9 @@ async function main() {
     .prepare("delete from class_sessions where id in (?,?,?)")
     .run(lateSession.id, tooLate.id, capSession.id);
 
-  console.log(`\n${fail === 0 ? "ALL PASS" : "FAILURES"} — ${pass} passed, ${fail} failed\n`);
+  console.log(
+    `\n${fail === 0 ? "ALL PASS" : "FAILURES"} — ${pass} passed, ${fail} failed\n`,
+  );
   process.exit(fail === 0 ? 0 : 1);
 }
 

@@ -18,6 +18,13 @@ import { STUDIO } from "@/lib/studio";
  * change `--font-wordmark` and the <link> in layout.tsx; nothing else needs
  * touching. docs/type-preview.html renders the candidates at this size.
  *
+ * Both lines are sized off the *viewport*, width and height together, rather
+ * than off breakpoints: the type used to be centred in the whole viewport at a
+ * fixed size, so on a laptop window the first line ran straight through the
+ * lockup in the bar above it. Now the headline can never grow past a share of
+ * the height available to it, and the spacer below the photograph keeps it
+ * clear of the bar whatever the window does.
+ *
  * The entrance is CSS keyframes with staggered delays. The hero is on the
  * critical path of every first visit, so it carries no animation library.
  */
@@ -25,7 +32,7 @@ export function Hero() {
   const { t } = useI18n();
 
   return (
-    <section className="relative -mt-24 flex h-[100svh] min-h-[560px] items-center justify-center overflow-hidden bg-mocha-800">
+    <section className="relative -mt-24 flex h-[100svh] min-h-[560px] flex-col overflow-hidden bg-mocha-800">
       <div className="absolute inset-0">
         <Image
           src="/media/class.jpg"
@@ -45,17 +52,24 @@ export function Hero() {
         <div className="absolute inset-0 grain" />
       </div>
 
+      {/* The bar over the cover is a centred wordmark with a "by APEX Fitness
+          Centre" sub-line under it (Header.tsx, cover mode). This spacer is
+          what the headline is measured from: the section is pulled up 6rem
+          under the fixed bar, so the reserved band has to cover that pull plus
+          the lockup itself. It never shrinks, so the two can never meet. */}
+      <div aria-hidden className="h-[13rem] shrink-0" />
+
       {/* centred type, in the lettering of the wordmark */}
-      <div className="container-x relative flex flex-col items-center text-center">
+      <div className="container-x relative flex flex-1 flex-col items-center justify-center overflow-hidden pb-14 text-center sm:pb-16">
         <h1 className="flex flex-col items-center">
           <span
-            className="block animate-fade-up font-wordmark text-[1.7rem] uppercase leading-none tracking-[0.30em] text-cream/85 sm:text-[2.5rem] md:text-[3.2rem]"
+            className="block animate-fade-up font-wordmark text-[length:max(1.7rem,min(3.2rem,5.2vw,8svh))] uppercase leading-none tracking-[0.30em] text-cream/85"
             style={{ animationDelay: "160ms" }}
           >
             {t.home.hero.kicker}
           </span>
           <span
-            className="mt-2 block animate-fade-up font-wordmark text-[4.2rem] uppercase leading-[0.9] tracking-[0.01em] text-cream sm:text-[6.4rem] md:text-[8.6rem] lg:text-[10.5rem]"
+            className="mt-2 block animate-fade-up font-wordmark text-[length:max(4.2rem,min(10.5rem,17vw,26svh))] uppercase leading-[0.9] tracking-[0.01em] text-cream"
             style={{ animationDelay: "300ms" }}
           >
             {t.home.hero.word}
@@ -70,7 +84,7 @@ export function Hero() {
         </p>
 
         <div
-          className="mt-14 flex animate-fade-in flex-wrap items-center justify-center gap-3"
+          className="mt-[clamp(2rem,5svh,3.5rem)] flex animate-fade-in flex-wrap items-center justify-center gap-3"
           style={{ animationDelay: "620ms" }}
         >
           <ButtonLink href="/timetable" variant="cream" size="lg">
@@ -89,7 +103,7 @@ export function Hero() {
             so it is a mask over currentColor rather than another image
             request. */}
         <Monogram
-          className="mt-14 h-9 w-9 animate-fade-in text-cream/45 sm:mt-16 sm:h-11 sm:w-11"
+          className="mt-[clamp(1.75rem,4.5svh,3.5rem)] h-9 w-9 animate-fade-in text-cream/45 sm:h-11 sm:w-11"
           style={{ animationDelay: "820ms" }}
         />
       </div>
