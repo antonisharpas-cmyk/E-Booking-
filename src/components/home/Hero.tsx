@@ -47,23 +47,42 @@ export function Hero() {
             flattening the room's light. */}
         <div className="absolute inset-0 bg-mocha-900/55" />
         <div className="absolute inset-0 bg-gradient-to-t from-mocha-900/85 via-mocha-900/20 to-mocha-900/60" />
-        {/* lifts the centred type off the brightest part of the room */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_58%_46%_at_50%_46%,rgba(42,32,32,0.62),transparent_70%)]" />
+        {/* Lifts the type off the brightest part of the room. Centred on where
+            the type actually sits — a little below the middle, since the band
+            reserved for the lockup pushes it down — and wide enough to cover
+            the first line as well as the second. On a wide, short window the
+            headline lands squarely on a lit thigh and a pale curtain, and
+            without this the thin strokes of the first line disappear into
+            them. */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_66%_54%_at_50%_56%,rgba(42,32,32,0.66),transparent_72%)]" />
         <div className="absolute inset-0 grain" />
       </div>
 
-      {/* The bar over the cover is a centred wordmark with a "by APEX Fitness
-          Centre" sub-line under it (Header.tsx, cover mode). This spacer is
-          what the headline is measured from: the section is pulled up 6rem
-          under the fixed bar, so the reserved band has to cover that pull plus
-          the lockup itself. It never shrinks, so the two can never meet. */}
-      <div aria-hidden className="h-[13rem] shrink-0" />
+      {/* The band reserved for the bar above, which over the cover is a centred
+          wordmark with its "by APEX Fitness Centre" sub-line (Header.tsx). The
+          lockup ends 79px down, so this needs to clear that and no more —
+          it used to reserve 13rem, and the 8rem of dead air underneath was
+          what pushed the whole composition too low down the screen. Tied to
+          the viewport height so a short laptop window keeps its clearance
+          without giving up half the cover to emptiness. */}
+      <div aria-hidden className="h-[clamp(6.5rem,20svh,9rem)] shrink-0" />
 
-      {/* centred type, in the lettering of the wordmark */}
-      <div className="container-x relative flex flex-1 flex-col items-center justify-center overflow-hidden pb-14 text-center sm:pb-16">
-        <h1 className="flex flex-col items-center">
+      {/* Centred type, in the lettering of the wordmark.
+          translateZ(0) is not decoration: it puts the type on its own
+          compositing layer, so it is rasterised once, by itself, instead of
+          being re-rasterised along with the photograph drifting underneath it.
+          Without it, Windows Chrome renders some letters with parts of their
+          stems missing. */}
+      <div className="container-x relative flex flex-1 transform-gpu flex-col items-center justify-center overflow-hidden pb-[clamp(4rem,14svh,10rem)] text-center [backface-visibility:hidden]">
+        {/* Two shadows, not one: a tight one to give the hairlines an edge
+            against anything pale, and a softer one behind it for depth.
+            Marcellus is a high-contrast face and its thin strokes are what go
+            missing first over a lit background. Both blurs are kept small —
+            a wide blur on type this size is an expensive raster, and expensive
+            rasters are what tear. */}
+        <h1 className="flex flex-col items-center [text-shadow:0_1px_2px_rgba(26,20,20,0.5),0_2px_14px_rgba(26,20,20,0.42)]">
           <span
-            className="block animate-fade-up font-wordmark text-[length:max(1.7rem,min(3.2rem,5.2vw,8svh))] uppercase leading-none tracking-[0.30em] text-cream/85"
+            className="block animate-fade-up font-wordmark text-[length:max(1.7rem,min(3.2rem,5.2vw,8svh))] uppercase leading-none tracking-[0.30em] text-cream"
             style={{ animationDelay: "160ms" }}
           >
             {t.home.hero.kicker}
@@ -77,14 +96,14 @@ export function Hero() {
         </h1>
 
         <p
-          className="mt-5 animate-fade-up font-wordmark text-[11px] uppercase tracking-[0.62em] text-cream/70 sm:text-[14px]"
+          className="mt-5 animate-fade-up font-wordmark text-[11px] uppercase tracking-[0.62em] text-cream/85 [text-shadow:0_1px_10px_rgba(26,20,20,0.55)] sm:text-[14px]"
           style={{ animationDelay: "440ms" }}
         >
           {STUDIO.city}
         </p>
 
         <div
-          className="mt-[clamp(2rem,5svh,3.5rem)] flex animate-fade-in flex-wrap items-center justify-center gap-3"
+          className="mt-[clamp(1.75rem,4.5svh,3.5rem)] flex animate-fade-in flex-wrap items-center justify-center gap-3"
           style={{ animationDelay: "620ms" }}
         >
           <ButtonLink href="/timetable" variant="cream" size="lg">
@@ -100,10 +119,11 @@ export function Hero() {
         </div>
 
         {/* The mark closes the composition under the buttons. It is decorative,
-            so it is a mask over currentColor rather than another image
-            request. */}
+            so it is a mask over currentColor rather than another image request
+            — and on a short window it steps aside rather than being clipped in
+            half by the bottom of the cover. */}
         <Monogram
-          className="mt-[clamp(1.75rem,4.5svh,3.5rem)] h-9 w-9 animate-fade-in text-cream/45 sm:h-11 sm:w-11"
+          className="mt-[clamp(1.5rem,4svh,3.25rem)] h-9 w-9 animate-fade-in text-cream/45 [@media(max-height:700px)]:hidden sm:h-11 sm:w-11"
           style={{ animationDelay: "820ms" }}
         />
       </div>

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
+import { Chrome } from "@/components/site/Chrome";
 import { Footer } from "@/components/site/Footer";
 import { Header, type HeaderUser } from "@/components/site/Header";
 import {
@@ -13,6 +14,7 @@ import { currentUser } from "@/lib/auth";
 import { hasAvatar } from "@/lib/avatars";
 import { getAvailableCredits } from "@/lib/credits";
 import "./globals.css";
+import { unreadCount } from "@/lib/notices";
 
 export const metadata: Metadata = {
   title: {
@@ -56,6 +58,9 @@ export default async function RootLayout({
         role: user.role,
         credits: await getAvailableCredits(user.id),
         hasPhoto: await hasAvatar(user.id),
+        /* The number on their face in the corner: notices from the studio they
+           have not read yet. */
+        unread: unreadCount(user.id),
       }
     : null;
 
@@ -87,9 +92,11 @@ export default async function RootLayout({
       </head>
       <body className="min-h-dvh bg-cream">
         <LanguageProvider initialLocale={locale}>
-          <Header user={headerUser} />
-          <main className="pt-24">{children}</main>
-          <Footer />
+          {/* The public bar and footer everywhere except the reception desk,
+              which brings its own — see components/site/Chrome.tsx. */}
+          <Chrome header={<Header user={headerUser} />} footer={<Footer />}>
+            {children}
+          </Chrome>
         </LanguageProvider>
       </body>
     </html>

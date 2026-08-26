@@ -66,11 +66,26 @@ for (const p of [
   check(`GET ${p} → 200`, r.status === 200, r.status);
 }
 
-console.log("\n2. Guarded pages redirect when signed out");
-for (const p of ["/account", "/admin"]) {
-  const r = await req(p);
-  check(`GET ${p} redirects`, r.status === 307 || r.status === 302, r.status);
-}
+console.log("\n2. Guarded pages are closed when signed out");
+const guardedAccount = await req("/account");
+check(
+  "GET /account redirects",
+  guardedAccount.status === 307 || guardedAccount.status === 302,
+  guardedAccount.status,
+);
+/* /admin is deliberately not a redirect: typing the address is the whole
+   journey, so the door itself asks for staff credentials. What matters is that
+   the page is the sign-in form and none of the console leaked into it. */
+const guardedAdmin = await req("/admin");
+check(
+  "GET /admin serves its own sign-in form",
+  guardedAdmin.status === 200 && guardedAdmin.text.includes("desk-email"),
+  guardedAdmin.status,
+);
+check(
+  "GET /admin leaks none of the console",
+  !/desk-tab|data-desk-console/.test(guardedAdmin.text),
+);
 const noAuth = await req("/api/bookings");
 check("GET /api/bookings needs auth", noAuth.status === 401, noAuth.status);
 
@@ -128,30 +143,29 @@ const noCredits = await req("/api/bookings", {
 });
 check("booking refused with no credits", noCredits.json?.error === "NO_CREDITS", noCredits.json);
 
-console.log("\n6. Buy a pack (dev grant path)");
+console.log("\n6. Buy a pack");
 const pricing = await req("/pricing");
 check("pricing page renders €200 pack", pricing.text.includes("200"));
 check("the 3-class pack is no longer offered", !/Intro\s*·\s*3/.test(pricing.text));
 check("no 3-session pack anywhere on the page", !/"credits":3/.test(pricing.text));
-/* find the 10-class package id via the sessions-free admin-less route: parse from HTML is brittle,
-   so use the seeded slug through a tiny lookup endpoint substitute: the checkout route needs an id.
-   We read it from the page payload instead. */
-const idMatch = [...pricing.text.matchAll(/"id":"([0-9a-f-]{36})","slug":"pack-10"/g)];
-let packageId = idMatch[0]?.[1] ?? null;
-if (!packageId) {
-  const anyMatch = pricing.text.match(/\\"id\\":\\"([0-9a-f-]{36})\\",\\"slug\\":\\"pack-10\\"/);
-  packageId = anyMatch?.[1] ?? null;
-}
-check("found the 10-class package id in page data", Boolean(packageId), packageId);
 
-if (packageId) {
-  const checkout = await req("/api/checkout", { method: "POST", body: { packageId } });
-  check(
-    "checkout grants credits when Stripe is unset",
-    checkout.json?.devGranted === true && checkout.json?.credits === 10,
-    checkout.json,
-  );
-}
+/* Buying is two steps now, the same two a card goes through: open the payment,
+   then settle it. Nothing is granted by opening it — see scripts/test-payments.mjs
+   for the full set of promises around that. */
+const opened = await req("/api/checkout", { method: "POST", body: { packSlug: "pack-10" } });
+check("a payment opens for the 10-class pack", Boolean(opened.json?.purchaseId), opened.json);
+check(
+  "the provider says how to pay",
+  ["fields", "redirect", "test"].includes(opened.json?.mode),
+  opened.json,
+);
+
+const settled = await req("/api/payments/settle", {
+  method: "POST",
+  body: { purchaseId: opened.json?.purchaseId },
+});
+check("settling it grants the sessions", settled.json?.status === "PAID", settled.json);
+check("balance is 10", settled.json?.credits === 10, settled.json);
 
 console.log("\n7. Book with credits");
 const booked = await req("/api/bookings", { method: "POST", body: { sessionId: target.id } });
@@ -207,19 +221,48 @@ for (const [k, v] of otherJarBackup) jar.set(k, v);
 console.log("\n10. Admin is staff-only");
 const adminBlocked = await req("/api/admin/generate", { method: "POST", body: { weeks: 1 } });
 check("member cannot generate schedule", adminBlocked.status === 403, adminBlocked.status);
+/* A signed-in member sees the very same door a stranger sees — no redirect to
+   their account, no hint that they are on the wrong side of it. */
 const adminPage = await req("/admin");
-check("member redirected away from /admin", adminPage.status === 307 || adminPage.status === 302, adminPage.status);
+check(
+  "member sees the desk door, not the console",
+  adminPage.status === 200 &&
+    adminPage.text.includes("desk-email") &&
+    !adminPage.text.includes("data-desk-console"),
+  adminPage.status,
+);
 
-console.log("\n11. Admin login works");
+console.log("\n11. Admin login, and the desk's own lock");
 jar.clear();
 const adminLogin = await req("/api/auth/login", {
   method: "POST",
-  body: { email: "admin@apexpilates.cy", password: "apexadmin123" },
+  body: { email: "owner@apexpilates.cy", password: "ownerdev123" },
 });
 check("admin signs in", adminLogin.json?.ok === true, adminLogin.json);
+
+/* The console is behind a second door: staff, and the password typed again.
+   scripts/test-desk.mjs is where that lock is tested properly. */
+const locked = await req("/admin");
+check("the console loads", locked.status === 200, locked.status);
+check("locked, asking for the password", locked.text.includes("desk-password"));
+const blocked = await req("/api/admin/generate", { method: "POST", body: { weeks: 2 } });
+check("and its actions are refused until then", blocked.status === 423, blocked.status);
+
+await req("/api/admin/unlock", {
+  method: "POST",
+  body: { password: "ownerdev123" },
+});
 const adminOk = await req("/admin");
-check("admin dashboard loads", adminOk.status === 200, adminOk.status);
-check("dashboard shows KPIs", adminOk.text.includes("Members"));
+check("unlocked, the dashboard loads", adminOk.status === 200, adminOk.status);
+/* The console proper, not the door: its marker and its own tab bar. The
+   analytics live behind a tab of their own now, so the opening screen is the
+   day's bookings rather than a row of takings. */
+check(
+  "the console itself is on screen",
+  adminOk.text.includes("data-desk-console") &&
+    adminOk.text.includes('data-desk-tab="analytics"'),
+  "no desk console",
+);
 const gen = await req("/api/admin/generate", { method: "POST", body: { weeks: 2 } });
 check("admin can generate schedule", gen.json?.ok === true, gen.json);
 

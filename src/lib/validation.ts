@@ -94,9 +94,18 @@ export const bookSchema = z.object({
   sessionId: z.string().min(1),
 });
 
-export const checkoutSchema = z.object({
-  packageId: z.string().min(1),
-});
+/**
+ * Either identifier will do. The checkout page knows the pack by the slug in
+ * its own URL, so making it look the id up first was a round trip for nothing.
+ */
+export const checkoutSchema = z
+  .object({
+    packageId: z.string().min(1).optional(),
+    packSlug: z.string().min(1).optional(),
+  })
+  .refine((v) => Boolean(v.packageId || v.packSlug), {
+    message: "packageId or packSlug is required",
+  });
 
 /**
  * A message short enough to be a mistyped word is not an enquiry, so the studio

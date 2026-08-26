@@ -13,7 +13,12 @@ export type PackageCard = {
   nameEn: string;
   nameEl: string;
   credits: number;
+  /** What it costs today, offer included. */
   priceCents: number;
+  /** The normal price, when an offer is running. */
+  listPriceCents?: number | null;
+  discountLabelEn?: string | null;
+  discountLabelEl?: string | null;
   validityDays: number;
   badge: string | null;
 };
@@ -30,48 +35,18 @@ export function PricingGrid({
   const { t, locale, fmtMoney } = useI18n();
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const el = locale === "el";
 
-  async function buy(pkg: PackageCard) {
-    if (!signedIn) {
-      router.push(`/login?next=/pricing&pkg=${pkg.slug}`);
-      return;
-    }
+  /* The pack card no longer takes the payment. It sends the member to the
+     checkout page, which is where the order and the card sit side by side —
+     the same shape as any shop, and it means the buy button never has to
+     explain a provider error to somebody who has not decided to pay yet. */
+  function buy(pkg: PackageCard) {
+    const next = `/checkout?pack=${pkg.slug}`;
     setBusy(pkg.id);
-    setError(null);
-    try {
-      const res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packageId: pkg.id }),
-      });
-      const data = (await res.json()) as {
-        url?: string;
-        error?: string;
-        devGranted?: boolean;
-      };
-      if (data.url) {
-        window.location.href = data.url;
-        return;
-      }
-      if (data.devGranted) {
-        router.push("/checkout/success?dev=1");
-        return;
-      }
-      const friendly: Record<string, string> = {
-        PAYMENTS_NOT_CONFIGURED:
-          "Card payments are not switched on yet. Please contact the studio to buy a pack.",
-        PAYMENT_PROVIDER_ERROR:
-          "The payment provider could not be reached. Please try again in a moment.",
-        UNAUTHENTICATED: t.pricingPage.buySignedOut,
-      };
-      setError(friendly[data.error ?? ""] ?? t.common.somethingWrong);
-    } catch {
-      setError(t.common.somethingWrong);
-    } finally {
-      setBusy(null);
-    }
+    router.push(
+      signedIn ? next : `/login?next=${encodeURIComponent(next)}&pkg=${pkg.slug}`,
+    );
   }
 
   return (
@@ -121,14 +96,41 @@ export function PricingGrid({
                   {el ? p.nameEl : p.nameEn}
                 </p>
 
+                {/* When an offer is running the old price stays on the card,
+                    struck through. A discount nobody can see the size of is
+                    not much of a discount. */}
                 <p
                   className={cn(
-                    "h-display mt-5 text-5xl",
+                    "h-display mt-5 flex items-baseline gap-3 text-5xl",
                     highlight ? "text-cream" : "text-mocha-600",
                   )}
                 >
                   {fmtMoney(p.priceCents)}
+                  {p.listPriceCents ? (
+                    <span
+                      className={cn(
+                        "text-2xl line-through",
+                        highlight ? "text-cream/45" : "text-clay/70",
+                      )}
+                    >
+                      {fmtMoney(p.listPriceCents)}
+                    </span>
+                  ) : null}
                 </p>
+
+                {p.listPriceCents ? (
+                  <p
+                    className={cn(
+                      "mt-3 inline-flex rounded-full px-3 py-1 text-[10px] uppercase tracking-widest",
+                      highlight
+                        ? "bg-cream/15 text-cream"
+                        : "bg-gold/15 text-[#8a6f1a]",
+                    )}
+                  >
+                    {(el ? p.discountLabelEl : p.discountLabelEn) ||
+                      t.pricingPage.offer}
+                  </p>
+                ) : null}
 
                 <p
                   className={cn(
@@ -173,11 +175,12 @@ export function PricingGrid({
                     variant={highlight ? "cream" : "solid"}
                     className="w-full"
                   >
-                    {busy === p.id
-                      ? t.common.loading
-                      : signedIn
-                        ? t.pricingPage.buy
-                        : t.pricingPage.buySignedOut}
+                    {/* The same words whether or not they are signed in. A
+                        card that says "sign in to buy" asks for a decision
+                        about accounts before the decision about buying; if
+                        they are not signed in, the login page comes and goes
+                        and drops them on the checkout anyway. */}
+                    {busy === p.id ? t.common.loading : t.pricingPage.buy}
                   </Button>
                 </div>
               </article>
@@ -185,12 +188,6 @@ export function PricingGrid({
           );
         })}
       </RevealGroup>
-
-      {error && (
-        <p className="mt-6 rounded-xl border border-red-300/60 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </p>
-      )}
 
       {showIncludes && (
         <div className="mt-16 grid gap-10 rounded-3xl border border-mocha-200/70 bg-cream-200/60 p-8 md:grid-cols-[1fr_1.2fr] md:p-10">

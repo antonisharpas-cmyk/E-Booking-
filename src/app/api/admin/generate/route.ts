@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
-import { AuthError, requireStaff } from "@/lib/auth";
+import { desk } from "@/lib/api-guard";
 import { generateSessions } from "@/lib/schedule";
 import { generateSchema } from "@/lib/validation";
 
+/** Rolls the weekly rota forward. Behind the desk lock. */
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
-  try {
-    await requireStaff();
-  } catch (e) {
-    const status = e instanceof AuthError && e.code === "FORBIDDEN" ? 403 : 401;
-    return NextResponse.json({ error: "NOT_ALLOWED" }, { status });
-  }
+  const gate = await desk();
+  if ("res" in gate) return gate.res;
 
   const parsed = generateSchema.safeParse(await req.json().catch(() => ({ weeks: 6 })));
   const weeks = parsed.success ? parsed.data.weeks : 6;

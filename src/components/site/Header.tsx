@@ -16,6 +16,8 @@ export type HeaderUser = {
   role: string;
   credits: number;
   hasPhoto: boolean;
+  /** Unread notices from the studio. Shown as a count on their face. */
+  unread: number;
 } | null;
 
 export function Header({ user }: { user: HeaderUser }) {
@@ -393,14 +395,27 @@ function AccountMenu({
         {/* Their own face in the corner of every page: the quickest way to know
             which account you are looking at. Falls back to the plain user mark
             until a photo is uploaded. */}
-        <UserAvatar
-          hasPhoto={user.hasPhoto}
-          name={user.name}
-          className={cn(
-            "h-6 w-6 border-0",
-            onDark ? "bg-cream/15" : "bg-mocha-100",
+        <span className="relative">
+          <UserAvatar
+            hasPhoto={user.hasPhoto}
+            name={user.name}
+            className={cn(
+              "h-6 w-6 border-0",
+              onDark ? "bg-cream/15" : "bg-mocha-100",
+            )}
+          />
+          {/* Unread notices, counted on their own face. Sits on the avatar
+              rather than beside the name so it survives the phone layout,
+              where the name is not shown. */}
+          {user.unread > 0 && (
+            <span
+              aria-label={`${user.unread} unread`}
+              className="absolute -right-1.5 -top-1.5 grid h-[15px] min-w-[15px] place-items-center rounded-full bg-gold px-1 text-[9px] font-medium leading-none text-mocha-900 lining-nums tabular-nums ring-2 ring-cream"
+            >
+              {user.unread > 9 ? "9+" : user.unread}
+            </span>
           )}
-        />
+        </span>
         <span
           className={cn(
             "hidden text-[11px] uppercase tracking-widest sm:inline",
@@ -440,7 +455,14 @@ function AccountMenu({
             onClick={() => setOpen(false)}
             className="block rounded-2xl px-4 py-2.5 text-[11px] uppercase tracking-widest text-mocha-500 transition-colors hover:bg-cream-200 hover:text-mocha-700"
           >
-            {t.accountTabs[id]}
+            <span className="flex items-center justify-between gap-3">
+              {t.accountTabs[id]}
+              {id === "notifications" && user.unread > 0 && (
+                <span className="grid h-[17px] min-w-[17px] place-items-center rounded-full bg-gold px-1 text-[9px] leading-none text-mocha-900 lining-nums tabular-nums">
+                  {user.unread}
+                </span>
+              )}
+            </span>
           </Link>
         ))}
         <div className="my-1.5 h-px bg-mocha-200/70" />

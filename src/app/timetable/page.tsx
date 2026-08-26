@@ -6,6 +6,7 @@ import {
 } from "@/components/booking/ScheduleClient";
 import { TimetableIntro } from "@/components/booking/TimetableIntro";
 import { readSession } from "@/lib/auth";
+import { closedDaySet } from "@/lib/closures";
 import { listSessions } from "@/lib/booking";
 import { getAvailableCredits } from "@/lib/credits";
 import {
@@ -74,7 +75,14 @@ export default async function TimetablePage() {
 
   /* Sundays never appear: the studio is closed. The window is still 28 calendar
      days wide, so it rolls forward a day at a time on its own. */
-  const days = studioDayKeys(from, DAYS_SHOWN, [0]);
+  const closed = closedDaySet();
+  const days = studioDayKeys(from, DAYS_SHOWN, [0]).filter(
+    /* Public holidays and the summer break, set at the desk. The classes on a
+       closed day are cancelled too, so they would drop out of the list anyway —
+       but the day itself has to go, or the timetable offers an empty date and
+       makes the visitor wonder what they are missing. */
+    (d) => !closed.has(d),
+  );
 
   return (
     <TimetableIntro>

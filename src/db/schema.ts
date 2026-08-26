@@ -239,8 +239,10 @@ export const purchases = sqliteTable(
     currency: text("currency").notNull().default("eur"),
     /** PENDING | PAID | FAILED | REFUNDED */
     status: text("status").notNull().default("PENDING"),
-    /** stripe | manual */
+    /** stripe | hosted | test | manual */
     provider: text("provider").notNull().default("stripe"),
+    /** The provider's own reference for this payment, whoever the provider is. */
+    providerRef: text("provider_ref"),
     stripeSession: text("stripe_session"),
     stripeIntent: text("stripe_intent"),
     createdAt: now().notNull(),
@@ -394,6 +396,101 @@ export const creditBatchesRelations = relations(creditBatches, ({ one }) => ({
   }),
 }));
 
+/* -------------------------------------------------- The studio's own diary */
+
+/**
+ * A day the studio is shut: a public holiday, the summer break, a burst pipe.
+ *
+ * Stored as the studio's own calendar day (YYYY-MM-DD in Asia/Nicosia) rather
+ * than a timestamp, because "closed on the 15th" is a statement about a day in
+ * Larnaca, not about an instant. Closing a day cancels and refunds everything
+ * booked on it, and the timetable stops offering it.
+ */
+export const studioClosures = sqliteTable(
+  "studio_closures",
+  {
+    id: id(),
+    /** YYYY-MM-DD in the studio's timezone. */
+    day: text("day").notNull(),
+    reasonEn: text("reason_en").notNull().default(""),
+    reasonEl: text("reason_el").notNull().default(""),
+    createdBy: text("created_by").references(() => users.id),
+    createdAt: now().notNull(),
+  },
+  (t) => [uniqueIndex("studio_closures_day_idx").on(t.day)],
+);
+
+/* ------------------------------------------------------------ Studio notices */
+
+/** A message from the studio to its members, written at the desk. */
+export const notices = sqliteTable(
+  "notices",
+  {
+    id: id(),
+    titleEn: text("title_en").notNull(),
+    bodyEn: text("body_en").notNull(),
+    /** Optional Greek version. Falls back to the English one when empty. */
+    titleEl: text("title_el").notNull().default(""),
+    bodyEl: text("body_el").notNull().default(""),
+    /** ALL — kept as a column so a segment can be added without a migration. */
+    audience: text("audience").notNull().default("ALL"),
+    /** Marks the ones that matter: shown with the studio's gold accent. */
+    important: integer("important", { mode: "boolean" }).notNull().default(false),
+    createdBy: text("created_by").references(() => users.id),
+    createdAt: now().notNull(),
+  },
+  (t) => [index("notices_created_idx").on(t.createdAt)],
+);
+
+/**
+ * Who has read what. A row exists only once somebody has read a notice, so
+ * "unread" is the absence of a row — nothing has to be written when a notice is
+ * sent, however many members there are.
+ */
+export const noticeReads = sqliteTable(
+  "notice_reads",
+  {
+    noticeId: text("notice_id")
+      .notNull()
+      .references(() => notices.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    readAt: integer("read_at", { mode: "timestamp" }).notNull(),
+  },
+  (t) => [uniqueIndex("notice_reads_idx").on(t.noticeId, t.userId)],
+);
+
+/* ------------------------------------------------------------------ Pricing */
+
+/**
+ * A discount the studio is running.
+ *
+ * `packageId` null means the whole list; set, it overrides the list rule for
+ * that one pack. Only rows with `active` count, so an offer is switched off
+ * rather than deleted and the history of what was run stays.
+ */
+export const pricingRules = sqliteTable(
+  "pricing_rules",
+  {
+    id: id(),
+    /** null = every pack */
+    packageId: text("package_id").references(() => creditPackages.id, {
+      onDelete: "cascade",
+    }),
+    /** PERCENT | FLAT */
+    kind: text("kind").notNull(),
+    /** Percent (1-90) or cents off, depending on kind. */
+    value: integer("value").notNull(),
+    labelEn: text("label_en").notNull().default(""),
+    labelEl: text("label_el").notNull().default(""),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdBy: text("created_by").references(() => users.id),
+    createdAt: now().notNull(),
+  },
+  (t) => [index("pricing_rules_active_idx").on(t.active)],
+);
+
 /* ------------------------------------------------------------------- Types */
 
 export type User = typeof users.$inferSelect;
@@ -406,3 +503,6 @@ export type Booking = typeof bookings.$inferSelect;
 export type Purchase = typeof purchases.$inferSelect;
 export type CreditBatch = typeof creditBatches.$inferSelect;
 export type CreditLedgerRow = typeof creditLedger.$inferSelect;
+export type StudioClosure = typeof studioClosures.$inferSelect;
+export type Notice = typeof notices.$inferSelect;
+export type PricingRule = typeof pricingRules.$inferSelect;

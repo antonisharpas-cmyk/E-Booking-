@@ -1,0 +1,132 @@
+APEX pilates — installation report
+2026-08-26T11:05:14.330Z
+
+## Machine
+node            v24.14.1
+platform        win32 x64 (10.0.26200)
+cwd             C:\Users\MichalisAthanasiades\source\repos\apex-pilates
+npm             11.11.0
+
+## Dependencies
+declared        25
+installed       all of them
+better-sqlite3  compiled (better_sqlite3.node)
+
+## .env (names only, never values)
+DATABASE_URL                           set          13 chars
+AUTH_SECRET                            set          44 chars
+NEXT_PUBLIC_SITE_URL                   set          21 chars
+STRIPE_SECRET_KEY                      placeholder  11 chars
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY     placeholder  11 chars
+STRIPE_WEBHOOK_SECRET                  placeholder  9 chars
+
+## Production build
+(this is the definitive answer on whether the code compiles here)
+
+exit code       0
+
+▲ Next.js 15.3.1
+   - Environments: .env
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 7.0s
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/24) ...
+   Generating static pages (6/24) 
+   Generating static pages (12/24) 
+   Generating static pages (18/24) 
+ ✓ Generating static pages (24/24)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+┌ ƒ /                                    4.38 kB         142 kB
+├ ƒ /_not-found                            199 B         101 kB
+├ ƒ /account                             10.1 kB         152 kB
+├ ƒ /admin                               3.91 kB         132 kB
+├ ƒ /api/admin/attendance                  199 B         101 kB
+├ ƒ /api/admin/generate                    199 B         101 kB
+├ ƒ /api/admin/grant                       199 B         101 kB
+├ ƒ /api/auth/login                        199 B         101 kB
+├ ƒ /api/auth/logout                       199 B         101 kB
+├ ƒ /api/auth/register                     199 B         101 kB
+├ ƒ /api/bookings                          199 B         101 kB
+├ ƒ /api/bookings/cancel                   199 B         101 kB
+├ ƒ /api/checkout                          199 B         101 kB
+├ ƒ /api/contact                           199 B         101 kB
+├ ƒ /api/payments/return                   199 B         101 kB
+├ ƒ /api/payments/settle                   199 B         101 kB
+├ ƒ /api/profile                           199 B         101 kB
+├ ƒ /api/profile/avatar                    199 B         101 kB
+├ ƒ /api/profile/password                  199 B         101 kB
+├ ƒ /api/reminders/due                     199 B         101 kB
+├ ƒ /api/sessions                          199 B         101 kB
+├ ƒ /api/stripe/webhook                    199 B         101 kB
+├ ƒ /checkout                            5.38 kB         133 kB
+├ ƒ /checkout/cancelled                  2.34 kB         130 kB
+├ ƒ /checkout/success                    2.34 kB         130 kB
+├ ƒ /classes                             3.05 kB         136 kB
+├ ƒ /contact                              4.9 kB         147 kB
+├ ƒ /login                               2.44 kB         130 kB
+├ ƒ /pricing                             3.25 kB         131 kB
+├ ƒ /privacy                             3.08 kB         127 kB
+├ ƒ /register                            2.44 kB         130 kB
+├ ○ /robots.txt                            199 B         101 kB
+├ ○ /sitemap.xml                           199 B         101 kB
+├ ƒ /studio                               1.2 kB         139 kB
+├ ƒ /terms                               3.08 kB         127 kB
+└ ƒ /timetable                           5.28 kB         133 kB
++ First Load JS shared by all             101 kB
+  ├ chunks/1684-37a11bf60a3e4203.js      45.9 kB
+  ├ chunks/4bd1b696-85c24fb624134b7e.js  53.2 kB
+  └ other shared chunks (total)          2.03 kB
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+## Doctor
+APEX pilates — installation check
+database: ./dev.db
+
+Tables
+  ✓ users
+  ✓ class_types
+  ✓ class_templates
+  ✓ class_sessions
+  ✓ bookings
+  ✓ credit_packages
+  ✓ credit_batches
+  ✓ credit_ledger
+  ✓ instructors
+  ✓ user_avatars
+  ✓ booking_reminders
+
+Columns the app needs
+  ✓ users.service_opt_in_at
+  ✓ users.marketing_opt_in
+  ✓ users.notify_email
+  ✓ users.notify_sms
+  ✓ users.notify_push
+  ✓ users.reminder_minutes
+  ✓ users.birth_date
+  ✓ users.height_cm
+  ✓ users.weight_grams
+  ✓ instructors.photo_url
+
+Accounts
+  ✓ 3 accounts
+  ✓ 1 staff account
+
+The room, as the timetable has it
+  ✓ every upcoming class is 60 minutes with five places
+  ✓ 326 classes scheduled ahead
+
+What is on sale
+  ✓ packs on sale: single, pack-5, pack-10, pack-20
+
+Taking money
+  ✓ test mode: the card form charges nothing (fine in development)
+
+Everything looks right.

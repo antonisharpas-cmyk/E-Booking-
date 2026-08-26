@@ -36,6 +36,7 @@ const COLUMNS: Record<string, Column[]> = {
     { name: "notes", ddl: "text" },
   ],
   instructors: [{ name: "photo_url", ddl: "text" }],
+  purchases: [{ name: "provider_ref", ddl: "text" }],
 };
 
 const TABLES: { name: string; ddl: string }[] = [
@@ -64,6 +65,53 @@ const TABLES: { name: string; ddl: string }[] = [
             created_at integer not null
           )`,
   },
+  {
+    name: "studio_closures",
+    ddl: `create table studio_closures (
+            id text primary key not null,
+            day text not null,
+            reason_en text default '' not null,
+            reason_el text default '' not null,
+            created_by text references users(id),
+            created_at integer not null
+          )`,
+  },
+  {
+    name: "notices",
+    ddl: `create table notices (
+            id text primary key not null,
+            title_en text not null,
+            body_en text not null,
+            title_el text default '' not null,
+            body_el text default '' not null,
+            audience text default 'ALL' not null,
+            important integer default 0 not null,
+            created_by text references users(id),
+            created_at integer not null
+          )`,
+  },
+  {
+    name: "notice_reads",
+    ddl: `create table notice_reads (
+            notice_id text not null references notices(id) on delete cascade,
+            user_id text not null references users(id) on delete cascade,
+            read_at integer not null
+          )`,
+  },
+  {
+    name: "pricing_rules",
+    ddl: `create table pricing_rules (
+            id text primary key not null,
+            package_id text references credit_packages(id) on delete cascade,
+            kind text not null,
+            value integer not null,
+            label_en text default '' not null,
+            label_el text default '' not null,
+            active integer default 1 not null,
+            created_by text references users(id),
+            created_at integer not null
+          )`,
+  },
 ];
 
 const INDEXES: { name: string; ddl: string }[] = [
@@ -74,6 +122,22 @@ const INDEXES: { name: string; ddl: string }[] = [
   {
     name: "booking_reminders_booking_idx",
     ddl: "create unique index booking_reminders_booking_idx on booking_reminders (booking_id)",
+  },
+  {
+    name: "studio_closures_day_idx",
+    ddl: "create unique index studio_closures_day_idx on studio_closures (day)",
+  },
+  {
+    name: "notices_created_idx",
+    ddl: "create index notices_created_idx on notices (created_at)",
+  },
+  {
+    name: "notice_reads_idx",
+    ddl: "create unique index notice_reads_idx on notice_reads (notice_id, user_id)",
+  },
+  {
+    name: "pricing_rules_active_idx",
+    ddl: "create index pricing_rules_active_idx on pricing_rules (active)",
   },
 ];
 

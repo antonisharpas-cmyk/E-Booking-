@@ -80,6 +80,14 @@
     @apply w-full rounded-xl border border-mocha-200 bg-white/80 px-4 py-3 text-mocha-700 outline-none transition placeholder:text-clay/70 focus:border-mocha-500 focus:ring-2 focus:ring-mocha-500/15;
   }
 
+  /* A <select> with .input, so the picked-not-typed fields match the typed
+     ones: the browser's own arrow is replaced with the site's chevron and the
+     padding leaves room for it. */
+  select.input {
+    @apply cursor-pointer appearance-none bg-[length:0.7rem] bg-[right_1rem_center] bg-no-repeat pr-10;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23A08D85' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E");
+  }
+
   .label {
     @apply mb-2 block text-[11px] uppercase tracking-widest text-clay;
   }
@@ -137,7 +145,13 @@
 
   /* ---- slow drift on hero imagery ---- */
   .kenburns {
-    animation: kenburns 26s ease-in-out infinite alternate;
+    /* Runs once and settles, rather than for ever.
+       An endlessly animating transform keeps its layer recompositing on every
+       frame of the visit, and on Windows Chrome the type painted over it can
+       end up rasterised from stale tiles — letters arriving with pieces of
+       their stems missing while their neighbours are perfect. The drift is
+       only noticed on arrival anyway, so it now plays through and stops. */
+    animation: kenburns 24s cubic-bezier(0.33, 0, 0.2, 1) both;
   }
 
   /* ---- scroll cue ---- */

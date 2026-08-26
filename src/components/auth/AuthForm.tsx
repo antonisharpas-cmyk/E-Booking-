@@ -227,8 +227,14 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 
           <p className="mt-6 text-center text-[12px] text-mocha-500">
             {isLogin ? t.auth.noAccount : t.auth.hasAccount}{" "}
+            {/* Carries the destination across. Somebody who pressed "Buy pack"
+                without an account goes login -> register -> checkout, and
+                losing the pack in the middle of that would send them back to
+                the pricing page to start again. */}
             <Link
-              href={isLogin ? "/register" : "/login"}
+              href={`${isLogin ? "/register" : "/login"}${
+                next !== "/account" ? `?next=${encodeURIComponent(next)}` : ""
+              }`}
               className="link-underline text-mocha-600"
             >
               {isLogin ? t.auth.signUp : t.auth.signIn}

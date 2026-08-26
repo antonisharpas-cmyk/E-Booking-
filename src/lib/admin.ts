@@ -1,4 +1,18 @@
-import { and, asc, desc, eq, gte, lte, ne, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  gte,
+  isNull,
+  lt,
+  lte,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
+import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { db } from "@/db";
 import {
   bookings,
@@ -11,28 +25,155 @@ import {
 } from "@/db/schema";
 import { studioAddDays, studioStartOfDay } from "./time";
 
-export async function studioStats() {
+export type StudioStats = {
+  /** Every account, and how many of them arrived inside the period. */
+  members: number;
+  newMembers: number;
+  /** Members holding at least one live session — the studio's active list. */
+  membersWithSessions: number;
+  /** Bookings made inside the period and still standing. */
+  bookings: number;
+  /** Bookings made inside the period that were later cancelled. */
+  cancellations: number;
+  /** Sessions members are holding right now, unspent and unexpired. */
+  sessionsOutstanding: number;
+  /** Sessions already spent on classes still to come. */
+  sessionsBooked: number;
+  /** Money actually taken inside the period. */
+  revenueCents: number;
+  /** Classes on the books ahead of today, for the header line. */
+  upcomingSessions: number;
+};
+
+/** A period the desk asked for, as two day keys. Either end may be open. */
+export type StatsRange = { from?: string | null; to?: string | null };
+
+/** YYYY-MM-DD, or nothing. Anything else is treated as no bound at all. */
+function bound(key: string | null | undefined) {
+  if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return null;
+  const d = new Date(`${key}T12:00:00Z`);
+  return Number.isNaN(d.getTime()) ? null : studioStartOfDay(d);
+}
+
+/**
+ * The numbers on the desk's front screen.
+ *
+ * The range is the period the *flows* are measured over — bookings taken, money
+ * banked, members who joined. The *stocks* ignore it, because "how many sessions
+ * are members holding" has no period: it is true now or it is not. Mixing the
+ * two on one screen is how a dashboard ends up lying, so the labels say which
+ * is which and this function keeps them apart.
+ *
+ * Both ends are inclusive and are whole studio days: a range of the 1st to the
+ * 1st is that one day, midnight to midnight, not a zero-length instant. Leaving
+ * both ends off means all time.
+ */
+export async function studioStats(
+  range: StatsRange = {},
+): Promise<StudioStats> {
+  const since = bound(range.from);
+  /* The far end is exclusive in the query and inclusive to the reader, so the
+     last day of the period counts in full rather than up to its first second. */
+  const untilDay = bound(range.to);
+  const until = untilDay ? studioAddDays(untilDay, 1) : null;
+
+  /** Every flow is filtered the same way, so it is written once. */
+  const within = (col: SQLiteColumn) => {
+    const parts = [
+      ...(since ? [gte(col, since)] : []),
+      ...(until ? [lt(col, until)] : []),
+    ];
+    return parts.length ? and(...parts) : undefined;
+  };
+  const bounded = Boolean(since || until);
+
   const memberCount =
-    db.select({ n: sql<number>`count(*)` }).from(users).get()?.n ?? 0;
+    db
+      .select({ n: sql<number>`count(*)` })
+      .from(users)
+      .get()?.n ?? 0;
+
+  const newMembers = bounded
+    ? (db
+        .select({ n: sql<number>`count(*)` })
+        .from(users)
+        .where(within(users.createdAt))
+        .get()?.n ?? 0)
+    : Number(memberCount);
+
+  /* One live session is enough to count as active: they are coming back. */
+  const membersWithSessions =
+    db
+      .select({ n: sql<number>`count(distinct ${creditBatches.userId})` })
+      .from(creditBatches)
+      .where(
+        and(
+          gt(creditBatches.creditsRemaining, 0),
+          or(
+            isNull(creditBatches.expiresAt),
+            gt(creditBatches.expiresAt, new Date()),
+          ),
+        ),
+      )
+      .get()?.n ?? 0;
 
   const bookingCount =
     db
       .select({ n: sql<number>`count(*)` })
       .from(bookings)
-      .where(ne(bookings.status, "CANCELLED"))
+      .where(and(ne(bookings.status, "CANCELLED"), within(bookings.createdAt)))
       .get()?.n ?? 0;
 
-  const creditsOutstanding =
+  /* Counted separately rather than folded into the number above. A desk
+     reading "12 bookings" needs to know whether the day was quiet or whether
+     nine people cancelled, and a single net figure hides the difference. */
+  const cancelledCount =
     db
-      .select({ n: sql<number>`coalesce(sum(credits_remaining),0)` })
+      .select({ n: sql<number>`count(*)` })
+      .from(bookings)
+      .where(and(eq(bookings.status, "CANCELLED"), within(bookings.createdAt)))
+      .get()?.n ?? 0;
+
+  /* Only sessions that can still be spent. A batch that has expired is not
+     money the studio owes anybody a class for. */
+  const sessionsOutstanding =
+    db
+      .select({
+        n: sql<number>`coalesce(sum(${creditBatches.creditsRemaining}),0)`,
+      })
       .from(creditBatches)
+      .where(
+        and(
+          gt(creditBatches.creditsRemaining, 0),
+          or(
+            isNull(creditBatches.expiresAt),
+            gt(creditBatches.expiresAt, new Date()),
+          ),
+        ),
+      )
+      .get()?.n ?? 0;
+
+  /* Sessions already committed to a class that has not happened yet: what the
+     studio owes in teaching rather than in credit. */
+  const sessionsBooked =
+    db
+      .select({ n: sql<number>`count(*)` })
+      .from(bookings)
+      .innerJoin(classSessions, eq(bookings.sessionId, classSessions.id))
+      .where(
+        and(
+          eq(bookings.status, "CONFIRMED"),
+          gte(classSessions.startsAt, new Date()),
+          eq(classSessions.status, "SCHEDULED"),
+        ),
+      )
       .get()?.n ?? 0;
 
   const revenueCents =
     db
-      .select({ n: sql<number>`coalesce(sum(amount_cents),0)` })
+      .select({ n: sql<number>`coalesce(sum(${purchases.amountCents}),0)` })
       .from(purchases)
-      .where(eq(purchases.status, "PAID"))
+      .where(and(eq(purchases.status, "PAID"), within(purchases.createdAt)))
       .get()?.n ?? 0;
 
   const upcoming =
@@ -49,11 +190,37 @@ export async function studioStats() {
 
   return {
     members: Number(memberCount),
+    newMembers: Number(newMembers),
+    membersWithSessions: Number(membersWithSessions),
     bookings: Number(bookingCount),
-    creditsOutstanding: Number(creditsOutstanding),
+    cancellations: Number(cancelledCount),
+    sessionsOutstanding: Number(sessionsOutstanding),
+    sessionsBooked: Number(sessionsBooked),
     revenueCents: Number(revenueCents),
     upcomingSessions: Number(upcoming),
   };
+}
+
+/**
+ * Classes on the books ahead of today.
+ *
+ * Split out of the statistics because it is not one of them: it tells the desk
+ * whether the rota needs rolling forward, which reception needs to know, while
+ * the takings and the membership count do not leave the owner's screen.
+ */
+export function upcomingClassCount() {
+  return Number(
+    db
+      .select({ n: sql<number>`count(*)` })
+      .from(classSessions)
+      .where(
+        and(
+          gte(classSessions.startsAt, new Date()),
+          eq(classSessions.status, "SCHEDULED"),
+        ),
+      )
+      .get()?.n ?? 0,
+  );
 }
 
 /** Classes on a given day with their roster. */
@@ -66,7 +233,9 @@ export async function daySessions(day = new Date()) {
     .from(classSessions)
     .innerJoin(classTypes, eq(classSessions.classTypeId, classTypes.id))
     .leftJoin(instructors, eq(classSessions.instructorId, instructors.id))
-    .where(and(gte(classSessions.startsAt, from), lte(classSessions.startsAt, to)))
+    .where(
+      and(gte(classSessions.startsAt, from), lte(classSessions.startsAt, to)),
+    )
     .orderBy(asc(classSessions.startsAt));
 
   const roster = await db

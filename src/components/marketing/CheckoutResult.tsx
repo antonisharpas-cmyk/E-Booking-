@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ButtonLink } from "@/components/ui/Button";
 import { Monogram } from "@/components/ui/Monogram";
@@ -8,9 +8,18 @@ import { Section } from "@/components/ui/Section";
 import { useI18n } from "@/i18n/LanguageProvider";
 
 /**
- * Stripe redirects here immediately after payment, which can be a moment
- * before the webhook has granted the credits. If the balance still looks
- * unchanged we re-check a few times rather than showing a wrong number.
+ * The page a member lands on the moment a payment goes through.
+ *
+ * Two separate things can make the numbers here lie, and both are handled.
+ *
+ * 1. The count in the header lives in the site layout, and a client-side
+ *    navigation keeps the layout it already has — so buying a pack used to
+ *    leave the old number in the corner of the screen until a hard reload.
+ *    One refresh on arrival re-renders the layout as well as this page.
+ * 2. The provider sends the member back here the instant the card clears,
+ *    which can be a moment before the webhook that actually grants the
+ *    sessions has landed. While the balance still reads zero we keep
+ *    re-checking rather than showing a wrong number.
  */
 export function CheckoutResult({
   kind,
@@ -23,13 +32,29 @@ export function CheckoutResult({
   const router = useRouter();
   const [waiting, setWaiting] = useState(kind === "success" && credits === 0);
 
+  /* (1) — once, on arrival, whatever the balance says. */
+  const refreshed = useRef(false);
+  useEffect(() => {
+    if (kind !== "success" || refreshed.current) return;
+    refreshed.current = true;
+    router.refresh();
+  }, [kind, router]);
+
+  /* (2) — and again until the webhook has done its work. */
   useEffect(() => {
     if (!waiting) return;
+    if (credits > 0) {
+      setWaiting(false);
+      return;
+    }
     let tries = 0;
     const id = window.setInterval(() => {
       tries += 1;
       router.refresh();
-      if (tries >= 5 || credits > 0) {
+      /* About fifteen seconds. Past that the payment is recorded and the
+         sessions will appear on the account either way, so stop spinning and
+         show the balance we have rather than an endless ellipsis. */
+      if (tries >= 8) {
         setWaiting(false);
         window.clearInterval(id);
       }

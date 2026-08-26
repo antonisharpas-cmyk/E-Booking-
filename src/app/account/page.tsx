@@ -7,6 +7,7 @@ import { getCreditSummary, getLedger } from "@/lib/credits";
 import { gramsToKg } from "@/lib/profile";
 import { getMyPurchases } from "@/lib/purchases";
 import { hasAvatar } from "@/lib/avatars";
+import { noticesFor } from "@/lib/notices";
 
 export const metadata: Metadata = { title: "My account" };
 export const dynamic = "force-dynamic";
@@ -21,6 +22,11 @@ export default async function AccountPage() {
     getMyPurchases(user.id),
     getLedger(user.id, 25),
   ]);
+
+  const notices = noticesFor(user.id).map((n) => ({
+    ...n,
+    createdAt: n.createdAt.toISOString(),
+  }));
 
   const taken = bookings.past.filter(
     (b) => b.status === "ATTENDED" || b.status === "CONFIRMED",
@@ -47,6 +53,7 @@ export default async function AccountPage() {
           source: b.source,
         })),
       }}
+      notices={notices}
       classesTaken={taken}
       profile={{
         name: user.name,

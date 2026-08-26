@@ -3,7 +3,7 @@
  *
  * Creates the class catalogue, credit packs, instructors, the weekly timetable
  * templates (taken from the studio's published hours) and 6 weeks of bookable
- * sessions. Also creates one admin and one demo member so you can click through
+ * sessions. Also creates the two desk accounts and a demo member so you can click through
  * the whole booking flow immediately.
  *
  * Safe to re-run: it upserts by slug/email and never duplicates sessions.
@@ -432,12 +432,28 @@ async function main() {
     );
   }
 
-  /* Users */
-  const admin = upsertUser({
-    email: "admin@apexpilates.cy",
-    name: "Studio Admin",
-    password: "apexadmin123",
+  /* Users
+     ----
+     Two accounts open the console, and they are not the same account. Reception
+     runs the desk: sessions in and out, bookings, closures, notices, prices.
+     The owner has all of that plus the numbers — what the studio has taken and
+     how many members it has — because the reception computer sits in a public
+     room and those figures should not be on it.
+
+     The passwords here are development defaults, and the seed says so out loud.
+     Real ones are set on the studio's own machine with `npm run staff`, so they
+     never travel through a chat window or a git history. */
+  const owner = upsertUser({
+    email: process.env.SEED_OWNER_EMAIL ?? "owner@apexpilates.cy",
+    name: "Studio Owner",
+    password: process.env.SEED_OWNER_PASSWORD ?? "ownerdev123",
     role: "ADMIN",
+  });
+  upsertUser({
+    email: process.env.SEED_RECEPTION_EMAIL ?? "reception@apexpilates.cy",
+    name: "Reception",
+    password: process.env.SEED_RECEPTION_PASSWORD ?? "receptiondev123",
+    role: "STAFF",
   });
   const member = upsertUser({
     email: "member@example.com",
@@ -446,8 +462,28 @@ async function main() {
     role: "MEMBER",
     phone: "+357 99 000 000",
   });
-  console.log("  ✓ users: admin@apexpilates.cy / apexadmin123");
+
+  /* The old single admin account, with its password written in this file and in
+     the README, is retired. Anything it did stays in the ledger under its name;
+     it simply can no longer open the console. */
+  const legacy = db
+    .select()
+    .from(users)
+    .where(eq(users.email, "admin@apexpilates.cy"))
+    .get();
+  if (legacy && legacy.role !== "MEMBER") {
+    db.update(users)
+      .set({ role: "MEMBER" })
+      .where(eq(users.id, legacy.id))
+      .run();
+    console.log("  ✓ retired admin@apexpilates.cy — it can no longer open /admin");
+  }
+
+  console.log("  ✓ desk accounts (development passwords — change before going live):");
+  console.log(`           ${owner.email} / ownerdev123        owner, everything`);
+  console.log("           reception@apexpilates.cy / receptiondev123   the desk, no analytics");
   console.log("           member@example.com / member123");
+  console.log("    → npm run staff   to set the real ones on this machine");
 
   /* Give the demo member a pack so the booking flow is clickable with no Stripe */
   const { grantCredits, getAvailableCredits } = await import("@/lib/credits");
@@ -471,7 +507,7 @@ async function main() {
     `  ✓ sessions generated: ${gen.created} new, ${gen.skipped} already existed/past`,
   );
 
-  console.log(`\n✓ seed complete. Admin id ${admin.id}\n`);
+  console.log(`\n✓ seed complete. Owner id ${owner.id}\n`);
 }
 
 main()

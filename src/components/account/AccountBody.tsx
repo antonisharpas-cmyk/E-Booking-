@@ -18,6 +18,7 @@ import {
   isAccountTab,
   type AccountTab,
 } from "@/components/account/AccountTabs";
+import { NoticeList, type NoticeRow } from "@/components/account/NoticeList";
 
 type BookingRow = {
   id: string;
@@ -71,6 +72,7 @@ type Props = {
     note: string | null;
     createdAt: string;
   }[];
+  notices: NoticeRow[];
 };
 
 const REASON: Record<string, { en: string; el: string }> = {
@@ -218,7 +220,13 @@ export function AccountBody(props: Props) {
         {/* wallet */}
         <Reveal delay={0.08} className="mt-12">
           <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr_1fr]">
-            <div className="relative overflow-hidden rounded-4xl bg-mocha-600 p-8 text-cream grain">
+            <div
+              /* The balance as a value, not only as type. Read by the payment
+                 tests, and the honest place for anything that needs to know
+                 what this card is showing. */
+              data-balance={props.wallet.available}
+              className="relative overflow-hidden rounded-4xl bg-mocha-600 p-8 text-cream grain"
+            >
               <div
                 aria-hidden
                 className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-cream/[0.07] blur-2xl"
@@ -377,6 +385,9 @@ export function AccountBody(props: Props) {
               payments: props.purchases.length,
               activity: props.ledger.length,
             }}
+            /* The unread count sits on the Notifications pill as well as on
+               their face in the header, so it is findable from either. */
+            unread={props.notices.filter((n) => !n.read).length}
             /* A dot on Profile when there is something to ask: offers not
                accepted, or no birthday on file. Both are the studio's only
                chance to reach someone who has not opted in. */
@@ -385,6 +396,14 @@ export function AccountBody(props: Props) {
             }
           />
         </Reveal>
+
+        {/* Messages from the studio, above the channel switches: what was said
+            matters more than how it will be said next time. */}
+        {tab === "notifications" && (
+          <Reveal delay={0.05} className="mt-12">
+            <NoticeList notices={props.notices} />
+          </Reveal>
+        )}
 
         {/* profile / notifications / password */}
         {(tab === "profile" ||

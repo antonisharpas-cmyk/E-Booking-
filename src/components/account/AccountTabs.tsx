@@ -45,11 +45,14 @@ export function AccountTabs({
   active,
   onChange,
   counts,
+  unread = 0,
   needsAttention,
 }: {
   active: AccountTab;
   onChange: (t: AccountTab) => void;
   counts: { classes: number; payments: number; activity: number };
+  /** Unread studio notices, shown on the Notifications pill. */
+  unread?: number;
   /** Marks Profile when there is something worth the member's attention. */
   needsAttention?: boolean;
 }) {
@@ -89,9 +92,11 @@ export function AccountTabs({
     label: string;
     count?: number;
     dot?: boolean;
+    /** Unread notices are worth an accent; a count of past classes is not. */
+    gold?: boolean;
   }[] = [
     { id: "profile", label: a.profile, dot: needsAttention },
-    { id: "notifications", label: a.notifications },
+    { id: "notifications", label: a.notifications, count: unread, gold: unread > 0 },
     { id: "password", label: a.password },
     { id: "classes", label: a.classes, count: counts.classes },
     { id: "payments", label: a.payments, count: counts.payments },
@@ -126,7 +131,13 @@ export function AccountTabs({
                 <span
                   className={cn(
                     "ml-2 lining-nums tabular-nums",
-                    on ? "text-cream/60" : "text-clay",
+                    tab.gold
+                      ? on
+                        ? "text-cream"
+                        : "rounded-full bg-gold/20 px-1.5 text-[#8a6f1a]"
+                      : on
+                        ? "text-cream/60"
+                        : "text-clay",
                   )}
                 >
                   {tab.count}
