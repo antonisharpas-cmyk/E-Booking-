@@ -1,9 +1,15 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { noticeDeliveries, noticeReads, notices, users } from "@/db/schema";
 
 /**
  * Messages from the studio to its members.
+ *
+ * Two kinds share this table, because from the member's side they are one inbox:
+ * the studio's announcements, and the messages about their own bookings — a
+ * confirmation, a cancellation, a reminder. One unread count on their
+ * photograph, one list, one read state. `userId` tells them apart: null is the
+ * studio talking to everybody, set is the studio talking to one person.
  *
  * Written at the desk, read in the member's account. The in-app copy is the one
  * that always exists: the message lands in the app, the count appears next to
@@ -32,7 +38,9 @@ import { noticeDeliveries, noticeReads, notices, users } from "@/db/schema";
  */
 function visibleTo(userId: string) {
   return sql`(
-    (
+    /* Somebody else's booking confirmation is not theirs to read. */
+    (${notices.userId} is null or ${notices.userId} = ${userId})
+    and (
       ${notices.audience} <> 'OFFERS'
       or exists (
         select 1 from users u
@@ -68,7 +76,9 @@ export function createNotice(args: {
   audience?: "ALL" | "OFFERS";
   /** Which channels it was sent on, recorded so the history says what happened. */
   channels?: string[];
-  staffId: string;
+  /** Set for a message about one member's own booking; omitted for the studio's. */
+  userId?: string | null;
+  staffId?: string | null;
 }) {
   return db
     .insert(notices)
@@ -80,7 +90,8 @@ export function createNotice(args: {
       important: args.important ?? false,
       audience: args.audience ?? "ALL",
       channels: (args.channels ?? []).join(","),
-      createdBy: args.staffId,
+      userId: args.userId ?? null,
+      createdBy: args.staffId ?? null,
     })
     .returning()
     .get();
@@ -113,7 +124,11 @@ export function noticesFor(
       sql`${noticeReads.noticeId} = ${notices.id} and ${noticeReads.userId} = ${userId}`,
     )
     .where(visibleTo(userId))
-    .orderBy(desc(notices.createdAt))
+    /* Timestamps are whole seconds, so two notices written in the same second
+       tie — and the tie-break decided which of "Booking confirmed" and "Booking
+       cancelled" appeared on top. rowid is the insertion order, so the later one
+       is genuinely later. */
+    .orderBy(desc(notices.createdAt), sql`${notices}.rowid desc`)
     .limit(limit)
     .all();
 
@@ -181,7 +196,11 @@ export function noticeHistory(limit = 20) {
     })
     .from(notices)
     .leftJoin(users, eq(notices.createdBy, users.id))
-    .orderBy(desc(notices.createdAt))
+    /* The studio's own announcements. Personal booking confirmations live in the
+       same table and are the member's business, not a list for the desk to
+       scroll through — there are hundreds of them and none is news. */
+    .where(isNull(notices.userId))
+    .orderBy(desc(notices.createdAt), sql`${notices}.rowid desc`)
     .limit(limit)
     .all();
 

@@ -517,11 +517,14 @@ export const en = {
     channelEmailWhy: "On by default. Turn it off if you would rather not.",
     channelSmsWhy: "Off by default. Turn it on for a text as well.",
     pushEnable: "Enable on this device",
+    pushTest: "Send a test",
+    pushTestSent: "Sent — it should appear in a second.",
+    pushTestFailed: "That did not go through.",
     pushOnThisDevice: "On for this device.",
     pushOnDevices: "On for {n} of your devices.",
     pushOffThisDevice: "Not enabled on this device yet.",
     pushBlocked:
-      "This browser is blocking notifications. You can allow them again in the browser's site settings.",
+      "This browser is blocking notifications. Click the icon to the left of the address bar, then Notifications → Allow, and reload. In a private window the choice is not kept.",
     pushUnsupported:
       "This browser cannot show notifications. On iPhone, add the site to your Home Screen first.",
     consentTitle: "What we send",
@@ -1264,11 +1267,14 @@ export const el: typeof en = {
     channelEmailWhy: "Ενεργό εξ ορισμού. Απενεργοποίησέ το αν προτιμάς.",
     channelSmsWhy: "Ανενεργό εξ ορισμού. Ενεργοποίησέ το για SMS.",
     pushEnable: "Ενεργοποίηση σε αυτή τη συσκευή",
+    pushTest: "Δοκιμαστική ειδοποίηση",
+    pushTestSent: "Στάλθηκε — θα εμφανιστεί σε ένα δευτερόλεπτο.",
+    pushTestFailed: "Δεν στάλθηκε.",
     pushOnThisDevice: "Ενεργό σε αυτή τη συσκευή.",
     pushOnDevices: "Ενεργό σε {n} από τις συσκευές σου.",
     pushOffThisDevice: "Δεν έχει ενεργοποιηθεί σε αυτή τη συσκευή.",
     pushBlocked:
-      "Αυτός ο browser μπλοκάρει τις ειδοποιήσεις. Μπορείς να τις επιτρέψεις ξανά από τις ρυθμίσεις του.",
+      "Αυτός ο browser μπλοκάρει τις ειδοποιήσεις. Πάτησε το εικονίδιο αριστερά από τη γραμμή διεύθυνσης, μετά Ειδοποιήσεις → Να επιτρέπονται, και ανανέωσε. Σε ιδιωτικό παράθυρο η επιλογή δεν διατηρείται.",
     pushUnsupported:
       "Αυτός ο browser δεν υποστηρίζει ειδοποιήσεις. Σε iPhone, πρόσθεσε πρώτα τη σελίδα στην αρχική οθόνη.",
     consentTitle: "Τι σου στέλνουμε",

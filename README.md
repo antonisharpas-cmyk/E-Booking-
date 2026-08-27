@@ -405,11 +405,11 @@ start it first.
 npm run test:flows                                # 51 checks
 
 npm run build && npx next start -p 3100
-npm run test:http     -- http://localhost:3100    # 76 checks
+npm run test:http     -- http://localhost:3100    # 87 checks
 npm run test:profile  -- http://localhost:3100    # 38 checks
 npm run test:payments -- http://localhost:3100    # 25 checks
 npm run test:desk     -- http://localhost:3100    # 95 checks
-npm run test:notify   -- http://localhost:3100    # 70 checks
+npm run test:notify   -- http://localhost:3100    # 80 checks
 ```
 
 - **flows** — credit expiry, spending the soonest-expiring credit, double

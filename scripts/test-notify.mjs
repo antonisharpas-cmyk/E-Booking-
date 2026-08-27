@@ -532,6 +532,90 @@ console.log("\n10. A new member does not inherit the past");
   check("and counts as unread", after.json?.unread === 1, after.json?.unread);
 }
 
+/* ------------------------------------------------------------------ 10b */
+console.log("\n10b. Booking and cancelling land in the member's own inbox");
+{
+  /* Timestamps are whole seconds, and the rule is "nothing from before you
+     joined". A member created in the same second as the broadcast above would
+     legitimately see it, which is right in life and noise in a test — so the
+     boundary is put beyond doubt. */
+  await new Promise((r) => setTimeout(r, 1100));
+  const punter = await member("inbox");
+  const before = await req(punter.j, "/api/notices");
+  check("a new member starts with nothing unread", before.json?.unread === 0, before.json?.unread);
+
+  const opened = await req(punter.j, "/api/checkout", {
+    method: "POST",
+    body: { packSlug: "pack-10" },
+  });
+  await req(punter.j, "/api/payments/settle", {
+    method: "POST",
+    body: { purchaseId: opened.json?.purchaseId },
+  });
+  const list = await req(punter.j, "/api/sessions?days=10");
+  const target = (list.json?.sessions ?? []).find(
+    (x) =>
+      x.spotsLeft > 0 && new Date(x.startsAt) > new Date(Date.now() + 48 * 3600_000),
+  );
+
+  const booked = await req(punter.j, "/api/bookings", {
+    method: "POST",
+    body: { sessionId: target.id },
+  });
+  check("booking succeeds", booked.json?.ok === true, booked.json);
+
+  const afterBooking = await req(punter.j, "/api/notices");
+  check(
+    "the number on their photograph goes up",
+    afterBooking.json?.unread === 1,
+    afterBooking.json?.unread,
+  );
+  const confirmation = (afterBooking.json?.notices ?? [])[0];
+  check(
+    "and the confirmation is waiting in the list",
+    confirmation?.title === "Booking confirmed",
+    confirmation?.title,
+  );
+  /* The substance: which class, which day, which hour. */
+  check(
+    "naming the class, the day and the hour",
+    /—/.test(confirmation?.body ?? "") && / at \d\d:\d\d/.test(confirmation?.body ?? ""),
+    confirmation?.body,
+  );
+
+  await req(punter.j, "/api/bookings/cancel", {
+    method: "POST",
+    body: { bookingId: booked.json.bookingId },
+  });
+  const afterCancel = await req(punter.j, "/api/notices");
+  check("cancelling adds another", afterCancel.json?.unread === 2, afterCancel.json?.unread);
+  check(
+    "which says the session came back",
+    /back in your balance/.test((afterCancel.json?.notices ?? [])[0]?.body ?? ""),
+    (afterCancel.json?.notices ?? [])[0]?.body,
+  );
+
+  /* Somebody else's booking is nobody else's business. */
+  await new Promise((r) => setTimeout(r, 1100));
+  const other = await member("nosy");
+  const theirs = await req(other.j, "/api/notices");
+  check(
+    "another member sees none of it",
+    !(theirs.json?.notices ?? []).some((x) => x.title === "Booking confirmed"),
+    theirs.json?.notices?.slice(0, 3),
+  );
+  check("and their own count is untouched", theirs.json?.unread === 0, theirs.json?.unread);
+
+  /* And the desk's history stays a list of announcements, not of everybody's
+     confirmations — there are hundreds of those and none is news. */
+  const history = await req(staff, "/api/admin/notices?audience=ALL");
+  check(
+    "the desk history holds no personal confirmations",
+    !(history.json?.notices ?? []).some((x) => x.titleEn === "Booking confirmed"),
+    "a confirmation leaked into the desk history",
+  );
+}
+
 /* ------------------------------------------------------------------ 11 */
 console.log("\n11. The timetable does not offer classes that have started");
 {

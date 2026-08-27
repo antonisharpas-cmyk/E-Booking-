@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useI18n } from "@/i18n/LanguageProvider";
 
@@ -12,6 +12,11 @@ import { useI18n } from "@/i18n/LanguageProvider";
  * anybody's behalf and cannot take back. Each device is separate — a member's
  * phone and their laptop are two grants — so this reports on the device in front
  * of them rather than pretending there is one global setting.
+ *
+ * Pressing the button is a once-ever thing per device, not a routine. Once the
+ * browser has been told to allow it, this subscribes on its own on every later
+ * visit — the permission is what the member gave, and asking them to press a
+ * button again to act on a permission they already granted is asking twice.
  *
  * The states it has to be honest about:
  *   unsupported   an old browser, or an iPhone that has not added the site to
@@ -31,6 +36,12 @@ export function PushEnroller({ publicKey }: { publicKey: string }) {
   >("checking");
   const [devices, setDevices] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [tested, setTested] = useState<"ok" | "fail" | null>(null);
+
+  /* refresh() needs subscribe(), and subscribe() is declared after it. A ref
+     breaks the cycle without reordering the file into something less readable. */
+  const subscribeRef = useRef<(() => Promise<void>) | null>(null);
 
   const refresh = useCallback(async () => {
     if (
@@ -50,6 +61,17 @@ export function PushEnroller({ publicKey }: { publicKey: string }) {
       const reg = await navigator.serviceWorker.getRegistration("/sw.js");
       const sub = await reg?.pushManager.getSubscription();
       setState(sub ? "granted" : "default");
+      /* Permission granted but no subscription on this browser — a new browser,
+         cleared site data, or a push service that rotated its keys. Nothing to
+         ask: the member has already said yes, so just register it. */
+      if (!sub && Notification.permission === "granted") {
+        try {
+          await subscribeRef.current?.();
+          setState("granted");
+        } catch {
+          setState("default");
+        }
+      }
     } catch {
       setState("default");
     }
@@ -68,44 +90,66 @@ export function PushEnroller({ publicKey }: { publicKey: string }) {
     void refresh();
   }, [refresh]);
 
+  /** Registers this browser with the studio. Assumes permission is granted. */
+  const subscribe = useCallback(async () => {
+    const reg = await navigator.serviceWorker.register("/sw.js");
+    await navigator.serviceWorker.ready;
+
+    const existing = await reg.pushManager.getSubscription();
+    const sub =
+      existing ??
+      (await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      }));
+
+    const raw = sub.toJSON();
+    const res = await fetch("/api/push/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        endpoint: raw.endpoint,
+        p256dh: raw.keys?.p256dh,
+        auth: raw.keys?.auth,
+      }),
+    });
+    if (!res.ok) throw new Error("SUBSCRIBE_FAILED");
+  }, [publicKey]);
+
+  useEffect(() => {
+    subscribeRef.current = subscribe;
+  }, [subscribe]);
+
   async function enable() {
     setState("busy");
     setError(null);
     try {
-      const reg = await navigator.serviceWorker.register("/sw.js");
-      await navigator.serviceWorker.ready;
-
+      /* The permission prompt has to come from a press: Safari requires it, and
+         Chrome starts ignoring pages that ask without one. */
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
         setState(permission === "denied" ? "denied" : "default");
         return;
       }
-
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
-      });
-
-      const raw = sub.toJSON();
-      const res = await fetch("/api/push/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          endpoint: raw.endpoint,
-          p256dh: raw.keys?.p256dh,
-          auth: raw.keys?.auth,
-        }),
-      });
-      if (!res.ok) {
-        setError(t.common.somethingWrong);
-        setState("default");
-        return;
-      }
+      await subscribe();
       await refresh();
       setState("granted");
     } catch (e) {
       setError((e as Error).message);
       setState("default");
+    }
+  }
+
+  async function sendTest() {
+    setTesting(true);
+    setTested(null);
+    try {
+      const res = await fetch("/api/push/test", { method: "POST" });
+      setTested(res.ok ? "ok" : "fail");
+    } catch {
+      setTested("fail");
+    } finally {
+      setTesting(false);
     }
   }
 
@@ -137,6 +181,25 @@ export function PushEnroller({ publicKey }: { publicKey: string }) {
         >
           {state === "busy" ? t.common.loading : p.pushEnable}
         </Button>
+      )}
+
+      {state === "granted" && (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={testing}
+            onClick={sendTest}
+          >
+            {testing ? t.common.loading : p.pushTest}
+          </Button>
+          {tested === "ok" && (
+            <span className="text-[12px] text-mocha-500">{p.pushTestSent}</span>
+          )}
+          {tested === "fail" && (
+            <span className="text-[12px] text-red-700">{p.pushTestFailed}</span>
+          )}
+        </div>
       )}
 
       {error && <p className="mt-3 text-[12px] text-red-700">{error}</p>}

@@ -126,6 +126,28 @@ const acct = await req("/account");
 check("GET /account → 200", acct.status === 200, acct.status);
 check("session balance shows on page", acct.text.includes("Session balance"));
 
+console.log("\n4b. Every account section is reachable by its own address");
+/* The header menu links to these. Each has to render its own section: clicking
+   Profile once landed on Notifications, because "no tab in the address" was
+   being treated as "an address I do not recognise" and the old section stayed. */
+for (const [tab, needle] of [
+  ["", "Session balance"],
+  ["profile", "Session balance"],
+  ["notifications", "Always on"],
+  ["activity", "Session activity"],
+  ["classes", "Past classes"],
+  ["payments", "Payments"],
+  ["password", "Password"],
+  ["nonsense", "Session balance"],
+]) {
+  const r = await req(tab ? `/account?tab=${tab}` : "/account");
+  check(
+    `GET /account${tab ? `?tab=${tab}` : ""} renders its section`,
+    r.status === 200 && r.text.includes(needle),
+    r.status,
+  );
+}
+
 console.log("\n5. Booking without credits");
 const sess = await req("/api/sessions?days=10");
 const list = sess.json?.sessions ?? [];

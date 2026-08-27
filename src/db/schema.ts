@@ -444,12 +444,22 @@ export const notices = sqliteTable(
     audience: text("audience").notNull().default("ALL"),
     /** Which channels it went out on, e.g. "push,email". In-app is always. */
     channels: text("channels").notNull().default(""),
+    /**
+     * Null for a studio announcement, set for a message about one person's own
+     * booking — a confirmation, a cancellation, a reminder. Same table, because
+     * it is the same inbox from the member's side: one unread count on their
+     * photograph, one list, one read state.
+     */
+    userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
     /** Marks the ones that matter: shown with the studio's gold accent. */
     important: integer("important", { mode: "boolean" }).notNull().default(false),
     createdBy: text("created_by").references(() => users.id),
     createdAt: now().notNull(),
   },
-  (t) => [index("notices_created_idx").on(t.createdAt)],
+  (t) => [
+    index("notices_created_idx").on(t.createdAt),
+    index("notices_user_idx").on(t.userId),
+  ],
 );
 
 /**

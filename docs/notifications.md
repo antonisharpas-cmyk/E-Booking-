@@ -65,10 +65,13 @@ it works.* The in-app notice is the channel that never fails.
 npm run push:keys
 ```
 
-Paste the three lines it prints into `.env` and restart. That is the whole setup.
-There is no company in the middle: the message goes from your server straight to
-Google's, Apple's or Mozilla's push service, signed with a key pair that belongs
-to the studio.
+That writes the keys into `.env` itself — there is nothing to copy. Restart the
+server and it is done. There is no company in the middle: the message goes from
+your server straight to Google's, Apple's or Mozilla's push service, signed with
+a key pair that belongs to the studio.
+
+It also generates `CRON_SECRET` while it is there, which the reminder sweep needs.
+Use `npm run push:keys -- --print` if you would rather paste the lines yourself.
 
 Two rules:
 
@@ -162,20 +165,44 @@ Nobody writes these. They fire on their own.
 | A booking is cancelled | the class and time, and whether the session came back to their balance |
 | Before the class | "Your class starts in 2 hours" — at **each member's own lead time**, the one they set on the reminder slider |
 
-Three things worth knowing about how they behave:
+All three land **in the member's account**: the number on their photograph goes
+up and the message is waiting under Notifications. That is the copy that matters,
+because it is the one they can go back and look at.
 
-- **Push only, by default.** These fire per *booking*, not per announcement. Put
-  SMS on them and every single booking the studio takes costs a few cents,
-  hundreds of times a month, without anyone deciding to spend it. To widen it:
-  `REMINDER_CHANNELS=push,email` — email costs nothing per message. `push,email,sms`
-  works too, but do that with the invoice in mind.
+Whether a *phone* pop-up also appears differs by message, and one line in
+`src/lib/messaging/events.ts` decides it:
+
+| | In the app | Phone pop-up |
+| --- | --- | --- |
+| Booked | yes | no |
+| Cancelled | yes | no |
+| Reminder | yes | **yes** |
+
+The reasoning: somebody who has just pressed *Book* is standing in the app and
+the screen has already told them — a system notification on top of that is the
+app talking over itself. The reminder is the opposite case. It exists precisely
+because they are *not* looking at the site, so an inbox message two hours before
+their class is not a reminder, it is a diary entry.
+
+To change it, edit `ALSO_PUSH` in `events.ts`.
+
+Three more things worth knowing:
+
+- **Push only, by default** for anything outside the app. These fire per
+  *booking*, not per announcement. Put SMS on them and every single booking the
+  studio takes costs a few cents, hundreds of times a month, without anyone
+  deciding to spend it. To widen it: `REMINDER_CHANNELS=push,email` — email costs
+  nothing per message. `push,email,sms` works too, but do that with the invoice
+  in mind.
 - **The lead time is the one the member was promised.** It is copied onto the
   reminder when they book. Somebody who changes from 2 hours to 15 minutes keeps
   the two-hour reminder for classes already booked; only new bookings use the new
   setting.
-- **None of them writes a notice into the account.** A confirmation of one
-  person's one booking is not studio news, and a hundred of them would bury the
-  messages that are.
+- **A personal message is nobody else's business.** Confirmations live in the
+  same table as the studio's announcements, keyed to the member, so they share
+  one unread count and one read state — but they are invisible to every other
+  member, and they are kept out of the desk's Notices history, which stays a list
+  of announcements rather than hundreds of confirmations.
 - **A new member starts with an empty list.** Notices sent before they signed up
   are not theirs — they had not joined, and thirty unread messages with thirty on
   their photograph is a poor welcome. Anything sent from the moment they register
@@ -197,6 +224,15 @@ after their class is already booked.
    silently.
 3. **Is it an iPhone that has not been added to the Home Screen?** Then Safari
    will not offer the prompt at all, and the push box does not appear.
+
+**Chrome in a private/Incognito window turns the Push API off entirely** — not
+just the permission, the whole feature ([crbug.com/401439](https://crbug.com/401439)).
+The screen can only report "blocked", because Chrome deliberately makes Incognito
+undetectable. Test in a normal window.
+
+Once a browser has been allowed, the member never presses anything again: the
+page registers the device by itself on every later visit. There is also a **Send a
+test** button under the push row, which notifies only the person pressing it.
 
 Localhost counts as a secure context, so all of this works in development
 without HTTPS.
@@ -269,7 +305,7 @@ the desk finds out immediately instead of a week later.
 
 ```bash
 npm run build && npx next start -p 3100
-npm run test:notify -- http://localhost:3100     # 70 checks
+npm run test:notify -- http://localhost:3100     # 80 checks
 ```
 
 That suite covers the consent rules specifically: what a new member starts with,

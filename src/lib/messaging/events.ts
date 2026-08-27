@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { bookings, classSessions, classTypes, users } from "@/db/schema";
 import { STUDIO } from "@/lib/studio";
+import { createNotice } from "@/lib/notices";
 import { dueReminders, markSent } from "@/lib/reminders";
 import { emailTransport } from "./email";
 import { sendPush, subscriptionsFor } from "./push";
@@ -22,10 +23,27 @@ import type { Channel, Outgoing } from "./types";
  * the studio wants to — "push,email" is the sensible next step, and email costs
  * nothing per message on any of the providers.
  *
- * None of this writes a notice into the account. A confirmation for one person's
- * one booking is not studio news, and a hundred of them would bury the messages
- * that are.
+ * All three land in the member's own account: the number on their photograph goes
+ * up and the message is waiting in Notifications. That is the copy that matters,
+ * because it is the one they can go and look at afterwards.
+ *
+ * Whether a *phone* notification also appears is a separate question, and the
+ * answer differs by message:
+ *
+ *   booked / cancelled   in-app only. The member is standing in the app, having
+ *                        just pressed the button — the screen has already told
+ *                        them, and a system pop-up on top of that is the app
+ *                        talking over itself.
+ *   reminder             in-app *and* push. This one exists precisely because
+ *                        they are not looking at the site: an inbox message
+ *                        nobody opens two hours before their class is not a
+ *                        reminder, it is a diary entry.
+ *
+ * One constant decides it, and it is one line to change your mind.
  */
+
+/** Which of the automatic messages also buzz the phone. */
+const ALSO_PUSH = { booked: false, cancelled: false, reminder: true };
 
 /** Which channels the automatic messages may use. Push always; the rest opt in. */
 function allowedChannels(): Channel[] {
@@ -118,6 +136,26 @@ export function leadWords(minutes: number) {
   return `${Math.floor(h)}h ${minutes % 60}m`;
 }
 
+/**
+ * The member's own account copy.
+ *
+ * Never throws outward: this is called from a booking that has already
+ * succeeded, and a failure to write a courtesy message must not surface as a
+ * failure to book.
+ */
+function inbox(userId: string, msg: Outgoing) {
+  try {
+    createNotice({
+      titleEn: msg.subject,
+      bodyEn: msg.body,
+      userId,
+      staffId: null,
+    });
+  } catch {
+    /* Nothing to do about it, and nothing worth failing a booking over. */
+  }
+}
+
 /* ------------------------------------------------------------ the three sends */
 
 /**
@@ -128,11 +166,15 @@ export async function notifyBooked(bookingId: string) {
   const f = factsFor(bookingId);
   if (!f) return 0;
 
-  return deliverPersonal(f, {
-    subject: "Booking confirmed",
-    body: `${f.className} — ${whenWords(f.startsAt)}. See you at the studio.`,
-    url: "/account",
-  });
+  return deliverPersonal(
+    f,
+    {
+      subject: "Booking confirmed",
+      body: `${f.className} — ${whenWords(f.startsAt)}. See you at the studio.`,
+      url: "/account?tab=notifications",
+    },
+    ALSO_PUSH.booked,
+  );
 }
 
 /** Fired when a booking is cancelled, saying whether the session came back. */
@@ -140,20 +182,34 @@ export async function notifyCancelled(bookingId: string, refunded: boolean) {
   const f = factsFor(bookingId);
   if (!f) return 0;
 
-  return deliverPersonal(f, {
-    subject: "Booking cancelled",
-    body:
-      `${f.className} — ${whenWords(f.startsAt)} is cancelled. ` +
-      (refunded
-        ? "The session is back in your balance."
-        : "This was inside the 24-hour window, so the session was used."),
-    url: "/account",
-  });
+  return deliverPersonal(
+    f,
+    {
+      subject: "Booking cancelled",
+      body:
+        `${f.className} — ${whenWords(f.startsAt)} is cancelled. ` +
+        (refunded
+          ? "The session is back in your balance."
+          : "This was inside the 24-hour window, so the session was used."),
+      url: "/account?tab=notifications",
+    },
+    ALSO_PUSH.cancelled,
+  );
 }
 
-async function deliverPersonal(f: BookingFacts, msg: Outgoing) {
+async function deliverPersonal(
+  f: BookingFacts,
+  msg: Outgoing,
+  alsoPush: boolean,
+) {
   const channels = allowedChannels();
-  let reached = await pushToUser(f.userId, msg);
+
+  /* The account copy, always. Written first and outside any condition: it is
+     the one the member can come back to, and it is what puts the number on
+     their photograph. */
+  inbox(f.userId, msg);
+
+  let reached = alsoPush ? await pushToUser(f.userId, msg) : 0;
 
   if (channels.includes("email") && f.notifyEmail && f.email) {
     const res = await emailTransport().send(f.email, msg);
@@ -206,7 +262,9 @@ export async function runDueReminders(now = new Date()) {
     const rowChannels = r.channels.split(",");
     const use = (c: Channel) => channels.includes(c) && rowChannels.includes(c);
 
-    pushed += await pushToUser(r.userId, msg);
+    /* Both, for this one. See ALSO_PUSH above. */
+    inbox(r.userId, msg);
+    if (ALSO_PUSH.reminder) pushed += await pushToUser(r.userId, msg);
 
     if (use("email") && r.userEmail) {
       const res = await emailTransport().send(r.userEmail, msg);

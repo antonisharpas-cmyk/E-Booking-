@@ -37,7 +37,10 @@ const COLUMNS: Record<string, Column[]> = {
   ],
   instructors: [{ name: "photo_url", ddl: "text" }],
   purchases: [{ name: "provider_ref", ddl: "text" }],
-  notices: [{ name: "channels", ddl: "text default '' not null" }],
+  notices: [
+    { name: "channels", ddl: "text default '' not null" },
+    { name: "user_id", ddl: "text references users(id) on delete cascade" },
+  ],
 };
 
 const TABLES: { name: string; ddl: string }[] = [
@@ -87,6 +90,7 @@ const TABLES: { name: string; ddl: string }[] = [
             body_el text default '' not null,
             audience text default 'ALL' not null,
             channels text default '' not null,
+            user_id text references users(id) on delete cascade,
             important integer default 0 not null,
             created_by text references users(id),
             created_at integer not null
@@ -159,6 +163,10 @@ const INDEXES: { name: string; ddl: string }[] = [
   {
     name: "notices_created_idx",
     ddl: "create index notices_created_idx on notices (created_at)",
+  },
+  {
+    name: "notices_user_idx",
+    ddl: "create index notices_user_idx on notices (user_id)",
   },
   {
     name: "notice_reads_idx",

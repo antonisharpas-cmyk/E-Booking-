@@ -114,8 +114,14 @@ export function AccountBody(props: Props) {
   const [notice, setNotice] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<BookingRow | null>(null);
 
+  /* The address is the truth about which section is showing.
+     This used to ignore anything that was not a valid tab name, which quietly
+     included *no* tab name at all — so arriving at plain /account from
+     /account?tab=notifications changed the address and left the old section on
+     screen. Clicking Profile in the header landed on Notifications. No tab, and
+     an unrecognised tab, both mean Profile. */
   useEffect(() => {
-    if (isAccountTab(requested)) setTab(requested);
+    setTab(isAccountTab(requested) ? requested : "profile");
   }, [requested]);
 
   /* Asked for a section by name, from the header: take them to it rather than
