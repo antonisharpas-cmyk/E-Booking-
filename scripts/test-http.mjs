@@ -316,6 +316,10 @@ for (const needle of [
 }
 const home = await req("/");
 check("footer links Facebook", home.text.includes("facebook.com/profile.php?id=61593707540014"));
+/* The build credit, on every page because it lives in the footer. */
+check("footer credits the maker", home.text.includes("Developed &amp; Designed by") || home.text.includes("Developed & Designed by"));
+check("and links to them", home.text.includes("https://www.ergonsite.com"));
+check("with the wordmark, not the name in text", home.text.includes("ergonsite.png"));
 check("footer links Instagram", home.text.includes("instagram.com/pilatesbyapex"));
 /* The accounts are shown as the platforms' own marks, not as words. */
 for (const page of [home, contactPage]) {

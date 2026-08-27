@@ -705,6 +705,7 @@ export const en = {
     rights: "All rights reserved.",
     partner: "Official Technogym partner studio",
     address: "Larnaca, Cyprus",
+    builtBy: "Developed & Designed by",
   },
   legal: {
     privacyTitle: "Privacy policy",
@@ -1409,6 +1410,7 @@ export const el: typeof en = {
     terms: "Όροι & πολιτική στούντιο",
     rights: "Με την επιφύλαξη παντός δικαιώματος.",
     partner: "Επίσημο συνεργαζόμενο στούντιο Technogym",
+    builtBy: "Σχεδιασμός & Ανάπτυξη από",
     address: "Λάρνακα, Κύπρος",
   },
   legal: {

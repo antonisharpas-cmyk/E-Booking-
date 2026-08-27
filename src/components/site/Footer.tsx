@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { LanguageToggle } from "@/components/site/LanguageToggle";
 import { Monogram } from "@/components/ui/Monogram";
@@ -136,6 +137,32 @@ export function Footer() {
           <p className="text-[11px] text-cream/45">
             © {year} APEX pilates™. {t.footer.rights}
           </p>
+
+          {/* The studio's own line comes first and the credit sits quietly
+              beside it — legible, not loud. The wordmark rather than the name in
+              text, because it is a logo and it should look like one. */}
+          <a
+            href="https://www.ergonsite.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`${t.footer.builtBy} ErgonSite`}
+            className="group flex items-center gap-2.5 transition-opacity duration-500 hover:opacity-100 sm:opacity-70"
+          >
+            <span className="text-[11px] text-cream/45 transition-colors duration-500 group-hover:text-cream/70">
+              {t.footer.builtBy}
+            </span>
+            <Image
+              src="/brand/ergonsite.png"
+              alt="ErgonSite"
+              width={480}
+              height={104}
+              /* Rendered at ~96px wide; without `sizes` next/image would ship
+                 the 1080w variant of a 96px logo. */
+              sizes="110px"
+              className="h-auto w-[96px]"
+            />
+          </a>
+
           <LanguageToggle tone="dark" />
         </div>
       </div>
