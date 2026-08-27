@@ -37,8 +37,15 @@ export async function POST(req: Request) {
       serviceOptInAt: new Date(),
       marketingOptIn: Boolean(marketingOptIn),
       /* Reachable by email and reminded two hours before class until they say
-         otherwise. SMS and push stay off until asked for. */
+         otherwise. Push is always on — see lib/messaging/push.ts.
+
+         SMS follows the offers box: somebody who wants to hear about offers and
+         new class types has said they want to be contacted, and a text is the
+         one channel that reliably arrives. They can turn it off in one press,
+         which is why it is a reasonable default rather than a presumption. */
       notifyEmail: true,
+      notifySms: Boolean(marketingOptIn),
+      notifyPush: true,
       reminderMinutes: REMINDER_DEFAULT_MINUTES,
     })
     .returning()

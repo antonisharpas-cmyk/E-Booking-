@@ -207,11 +207,23 @@ export type SessionView = {
   myBookingId?: string | null;
 };
 
-/** Sessions in a date range, with live occupancy and the visitor's own booking. */
+/**
+ * Sessions in a date range, with live occupancy and the visitor's own booking.
+ *
+ * A class that has already started is not shown. At noon, this morning's 06:00
+ * is not something anybody can book, attend or usefully read about — it is
+ * clutter above the classes that are still available, and on a phone it is
+ * clutter the member has to scroll past. `includePast` exists for the desk,
+ * where the opposite is true: reception needs this morning's roster to mark who
+ * came.
+ */
 export async function listSessions(opts: {
   from: Date;
   to: Date;
   userId?: string | null;
+  /** The desk's view: everything in the range, started or not. */
+  includePast?: boolean;
+  now?: Date;
 }): Promise<SessionView[]> {
   /* Correct any classes still carrying an older room description before they
      are shown. Runs once per process; see schedule-repair.ts. */
@@ -243,6 +255,11 @@ export async function listSessions(opts: {
       and(
         gte(classSessions.startsAt, opts.from),
         lte(classSessions.startsAt, opts.to),
+        /* The floor is the later of "the range starts" and "right now", so a
+           range covering today shows only what is still to come. */
+        ...(opts.includePast
+          ? []
+          : [gte(classSessions.startsAt, opts.now ?? new Date())]),
       ),
     )
     .orderBy(asc(classSessions.startsAt));

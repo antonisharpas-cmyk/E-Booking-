@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
 import { cancelBooking } from "@/lib/booking";
 import { getAvailableCredits } from "@/lib/credits";
+import { notifyCancelled } from "@/lib/messaging/events";
 import { cancelReminder } from "@/lib/reminders";
 
 export async function POST(req: Request) {
@@ -20,6 +21,10 @@ export async function POST(req: Request) {
 
   /* The class is no longer booked, so the reminder is no longer owed. */
   cancelReminder(body.bookingId);
+
+  /* Told before the row is forgotten, and told whether the session came back —
+     that is the part a member actually wants confirmed. */
+  void notifyCancelled(body.bookingId, result.refunded).catch(() => {});
 
   return NextResponse.json({
     ok: true,

@@ -25,6 +25,13 @@ export type NoticeRow = {
  * Read state is per member and stored server side, so it follows them from
  * their phone to their laptop — which is the whole point of a notice in an
  * account rather than a browser notification.
+ *
+ * The list is bounded and scrolls inside itself rather than growing the page.
+ * A member who has been with the studio a year will have a hundred of these,
+ * and a hundred stacked cards would push their own settings so far down the page
+ * that they would never find them. Bounded, the screen looks the same on day one
+ * and in year three. The filter is there for the same reason: "unread" is the
+ * question somebody actually arrives with.
  */
 export function NoticeList({ notices }: { notices: NoticeRow[] }) {
   const { t, fmtFullDate } = useI18n();
@@ -38,6 +45,7 @@ export function NoticeList({ notices }: { notices: NoticeRow[] }) {
   const [read, setRead] = useState<Set<string>>(
     new Set(notices.filter((x) => x.read).map((x) => x.id)),
   );
+  const [filter, setFilter] = useState<"all" | "unread" | "read">("all");
 
   async function mark(noticeId?: string) {
     setBusy(true);
@@ -67,6 +75,7 @@ export function NoticeList({ notices }: { notices: NoticeRow[] }) {
   }
 
   const unread = notices.filter((x) => !read.has(x.id)).length;
+  const readCount = notices.length - unread;
 
   if (!notices.length) {
     return (
@@ -75,6 +84,13 @@ export function NoticeList({ notices }: { notices: NoticeRow[] }) {
       </div>
     );
   }
+
+  const shown =
+    filter === "unread"
+      ? notices.filter((x) => !read.has(x.id))
+      : filter === "read"
+        ? notices.filter((x) => read.has(x.id))
+        : notices;
 
   return (
     <div>
@@ -99,8 +115,51 @@ export function NoticeList({ notices }: { notices: NoticeRow[] }) {
         )}
       </div>
 
-      <ul className="mt-6 space-y-3">
-        {notices.map((row) => {
+      {/* Unread first, because that is the question people arrive with. */}
+      <div className="mt-5 flex flex-wrap gap-2">
+        {(
+          [
+            ["unread", n.filterUnread, unread],
+            ["all", n.filterAll, notices.length],
+            ["read", n.filterRead, readCount],
+          ] as const
+        ).map(([key, label, count]) => (
+          <button
+            key={key}
+            data-notice-filter={key}
+            aria-pressed={filter === key}
+            onClick={() => setFilter(key)}
+            className={cn(
+              "rounded-full border px-4 py-2 text-[10px] uppercase tracking-widest transition-colors duration-300",
+              filter === key
+                ? "border-mocha-600 bg-mocha-600 text-cream"
+                : "border-mocha-200 text-mocha-500 hover:border-mocha-400",
+            )}
+          >
+            {label}
+            <span className="ml-2 lining-nums tabular-nums opacity-70">
+              {count}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {shown.length === 0 && (
+        <p className="mt-6 rounded-2xl border border-dashed border-mocha-200 px-6 py-8 text-center text-sm text-clay">
+          {filter === "unread" ? n.noneUnread : n.noneRead}
+        </p>
+      )}
+
+      {/* Its own scroll, so a hundred messages do not bury the settings below.
+          `overscroll-contain` stops a flick inside the list from carrying on
+          into the page once it reaches the end. */}
+      <ul
+        className={cn(
+          "mt-5 space-y-3 overflow-y-auto overscroll-contain pr-1",
+          shown.length > 3 ? "max-h-[26rem]" : "",
+        )}
+      >
+        {shown.map((row) => {
           const isRead = read.has(row.id);
           const isOpen = open === row.id;
           return (
@@ -118,7 +177,10 @@ export function NoticeList({ notices }: { notices: NoticeRow[] }) {
                 aria-expanded={isOpen}
                 className="flex w-full items-start justify-between gap-4 px-6 py-5 text-left"
               >
-                <span>
+                {/* min-w-0 lets this side shrink inside the flex row; without it
+                    an unbroken 60-character word makes the whole card wider than
+                    the phone and the page scrolls sideways. */}
+                <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2.5">
                     {!isRead && (
                       <span
@@ -128,7 +190,7 @@ export function NoticeList({ notices }: { notices: NoticeRow[] }) {
                     )}
                     <span
                       className={cn(
-                        "text-[15px]",
+                        "text-[15px] [overflow-wrap:anywhere]",
                         isRead ? "text-mocha-500" : "text-mocha-700",
                       )}
                     >
@@ -159,7 +221,7 @@ export function NoticeList({ notices }: { notices: NoticeRow[] }) {
               </button>
 
               {isOpen && (
-                <p className="whitespace-pre-line px-6 pb-6 text-[14px] leading-relaxed text-mocha-500">
+                <p className="whitespace-pre-line px-6 pb-6 text-[14px] leading-relaxed text-mocha-500 [overflow-wrap:anywhere]">
                   {row.body}
                 </p>
               )}

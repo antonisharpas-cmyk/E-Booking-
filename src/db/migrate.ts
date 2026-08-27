@@ -28,7 +28,7 @@ const COLUMNS: Record<string, Column[]> = {
     { name: "marketing_opt_in", ddl: "integer default 0 not null" },
     { name: "notify_email", ddl: "integer default 1 not null" },
     { name: "notify_sms", ddl: "integer default 0 not null" },
-    { name: "notify_push", ddl: "integer default 0 not null" },
+    { name: "notify_push", ddl: "integer default 1 not null" },
     { name: "reminder_minutes", ddl: "integer" },
     { name: "birth_date", ddl: "text" },
     { name: "height_cm", ddl: "integer" },
@@ -37,6 +37,7 @@ const COLUMNS: Record<string, Column[]> = {
   ],
   instructors: [{ name: "photo_url", ddl: "text" }],
   purchases: [{ name: "provider_ref", ddl: "text" }],
+  notices: [{ name: "channels", ddl: "text default '' not null" }],
 };
 
 const TABLES: { name: string; ddl: string }[] = [
@@ -85,6 +86,7 @@ const TABLES: { name: string; ddl: string }[] = [
             title_el text default '' not null,
             body_el text default '' not null,
             audience text default 'ALL' not null,
+            channels text default '' not null,
             important integer default 0 not null,
             created_by text references users(id),
             created_at integer not null
@@ -109,6 +111,33 @@ const TABLES: { name: string; ddl: string }[] = [
             label_el text default '' not null,
             active integer default 1 not null,
             created_by text references users(id),
+            created_at integer not null
+          )`,
+  },
+  {
+    name: "push_subscriptions",
+    ddl: `create table push_subscriptions (
+            id text primary key not null,
+            user_id text not null references users(id) on delete cascade,
+            endpoint text not null,
+            p256dh text not null,
+            auth text not null,
+            user_agent text default '' not null,
+            created_at integer not null,
+            last_sent_at integer,
+            failures integer default 0 not null
+          )`,
+  },
+  {
+    name: "notice_deliveries",
+    ddl: `create table notice_deliveries (
+            id text primary key not null,
+            notice_id text not null references notices(id) on delete cascade,
+            channel text not null,
+            sent integer default 0 not null,
+            failed integer default 0 not null,
+            skipped integer default 0 not null,
+            detail text default '' not null,
             created_at integer not null
           )`,
   },
@@ -138,6 +167,18 @@ const INDEXES: { name: string; ddl: string }[] = [
   {
     name: "pricing_rules_active_idx",
     ddl: "create index pricing_rules_active_idx on pricing_rules (active)",
+  },
+  {
+    name: "push_endpoint_idx",
+    ddl: "create unique index push_endpoint_idx on push_subscriptions (endpoint)",
+  },
+  {
+    name: "push_user_idx",
+    ddl: "create index push_user_idx on push_subscriptions (user_id)",
+  },
+  {
+    name: "notice_deliveries_idx",
+    ddl: "create index notice_deliveries_idx on notice_deliveries (notice_id)",
   },
 ];
 
@@ -194,6 +235,20 @@ export function ensureSchema(conn: Database.Database): string[] {
     if (on && !tableExists(conn, on)) continue;
     conn.prepare(i.ddl).run();
     applied.push(`index ${i.name}`);
+  }
+
+  /* Push stopped being a preference and became a constant: the studio keeps it
+     on, and only the member's browser or phone can silence it. Accounts created
+     while it was still a switch may hold a 0, which would quietly exclude them
+     from every push for good. Idempotent, and it writes nothing once done. */
+  if (tableExists(conn, "users")) {
+    const stale = conn
+      .prepare("select count(*) as n from users where notify_push = 0")
+      .get() as { n: number };
+    if (stale.n > 0) {
+      conn.prepare("update users set notify_push = 1 where notify_push = 0").run();
+      applied.push(`users.notify_push on for ${stale.n} accounts`);
+    }
   }
 
   return applied;

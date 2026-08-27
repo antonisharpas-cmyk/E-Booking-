@@ -6,11 +6,11 @@ import { REMINDER_STEP_MINUTES, isValidReminderMinutes } from "./profile";
 /**
  * Booking reminders: scheduling and the due queue.
  *
- * This module decides *when* a member should be reminded and on which
- * channels, and nothing else. It does not send anything — there is no email or
- * SMS provider wired into this project yet, and pretending otherwise would be
- * worse than saying so. `dueReminders()` hands the list to whatever the studio
- * plugs in; `markSent()` closes the rows once it has.
+ * This module decides *when* a member should be reminded and on which channels,
+ * and nothing else. It does not send: `dueReminders()` hands the list over and
+ * `markSent()` closes the rows once somebody has. The sending lives in
+ * src/lib/messaging/events.ts, which is also where the studio's own limit on
+ * which channels an automatic message may use is applied.
  *
  * The lead time is copied onto the row when the reminder is scheduled rather
  * than read from the member at send time. If someone changes their preference
@@ -104,6 +104,7 @@ export function dueReminders(now = new Date(), limit = 200) {
       bookingId: bookingReminders.bookingId,
       dueAt: bookingReminders.dueAt,
       channels: bookingReminders.channels,
+      userId: bookingReminders.userId,
       userName: users.name,
       userEmail: users.email,
       userPhone: users.phone,

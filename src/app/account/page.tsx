@@ -8,6 +8,7 @@ import { gramsToKg } from "@/lib/profile";
 import { getMyPurchases } from "@/lib/purchases";
 import { hasAvatar } from "@/lib/avatars";
 import { noticesFor } from "@/lib/notices";
+import { pushPublicKey } from "@/lib/messaging/push";
 
 export const metadata: Metadata = { title: "My account" };
 export const dynamic = "force-dynamic";
@@ -54,6 +55,7 @@ export default async function AccountPage() {
         })),
       }}
       notices={notices}
+      pushPublicKey={pushPublicKey()}
       classesTaken={taken}
       profile={{
         name: user.name,

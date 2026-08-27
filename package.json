@@ -23,8 +23,10 @@
     "test:profile": "node scripts/test-profile.mjs",
     "test:payments": "node scripts/test-payments.mjs",
     "test:desk": "node scripts/test-desk.mjs",
+    "test:notify": "node scripts/test-notify.mjs",
     "doctor": "node scripts/doctor.mjs",
     "staff": "node scripts/staff.mjs",
+    "push:keys": "node scripts/push-keys.mjs",
     "report": "node scripts/report.mjs"
   },
   "dependencies": {
@@ -41,6 +43,7 @@
     "react-dom": "19.1.0",
     "stripe": "17.7.0",
     "tailwind-merge": "2.6.0",
+    "web-push": "^3.6.7",
     "zod": "3.24.2"
   },
   "devDependencies": {
@@ -49,6 +52,7 @@
     "@types/node": "22.14.0",
     "@types/react": "19.1.0",
     "@types/react-dom": "19.1.1",
+    "@types/web-push": "^3.6.4",
     "autoprefixer": "10.4.21",
     "drizzle-kit": "^0.30.5",
     "postcss": "8.5.3",

@@ -1,0 +1,150 @@
+import type { Outgoing, SendResult, Transport } from "./types";
+
+/**
+ * Email, through whichever company the studio signs up with.
+ *
+ *   EMAIL_PROVIDER=log            nothing leaves the building (the default)
+ *   EMAIL_PROVIDER=resend         RESEND_API_KEY
+ *   EMAIL_PROVIDER=brevo          BREVO_API_KEY
+ *   EMAIL_FROM="APEX pilates <hello@apexpilates.cy>"
+ *
+ * Both are plain HTTPS calls, so there is no SDK to keep up to date and no
+ * SMTP connection to nurse. Brevo is here as well as Resend because it also
+ * sends SMS, and one account for both is one less thing for the studio to
+ * manage.
+ *
+ * Whatever the provider, the sending domain has to be verified with DNS records
+ * first — see docs/notifications.md. Without that, mail either bounces or lands
+ * in spam, which is worse than not sending it: the studio would believe forty
+ * people had been told about a cancelled class.
+ */
+
+const FROM = process.env.EMAIL_FROM ?? "APEX pilates <hello@apexpilates.cy>";
+
+/** The plain-text body wrapped in something that does not look like a robot. */
+function html(msg: Outgoing) {
+  const paragraphs = msg.body
+    .split(/\n{2,}/)
+    .map(
+      (p) =>
+        `<p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#4a3a39">${escape(
+          p,
+        ).replace(/\n/g, "<br>")}</p>`,
+    )
+    .join("");
+
+  return `<!doctype html><html><body style="margin:0;background:#FBF7F2;padding:32px 16px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+    <table role="presentation" width="100%" style="max-width:560px;background:#fff;border-radius:18px;padding:36px 32px">
+      <tr><td>
+        <p style="margin:0 0 6px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#a2908c">APEX pilates</p>
+        <h1 style="margin:0 0 22px;font-size:22px;font-weight:400;color:#3b2d2c">${escape(msg.subject)}</h1>
+        ${paragraphs}
+        <p style="margin:28px 0 0;font-size:12px;color:#a2908c">
+          APEX Fitness Centre · Grigori Afxentiou 9, Livadia, Larnaca 7060
+        </p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>`;
+}
+
+function escape(s: string) {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+const logTransport: Transport = {
+  name: "log (nothing is sent)",
+  ready: true,
+  async send(to, msg) {
+    console.log(`[email:log] → ${to} :: ${msg.subject}`);
+    return { ok: true, id: "log" };
+  },
+};
+
+function resend(key: string): Transport {
+  return {
+    name: "Resend",
+    ready: true,
+    async send(to, msg) {
+      try {
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${key}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: FROM,
+            to: [to],
+            subject: msg.subject,
+            text: msg.body,
+            html: html(msg),
+          }),
+        });
+        if (!res.ok) return { ok: false, error: `resend ${res.status}: ${await res.text()}` };
+        const data = (await res.json()) as { id?: string };
+        return { ok: true, id: data.id };
+      } catch (e) {
+        return { ok: false, error: `resend: ${(e as Error).message}` };
+      }
+    },
+  };
+}
+
+function brevo(key: string): Transport {
+  /* Brevo wants the sender split into name and address. */
+  const m = /^\s*(.*?)\s*<(.+)>\s*$/.exec(FROM);
+  const sender = m ? { name: m[1], email: m[2] } : { email: FROM };
+
+  return {
+    name: "Brevo",
+    ready: true,
+    async send(to, msg) {
+      try {
+        const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+          method: "POST",
+          headers: { "api-key": key, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sender,
+            to: [{ email: to }],
+            subject: msg.subject,
+            textContent: msg.body,
+            htmlContent: html(msg),
+          }),
+        });
+        if (!res.ok) return { ok: false, error: `brevo ${res.status}: ${await res.text()}` };
+        const data = (await res.json()) as { messageId?: string };
+        return { ok: true, id: data.messageId };
+      } catch (e) {
+        return { ok: false, error: `brevo: ${(e as Error).message}` };
+      }
+    },
+  };
+}
+
+export function emailTransport(): Transport {
+  const which = (process.env.EMAIL_PROVIDER ?? "log").toLowerCase();
+
+  if (which === "resend") {
+    const key = process.env.RESEND_API_KEY;
+    return key
+      ? resend(key)
+      : { name: "Resend (no RESEND_API_KEY)", ready: false, send: notReady };
+  }
+  if (which === "brevo") {
+    const key = process.env.BREVO_API_KEY;
+    return key
+      ? brevo(key)
+      : { name: "Brevo (no BREVO_API_KEY)", ready: false, send: notReady };
+  }
+  return logTransport;
+}
+
+async function notReady(): Promise<SendResult> {
+  return { ok: false, error: "NOT_CONFIGURED" };
+}

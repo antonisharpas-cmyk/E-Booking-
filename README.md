@@ -245,7 +245,7 @@ What reception can do, all of it written to the session ledger with who did it:
 | **Bookings** | any date, forward or back: the classes on it, who is in them, marking attendance, and rolling the rota forward                                      |
 | **Members**  | search, then: sessions in and out, cancel a class with or without a refund, correct an email or phone, switch their channels, set a new password   |
 | **Closures** | shut a day — every class on it is cancelled and every session goes back, even inside the 24-hour window, and the day disappears from the timetable; also where the rota is rolled forward |
-| **Notices**  | write to every member at once; it lands in their account with a count on their photograph until they read it                                       |
+| **Notices**  | write once, then choose who it goes to (everyone / offers only) and how it travels (push, email, SMS) — each showing how many people it reaches   |
 | **Pricing**  | run an offer: a rule across the list, or a different one on a single pack, with one press to go back to normal                                     |
 
 Three things worth knowing about how it behaves:
@@ -409,6 +409,7 @@ npm run test:http     -- http://localhost:3100    # 76 checks
 npm run test:profile  -- http://localhost:3100    # 38 checks
 npm run test:payments -- http://localhost:3100    # 25 checks
 npm run test:desk     -- http://localhost:3100    # 95 checks
+npm run test:notify   -- http://localhost:3100    # 70 checks
 ```
 
 - **flows** — credit expiry, spending the soonest-expiring credit, double
@@ -423,6 +424,12 @@ npm run test:desk     -- http://localhost:3100    # 95 checks
   anything, settling it, settling it three times and still getting one grant,
   one member failing to settle another's purchase, and a forged gateway return
   being refused.
+- **notify** — the three automatic messages (booked, cancelled, reminder), the
+  reminder sweep being closed to the public and idempotent, and the consent rules: what a new member starts with (push on and not
+  switchable, email on, SMS off, offers unticked), that an edited request cannot
+  turn push off, that an offer reaches exactly the members who accepted offers
+  and nobody else, and that withdrawing that consent hides the offers already
+  sent. See docs/notifications.md.
 - **desk** — the front door (a stranger gets the form rather than a redirect, a
   member's correct password does not open it, staff credentials open it in one
   step), the split between reception and the owner (no analytics tab, the stats

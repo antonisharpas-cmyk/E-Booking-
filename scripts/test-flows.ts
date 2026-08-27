@@ -617,6 +617,30 @@ async function main() {
     .prepare("delete from class_sessions where id in (?,?,?)")
     .run(lateSession.id, tooLate.id, capSession.id);
 
+  /* ---------------------------------------------------------------- 10 */
+  console.log("\n10. What the automatic messages actually say");
+  {
+    const { whenWords, leadWords } = await import("../src/lib/messaging/events");
+
+    /* The whole substance of a booking confirmation is the day and the hour, in
+       the studio's timezone — a member in London booking a class at 18:00 in
+       Larnaca must be told 18:00, not 16:00. */
+    const at = new Date("2026-08-29T15:00:00Z"); // 18:00 in Nicosia
+    const words = whenWords(at);
+    check(
+      "the confirmation names the weekday, the date and the hour",
+      /Saturday/.test(words) && /29 August/.test(words) && /18:00/.test(words),
+      words,
+    );
+
+    check("a two-hour lead reads as hours", leadWords(120) === "2 hours", leadWords(120));
+    check("one hour is not pluralised", leadWords(60) === "1 hour", leadWords(60));
+    check("ninety minutes stays legible", leadWords(90) === "1h 30m", leadWords(90));
+    check("ten minutes reads as minutes", leadWords(10) === "10 minutes", leadWords(10));
+    /* A sweep that runs a moment late must not say "in -1 minutes". */
+    check("a late sweep says now, not a negative", leadWords(0) === "now", leadWords(0));
+  }
+
   console.log(
     `\n${fail === 0 ? "ALL PASS" : "FAILURES"} — ${pass} passed, ${fail} failed\n`,
   );

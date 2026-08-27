@@ -8,23 +8,39 @@ import { cn } from "@/lib/utils";
 /**
  * Writing to every member at once.
  *
- * The message lands in each member's account with a count on their photograph
- * until they open it, and the desk can see how many have. It says plainly on
- * screen that no email or SMS goes out, because a receptionist who believes a
- * text message was sent will not pick up the phone — and right now nothing is
- * sent but this.
+ * The message always lands in each member's account, with a count on their
+ * photograph until they open it. Beyond that the desk chooses who it goes to
+ * and how it travels — push, email, SMS — and each channel says on the button
+ * how many people it will actually reach before anything is sent. A channel
+ * with no provider connected says so rather than silently doing nothing: a
+ * receptionist who believes a text went out will not pick up the phone.
  */
+
+type Delivery = {
+  channel: string;
+  sent: number;
+  failed: number;
+  skipped: number;
+  detail: string;
+};
 
 type Sent = {
   id: string;
   titleEn: string;
   bodyEn: string;
   important: boolean;
+  audience: string;
+  channels: string;
   createdAt: string;
   author: string | null;
   reads: number;
   members: number;
+  deliveries: Delivery[];
 };
+
+type Reach = { people: number; push: number; email: number; sms: number };
+type Transports = Record<string, { name: string; ready: boolean }>;
+type Channel = "push" | "email" | "sms";
 
 export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
   const { t, fmtFullDate } = useI18n();
@@ -38,16 +54,32 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
   const [important, setImportant] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    const res = await fetch("/api/admin/notices");
+  const [audience, setAudience] = useState<"ALL" | "OFFERS">("ALL");
+  /* Push starts ticked, because it is the channel the studio wants used and the
+     one that costs nothing. Email and SMS are deliberate choices. */
+  const [channels, setChannels] = useState<Channel[]>(["push"]);
+  const [reach, setReach] = useState<Reach | null>(null);
+  const [transports, setTransports] = useState<Transports>({});
+
+  const load = useCallback(async (which: "ALL" | "OFFERS") => {
+    const res = await fetch(`/api/admin/notices?audience=${which}`);
     if (!res.ok) return;
-    const data = (await res.json()) as { notices: Sent[] };
+    const data = (await res.json()) as {
+      notices: Sent[];
+      reach: Reach;
+      transports: Transports;
+    };
     setHistory(data.notices ?? []);
+    setReach(data.reach ?? null);
+    setTransports(data.transports ?? {});
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void load(audience);
+  }, [load, audience]);
+
+  const toggle = (c: Channel) =>
+    setChannels((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]));
 
   async function send() {
     setBusy("send");
@@ -61,20 +93,33 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
           titleEl,
           bodyEl: textEl,
           important,
+          audience,
+          channels,
         }),
       });
-      const data = (await res.json()) as { error?: string };
+      const data = (await res.json()) as {
+        error?: string;
+        reports?: { channel: string; sent: number; failed: number }[];
+      };
       if (data.error) {
         onNotice(data.error);
         return;
       }
-      onNotice(d.noticeSent);
+      /* Say what actually happened per channel rather than "sent": the desk
+         needs to know if the email provider refused forty of them. */
+      const summary = (data.reports ?? [])
+        .map(
+          (r) =>
+            `${r.channel} ${r.sent}${r.failed ? ` (${r.failed} failed)` : ""}`,
+        )
+        .join(" · ");
+      onNotice(summary ? d.sentReport.replace("{summary}", summary) : d.noticeSent);
       setTitle("");
       setText("");
       setTitleEl("");
       setTextEl("");
       setImportant(false);
-      await load();
+      await load(audience);
     } finally {
       setBusy(null);
     }
@@ -144,13 +189,122 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
           {d.noticeImportant}
         </button>
 
+        {/* ------------------------------------------------- who it goes to */}
+        <div className="mt-8 border-t border-mocha-200/70 pt-6">
+          <p className="text-[10px] uppercase tracking-brand text-clay">
+            {d.audienceTitle}
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {(
+              [
+                ["ALL", d.audienceAll, d.audienceAllWhy],
+                ["OFFERS", d.audienceOffers, d.audienceOffersWhy],
+              ] as const
+            ).map(([key, label, why]) => (
+              <button
+                key={key}
+                data-audience={key}
+                onClick={() => setAudience(key)}
+                className={cn(
+                  "rounded-2xl border p-4 text-left transition-colors duration-300",
+                  audience === key
+                    ? "border-mocha-600 bg-mocha-600/[0.06]"
+                    : "border-mocha-200 hover:border-mocha-400",
+                )}
+              >
+                <span className="flex items-center justify-between gap-2">
+                  <span className="text-[13px] text-mocha-700">{label}</span>
+                  {reach && (
+                    <span className="text-[11px] text-clay lining-nums tabular-nums">
+                      {audience === key ? reach.people : ""}
+                    </span>
+                  )}
+                </span>
+                <span className="mt-1.5 block text-[11px] leading-relaxed text-clay">
+                  {why}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ------------------------------------------------ how it goes out */}
+        <div className="mt-7">
+          <p className="text-[10px] uppercase tracking-brand text-clay">
+            {d.channelsTitle}
+          </p>
+          <p className="mt-2 text-[11px] leading-relaxed text-clay">
+            {d.channelsHelp}
+          </p>
+
+          <div className="mt-4 space-y-3">
+            {(
+              [
+                ["push", d.chanPush, d.chanPushWhy, reach?.push],
+                ["email", d.chanEmail, d.chanEmailWhy, reach?.email],
+                ["sms", d.chanSms, d.chanSmsWhy, reach?.sms],
+              ] as const
+            ).map(([key, label, why, n]) => {
+              const on = channels.includes(key);
+              const ready = transports[key]?.ready ?? true;
+              return (
+                <button
+                  key={key}
+                  data-channel={key}
+                  aria-pressed={on}
+                  onClick={() => toggle(key)}
+                  className={cn(
+                    "flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition-colors duration-300",
+                    on
+                      ? "border-mocha-600 bg-mocha-600/[0.06]"
+                      : "border-mocha-200 hover:border-mocha-400",
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border text-[11px]",
+                      on
+                        ? "border-mocha-600 bg-mocha-600 text-cream"
+                        : "border-mocha-300",
+                    )}
+                  >
+                    {on ? "✓" : ""}
+                  </span>
+                  <span className="flex-1">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="text-[13px] text-mocha-700">{label}</span>
+                      {/* The count is the point of this screen: nobody should
+                          press send wondering who it reaches. */}
+                      <span className="text-[11px] text-clay lining-nums tabular-nums">
+                        {ready
+                          ? d.chanReaches.replace("{n}", String(n ?? 0))
+                          : key === "push"
+                            ? d.chanNoKeys
+                            : d.chanNotSet}
+                      </span>
+                    </span>
+                    <span className="mt-1 block text-[11px] leading-relaxed text-clay">
+                      {why}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <Button
           className="mt-6 block"
           size="sm"
           disabled={busy === "send" || title.trim().length < 3 || text.trim().length < 3}
           onClick={send}
         >
-          {busy === "send" ? t.common.loading : d.noticeSend}
+          {busy === "send"
+            ? t.common.loading
+            : audience === "OFFERS"
+              ? d.noticeSendOffers
+              : d.noticeSendAll}
         </Button>
       </div>
 
@@ -182,7 +336,22 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
                 <p className="mt-1 text-[11px] uppercase tracking-widest text-clay">
                   {fmtFullDate(h.createdAt)}
                   {h.author ? ` · ${h.author}` : ""}
+                  {` · ${
+                    h.audience === "OFFERS"
+                      ? d.noticeAudienceOffers
+                      : d.noticeAudienceAll
+                  }`}
                 </p>
+                {h.deliveries.length > 0 && (
+                  <p className="mt-1 text-[11px] text-clay lining-nums tabular-nums">
+                    {h.deliveries
+                      .map(
+                        (x) =>
+                          `${x.channel} ${x.sent}${x.failed ? ` (${x.failed} failed)` : ""}`,
+                      )
+                      .join(" · ")}
+                  </p>
+                )}
                 <p className="mt-2 line-clamp-2 text-[13px] text-mocha-500">
                   {h.bodyEn}
                 </p>

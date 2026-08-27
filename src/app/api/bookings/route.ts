@@ -2,12 +2,16 @@ import { NextResponse } from "next/server";
 import { bookClass, listMyBookings } from "@/lib/booking";
 import { currentUser } from "@/lib/auth";
 import { getAvailableCredits } from "@/lib/credits";
+import { notifyBooked, nudgeReminders } from "@/lib/messaging/events";
 import { scheduleReminder } from "@/lib/reminders";
 import { bookSchema } from "@/lib/validation";
 
 export async function GET() {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  /* Any page view is a chance to push the reminder queue along, in case the
+     scheduled sweep is not running. Never awaited. */
+  nudgeReminders();
   const bookings = await listMyBookings(user.id);
   return NextResponse.json({
     ...bookings,
@@ -40,6 +44,11 @@ export async function POST(req: Request) {
   } catch {
     reminderAt = null;
   }
+
+  /* The confirmation goes out on its own time. Deliberately not awaited: a
+     push service being slow must not make the member wait to see their booking,
+     and a push that fails must not read as a booking that failed. */
+  void notifyBooked(result.bookingId).catch(() => {});
 
   return NextResponse.json({
     ok: true,

@@ -73,6 +73,8 @@ type Props = {
     createdAt: string;
   }[];
   notices: NoticeRow[];
+  /** VAPID public key, so the notifications tab can offer push. */
+  pushPublicKey: string;
 };
 
 const REASON: Record<string, { en: string; el: string }> = {
@@ -397,20 +399,31 @@ export function AccountBody(props: Props) {
           />
         </Reveal>
 
-        {/* Messages from the studio, above the channel switches: what was said
-            matters more than how it will be said next time. */}
+        {/* Messages beside the switches rather than stacked on top of them.
+            Stacked, a long history pushed the member's own settings off the
+            bottom of the screen; side by side, both are reachable however many
+            messages the studio has sent. */}
         {tab === "notifications" && (
           <Reveal delay={0.05} className="mt-12">
-            <NoticeList notices={props.notices} />
+            <div className="grid items-start gap-6 lg:grid-cols-[1.15fr_1fr]">
+              <NoticeList notices={props.notices} />
+              <ProfilePanel
+                initial={props.profile}
+                section="notifications"
+                pushPublicKey={props.pushPublicKey}
+              />
+            </div>
           </Reveal>
         )}
 
-        {/* profile / notifications / password */}
-        {(tab === "profile" ||
-          tab === "notifications" ||
-          tab === "password") && (
+        {/* profile / password */}
+        {(tab === "profile" || tab === "password") && (
           <Reveal key={tab} delay={0.05} className="mt-12">
-            <ProfilePanel initial={props.profile} section={tab} />
+            <ProfilePanel
+              initial={props.profile}
+              section={tab}
+              pushPublicKey={props.pushPublicKey}
+            />
           </Reveal>
         )}
 

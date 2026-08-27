@@ -16,13 +16,19 @@ export type AccountTab =
  * The order they appear in, here and in the header menu. One list so the two
  * can never drift apart.
  */
+/**
+ * The order the studio asked for: what a member looks at most, first.
+ *
+ * Password sits at the end because it is the one thing here nobody opens on
+ * purpose — they open it once, when something is wrong.
+ */
 export const ACCOUNT_TABS: AccountTab[] = [
   "profile",
   "notifications",
-  "password",
+  "activity",
   "classes",
   "payments",
-  "activity",
+  "password",
 ];
 
 /** Guards `?tab=` from the address bar, which anyone can type. */
@@ -87,21 +93,29 @@ export function AccountTabs({
     };
   }, [active]);
 
-  const tabs: {
-    id: AccountTab;
-    label: string;
-    count?: number;
-    dot?: boolean;
-    /** Unread notices are worth an accent; a count of past classes is not. */
-    gold?: boolean;
-  }[] = [
-    { id: "profile", label: a.profile, dot: needsAttention },
-    { id: "notifications", label: a.notifications, count: unread, gold: unread > 0 },
-    { id: "password", label: a.password },
-    { id: "classes", label: a.classes, count: counts.classes },
-    { id: "payments", label: a.payments, count: counts.payments },
-    { id: "activity", label: a.activity, count: counts.activity },
-  ];
+  /* Keyed by tab rather than listed in order, and then mapped over
+     ACCOUNT_TABS. There used to be two lists — this one and ACCOUNT_TABS — which
+     meant the pills and the header menu could disagree about the order, and
+     they did. One list decides it now. */
+  const meta: Record<
+    AccountTab,
+    {
+      label: string;
+      count?: number;
+      dot?: boolean;
+      /** Unread notices are worth an accent; a count of past classes is not. */
+      gold?: boolean;
+    }
+  > = {
+    profile: { label: a.profile, dot: needsAttention },
+    notifications: { label: a.notifications, count: unread, gold: unread > 0 },
+    activity: { label: a.activity, count: counts.activity },
+    classes: { label: a.classes, count: counts.classes },
+    payments: { label: a.payments, count: counts.payments },
+    password: { label: a.password },
+  };
+
+  const tabs = ACCOUNT_TABS.map((id) => ({ id, ...meta[id] }));
 
   return (
     <div className="relative -mx-6 md:mx-0">

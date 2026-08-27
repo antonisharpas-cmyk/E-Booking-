@@ -11,7 +11,19 @@
  */
 import Database from "better-sqlite3";
 import bcrypt from "bcryptjs";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+
+/* Read .env the way the server does, so this check reports what the app will
+   actually see rather than what happens to be in the shell. Values are used to
+   answer yes/no questions and are never printed. */
+if (existsSync(".env")) {
+  for (const line of readFileSync(".env", "utf8").split("\n")) {
+    const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/.exec(line);
+    if (!m) continue;
+    const value = m[2].replace(/^["']|["']$/g, "");
+    if (process.env[m[1]] === undefined) process.env[m[1]] = value;
+  }
+}
 
 const file = (process.env.DATABASE_URL ?? "file:./dev.db").replace(/^file:/, "");
 
@@ -139,6 +151,59 @@ if (tables.has("users")) {
           stillDefault.map((u) => u.email).join(", "),
         "npm run staff -- password <email>   (before going live)",
       );
+}
+
+console.log("\nGetting a message out");
+{
+  const push = Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
+  push
+    ? ok("push: keys in place (no account needed, no cost)")
+    : warn("push: no VAPID keys, so no notification can be delivered",
+           "npm run push:keys   then paste the three lines into .env");
+
+  const devices = tables.has("push_subscriptions")
+    ? conn.prepare("select count(*) as n from push_subscriptions").get().n
+    : 0;
+  ok(`${devices} device${devices === 1 ? "" : "s"} have allowed notifications`);
+
+  const email = (process.env.EMAIL_PROVIDER ?? "log").toLowerCase();
+  const sms = (process.env.SMS_PROVIDER ?? "log").toLowerCase();
+  const emailKeyed =
+    (email === "resend" && process.env.RESEND_API_KEY) ||
+    (email === "brevo" && process.env.BREVO_API_KEY);
+  const smsKeyed =
+    (sms === "twilio" &&
+      process.env.TWILIO_ACCOUNT_SID &&
+      process.env.TWILIO_AUTH_TOKEN &&
+      process.env.TWILIO_FROM) ||
+    (sms === "brevo" && process.env.BREVO_API_KEY && process.env.SMS_SENDER);
+
+  email === "log"
+    ? warn("email: log mode — nothing is actually sent", "docs/notifications.md")
+    : emailKeyed
+      ? ok(`email: ${email}`)
+      : bad(`email: ${email} selected but its key is missing`, "docs/notifications.md");
+
+  sms === "log"
+    ? warn("sms: log mode — nothing is actually sent", "docs/notifications.md")
+    : smsKeyed
+      ? ok(`sms: ${sms}`)
+      : bad(`sms: ${sms} selected but its credentials are missing`, "docs/notifications.md");
+
+  /* Members who left email on, and members who deliberately turned SMS on. The
+     second number is the one that costs money. */
+  const reach = conn
+    .prepare(
+      `select
+         sum(case when notify_email = 1 then 1 else 0 end) as email,
+         sum(case when notify_sms = 1 then 1 else 0 end) as sms,
+         sum(case when marketing_opt_in = 1 then 1 else 0 end) as offers
+       from users where service_opt_in_at is not null`,
+    )
+    .get();
+  ok(
+    `reach: ${reach.email ?? 0} by email, ${reach.sms ?? 0} by SMS, ${reach.offers ?? 0} accept offers`,
+  );
 }
 
 console.log("\nThe room, as the timetable has it");

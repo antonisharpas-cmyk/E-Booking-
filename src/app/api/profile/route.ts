@@ -22,6 +22,33 @@ import { profileSchema } from "@/lib/validation";
  * it. Whatever arrives in those fields is ignored rather than rejected, so an
  * older client cannot fail confusingly.
  */
+/**
+ * Their own settings, read back.
+ *
+ * Exists so a client — and the test suite — can ask what a member's consents
+ * actually are rather than inferring them from a rendered page. Only ever the
+ * caller's own: there is no id parameter to get wrong.
+ */
+export async function GET() {
+  const user = await currentUser();
+  if (!user)
+    return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+
+  return NextResponse.json({
+    profile: {
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      serviceOptIn: user.serviceOptInAt !== null,
+      marketingOptIn: user.marketingOptIn,
+      notifyEmail: user.notifyEmail,
+      notifySms: user.notifySms,
+      notifyPush: user.notifyPush,
+      reminderMinutes: user.reminderMinutes,
+    },
+  });
+}
+
 export async function PATCH(req: Request) {
   const user = await currentUser();
   if (!user)
@@ -52,6 +79,7 @@ export async function PATCH(req: Request) {
   }
 
   const before = {
+    marketingOptIn: user.marketingOptIn,
     reminderMinutes: user.reminderMinutes,
     notifyEmail: user.notifyEmail,
     notifySms: user.notifySms,
@@ -70,8 +98,17 @@ export async function PATCH(req: Request) {
       weightGrams: d.weightKg == null ? null : kgToGrams(d.weightKg),
       marketingOptIn: d.marketingOptIn,
       notifyEmail: d.notifyEmail,
-      notifySms: d.notifySms,
-      notifyPush: d.notifyPush,
+      /* Accepting offers switches SMS on: it is the studio's most reliable way
+         to reach somebody who has just said they want to hear from it. Only on
+         the transition, so a member who accepts offers and then turns SMS off
+         stays off — the choice is theirs once they have made it. */
+      notifySms:
+        d.marketingOptIn && !before.marketingOptIn ? true : d.notifySms,
+      /* Push is not a preference any more: the studio keeps it on, and the only
+         thing that silences it is the member's own browser or phone. Clamped
+         here rather than trusted from the request, so an edited payload cannot
+         switch it off behind the screen that no longer offers to. */
+      notifyPush: true,
       reminderMinutes: d.reminderMinutes,
     })
     .where(eq(users.id, user.id))
@@ -82,8 +119,7 @@ export async function PATCH(req: Request) {
   const remindersChanged =
     before.reminderMinutes !== d.reminderMinutes ||
     before.notifyEmail !== d.notifyEmail ||
-    before.notifySms !== d.notifySms ||
-    before.notifyPush !== d.notifyPush;
+    before.notifySms !== d.notifySms;
 
   const rescheduled = remindersChanged ? rescheduleUpcoming(user.id) : 0;
 

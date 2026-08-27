@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { PushEnroller } from "@/components/account/PushEnroller";
 import { UserAvatar } from "@/components/account/UserAvatar";
 import { useI18n } from "@/i18n/LanguageProvider";
 import {
@@ -48,10 +49,13 @@ export type ProfileValues = {
 export function ProfilePanel({
   initial,
   section,
+  pushPublicKey = "",
 }: {
   initial: ProfileValues;
   /** Which part to render. The state and the save button are shared. */
   section: "profile" | "notifications" | "password";
+  /** VAPID public key. Empty when push has not been configured yet. */
+  pushPublicKey?: string;
 }) {
   const { t, locale } = useI18n();
   const router = useRouter();
@@ -253,7 +257,15 @@ export function ProfilePanel({
   const missingBirthday = !values.birthDate;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+    /* Two columns for the profile and password sections, which have two cards.
+       Notifications is one card and now sits inside a column of its own beside
+       the message list, so it must not be split again. */
+    <div
+      className={cn(
+        "grid gap-6",
+        section === "notifications" ? "" : "lg:grid-cols-[1fr_1fr]",
+      )}
+    >
       {section === "profile" && (
         <>
           {/* ---------------------------------------------------------- identity */}
@@ -470,6 +482,23 @@ export function ProfilePanel({
           <h3 className="eyebrow">{p.notifyTitle}</h3>
 
           <div className="mt-6 space-y-4">
+            {/* Push is not a switch. The studio keeps it on — it is how a
+                cancelled class reaches somebody in time — and the only thing
+                that can silence it is the member's own browser or phone, which
+                is said plainly rather than hidden behind a toggle that would
+                imply we control it. */}
+            <div className="rounded-2xl border border-mocha-300 bg-white/70 p-4">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-[14px] text-mocha-700">
+                  {p.channelPush}
+                </span>
+                <span className="rounded-full bg-mocha-600 px-3 py-1 text-[10px] uppercase tracking-widest text-cream">
+                  {p.channelPushAlways}
+                </span>
+              </div>
+              <PushEnroller publicKey={pushPublicKey} />
+            </div>
+
             <Toggle
               label={p.channelEmail}
               hint={values.email}
@@ -481,12 +510,6 @@ export function ProfilePanel({
               hint={values.phone ?? ""}
               on={values.notifySms}
               onChange={(v) => setValues({ ...values, notifySms: v })}
-            />
-            <Toggle
-              label={p.channelPush}
-              hint={p.channelPushHint}
-              on={values.notifyPush}
-              onChange={(v) => setValues({ ...values, notifyPush: v })}
             />
           </div>
 
@@ -508,9 +531,6 @@ export function ProfilePanel({
                 </span>
                 <div>
                   <p className="text-sm text-mocha-600">{p.consentService}</p>
-                  <p className="mt-1 text-[12px] leading-relaxed text-clay">
-                    {p.consentServiceWhy}
-                  </p>
                 </div>
               </div>
             ) : (
@@ -526,13 +546,8 @@ export function ProfilePanel({
                   }
                   className="mt-0.5 h-5 w-5 shrink-0 rounded border-mocha-300 accent-mocha-600"
                 />
-                <span>
-                  <span className="block text-sm text-mocha-700">
-                    {p.consentService}
-                  </span>
-                  <span className="mt-1 block text-[12px] leading-relaxed text-mocha-600">
-                    {p.consentServiceWhy}
-                  </span>
+                <span className="block text-sm text-mocha-700">
+                  {p.consentService}
                 </span>
               </label>
             )}
@@ -541,10 +556,14 @@ export function ProfilePanel({
               <input
                 type="checkbox"
                 checked={values.marketingOptIn}
+                /* Accepting offers switches SMS on in the same press, so the
+                   screen shows what the server is about to record rather than
+                   surprising them with it after a save. */
                 onChange={(e) =>
                   setValues({
                     ...values,
                     marketingOptIn: e.currentTarget.checked,
+                    notifySms: e.currentTarget.checked ? true : values.notifySms,
                   })
                 }
                 className="mt-0.5 h-5 w-5 shrink-0 rounded border-mocha-300 accent-mocha-600"

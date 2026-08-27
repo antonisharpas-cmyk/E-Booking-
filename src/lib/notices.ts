@@ -1,21 +1,53 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { noticeReads, notices, users } from "@/db/schema";
+import { noticeDeliveries, noticeReads, notices, users } from "@/db/schema";
 
 /**
  * Messages from the studio to its members.
  *
- * Written at the desk, read in the member's account. There is no push provider
- * behind this and it does not pretend there is: the message lands in the app,
- * the count appears next to the member's face, and it is theirs the next time
- * they open the site. When an email or SMS provider is wired up (see
- * src/lib/reminders.ts for where that hook belongs) the same notice can be sent
- * down those channels too, to the members who agreed to them.
+ * Written at the desk, read in the member's account. The in-app copy is the one
+ * that always exists: the message lands in the app, the count appears next to
+ * the member's face, and it is theirs the next time they open the site — whether
+ * or not push, email or SMS got through. See src/lib/messaging/deliver.ts for
+ * the channels that go out alongside it, and who each one is allowed to reach.
  *
  * Read state is stored as *presence*: a row in notice_reads means read. So
  * sending a notice to four hundred members writes one row, not four hundred,
  * and "unread" costs a left join rather than a fan-out.
+ *
+ * The trade that buys is that a member's list is computed rather than stored,
+ * which is why `visibleTo` carries every rule about who may see what: the offers
+ * consent, and the date they joined.
  */
+
+
+/**
+ * Which notices this member is allowed to see, in SQL.
+ *
+ * Studio and timetable notices go to everyone. Offers only exist for members who
+ * ticked offers — and that has to be enforced here, on the read, not only at the
+ * moment of sending. Otherwise a member who declines offers today would still
+ * find yesterday's offer sitting in their account, and turning offers off would
+ * mean nothing retrospectively.
+ */
+function visibleTo(userId: string) {
+  return sql`(
+    (
+      ${notices.audience} <> 'OFFERS'
+      or exists (
+        select 1 from users u
+        where u.id = ${userId} and u.marketing_opt_in = 1
+      )
+    )
+    /* And nothing from before they joined. Somebody who signs up today has not
+       missed last month's closure — they were not a member — and handing a new
+       account thirty unread messages, with thirty on their photograph, is a
+       worse welcome than an empty list. */
+    and ${notices.createdAt} >= (
+      select u2.created_at from users u2 where u2.id = ${userId}
+    )
+  )`;
+}
 
 export type NoticeView = {
   id: string;
@@ -32,6 +64,10 @@ export function createNotice(args: {
   titleEl?: string;
   bodyEl?: string;
   important?: boolean;
+  /** ALL for studio and timetable notices, OFFERS for the opt-in audience. */
+  audience?: "ALL" | "OFFERS";
+  /** Which channels it was sent on, recorded so the history says what happened. */
+  channels?: string[];
   staffId: string;
 }) {
   return db
@@ -42,6 +78,8 @@ export function createNotice(args: {
       titleEl: args.titleEl ?? "",
       bodyEl: args.bodyEl ?? "",
       important: args.important ?? false,
+      audience: args.audience ?? "ALL",
+      channels: (args.channels ?? []).join(","),
       createdBy: args.staffId,
     })
     .returning()
@@ -74,6 +112,7 @@ export function noticesFor(
       noticeReads,
       sql`${noticeReads.noticeId} = ${notices.id} and ${noticeReads.userId} = ${userId}`,
     )
+    .where(visibleTo(userId))
     .orderBy(desc(notices.createdAt))
     .limit(limit)
     .all();
@@ -97,7 +136,7 @@ export function unreadCount(userId: string): number {
       noticeReads,
       sql`${noticeReads.noticeId} = ${notices.id} and ${noticeReads.userId} = ${userId}`,
     )
-    .where(sql`${noticeReads.readAt} is null`)
+    .where(sql`${noticeReads.readAt} is null and ${visibleTo(userId)}`)
     .get();
   return row?.n ?? 0;
 }
@@ -110,6 +149,7 @@ export function markRead(userId: string, noticeId?: string) {
     : db
         .select({ id: notices.id })
         .from(notices)
+        .where(visibleTo(userId))
         .all()
         .map((r) => r.id);
 
@@ -134,6 +174,8 @@ export function noticeHistory(limit = 20) {
       titleEl: notices.titleEl,
       bodyEl: notices.bodyEl,
       important: notices.important,
+      audience: notices.audience,
+      channels: notices.channels,
       createdAt: notices.createdAt,
       author: users.name,
     })
@@ -153,6 +195,19 @@ export function noticeHistory(limit = 20) {
   return rows.map((r) => ({
     ...r,
     members,
+    /* What each channel did with it, so "sent" is a fact rather than a hope. */
+    deliveries: db
+      .select()
+      .from(noticeDeliveries)
+      .where(eq(noticeDeliveries.noticeId, r.id))
+      .all()
+      .map((d) => ({
+        channel: d.channel,
+        sent: d.sent,
+        failed: d.failed,
+        skipped: d.skipped,
+        detail: d.detail,
+      })),
     reads:
       db
         .select({ n: sql<number>`count(*)` })

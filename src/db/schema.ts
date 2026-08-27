@@ -57,9 +57,12 @@ export const users = sqliteTable(
     notifySms: integer("notify_sms", { mode: "boolean" })
       .notNull()
       .default(false),
+    /* Not a preference: the studio keeps push on, and the member's browser or
+       phone is the only thing that can silence it. Kept as a column so the
+       delivery code reads consent the same way for all three channels. */
     notifyPush: integer("notify_push", { mode: "boolean" })
       .notNull()
-      .default(false),
+      .default(true),
 
     /* Minutes before a class starts to send its reminder. Null means the
        member does not want one. See REMINDER_STEP_MINUTES in lib/profile.ts. */
@@ -432,8 +435,15 @@ export const notices = sqliteTable(
     /** Optional Greek version. Falls back to the English one when empty. */
     titleEl: text("title_el").notNull().default(""),
     bodyEl: text("body_el").notNull().default(""),
-    /** ALL — kept as a column so a segment can be added without a migration. */
+    /**
+     * Who it was for. ALL means every member — those are the studio and
+     * timetable notices nobody can opt out of, because a class being cancelled
+     * is not marketing. OFFERS means only members who ticked offers, news and
+     * new class types.
+     */
     audience: text("audience").notNull().default("ALL"),
+    /** Which channels it went out on, e.g. "push,email". In-app is always. */
+    channels: text("channels").notNull().default(""),
     /** Marks the ones that matter: shown with the studio's gold accent. */
     important: integer("important", { mode: "boolean" }).notNull().default(false),
     createdBy: text("created_by").references(() => users.id),
@@ -459,6 +469,64 @@ export const noticeReads = sqliteTable(
     readAt: integer("read_at", { mode: "timestamp" }).notNull(),
   },
   (t) => [uniqueIndex("notice_reads_idx").on(t.noticeId, t.userId)],
+);
+
+/**
+ * One browser, one device, one permission grant.
+ *
+ * A member can have several — phone, laptop, the studio's tablet — and each is
+ * revoked independently by whoever owns the device, not by us. Dead endpoints
+ * are pruned when the push service reports them gone (404/410), which is the
+ * only reliable signal we get: a browser never tells us it was uninstalled.
+ */
+export const pushSubscriptions = sqliteTable(
+  "push_subscriptions",
+  {
+    id: id(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** The push service URL. Unique: re-subscribing the same browser updates. */
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    userAgent: text("user_agent").notNull().default(""),
+    createdAt: now().notNull(),
+    lastSentAt: integer("last_sent_at", { mode: "timestamp" }),
+    /** Consecutive send failures. Used to retire a flaky endpoint. */
+    failures: integer("failures").notNull().default(0),
+  },
+  (t) => [
+    uniqueIndex("push_endpoint_idx").on(t.endpoint),
+    index("push_user_idx").on(t.userId),
+  ],
+);
+
+/**
+ * What actually happened when a notice was sent, per channel.
+ *
+ * Counts rather than a row per recipient: the desk needs to know "did it go
+ * out", and 400 rows per notice to answer that is a bad trade. The first few
+ * error messages are kept in `detail`, which is what makes a failure
+ * diagnosable without turning on logging in production.
+ */
+export const noticeDeliveries = sqliteTable(
+  "notice_deliveries",
+  {
+    id: id(),
+    noticeId: text("notice_id")
+      .notNull()
+      .references(() => notices.id, { onDelete: "cascade" }),
+    /** push | email | sms */
+    channel: text("channel").notNull(),
+    sent: integer("sent").notNull().default(0),
+    failed: integer("failed").notNull().default(0),
+    /** Recipients the channel did not apply to: no consent, no phone, no device. */
+    skipped: integer("skipped").notNull().default(0),
+    detail: text("detail").notNull().default(""),
+    createdAt: now().notNull(),
+  },
+  (t) => [index("notice_deliveries_idx").on(t.noticeId)],
 );
 
 /* ------------------------------------------------------------------ Pricing */
@@ -506,3 +574,5 @@ export type CreditLedgerRow = typeof creditLedger.$inferSelect;
 export type StudioClosure = typeof studioClosures.$inferSelect;
 export type Notice = typeof notices.$inferSelect;
 export type PricingRule = typeof pricingRules.$inferSelect;
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type NoticeDelivery = typeof noticeDeliveries.$inferSelect;
