@@ -68,6 +68,21 @@ export const users = sqliteTable(
        member does not want one. See REMINDER_STEP_MINUTES in lib/profile.ts. */
     reminderMinutes: integer("reminder_minutes"),
 
+    /**
+     * A dummy account, kept for testing the site rather than a real member.
+     *
+     * It exists because the alternative is worse: a studio that cannot try a
+     * campaign without sending it to a fake member, or worse, deletes the fake
+     * member and loses the only account it can safely experiment with. Marked
+     * accounts are left out of anything the desk sends unless somebody
+     * deliberately includes them.
+     *
+     * Deliberately not a role. A test account still books classes, buys packs
+     * and holds a balance — it behaves as a member in every way, and treating it
+     * as staff would hide it from the very screens it exists to exercise.
+     */
+    isTest: integer("is_test", { mode: "boolean" }).notNull().default(false),
+
     /* ---- optional profile ----
        Date of birth rather than an age: an age written down is wrong within a
        year, and the studio needs it for screening, not for a birthday card. */
@@ -444,6 +459,29 @@ export const notices = sqliteTable(
     audience: text("audience").notNull().default("ALL"),
     /** Which channels it went out on, e.g. "push,email". In-app is always. */
     channels: text("channels").notNull().default(""),
+    /**
+     * Whether accounts marked as tests were deliberately included.
+     *
+     * Recorded on the notice rather than worked out later, because it decides
+     * who may *see* it as well as who was sent it. A campaign that excluded the
+     * studio's dummy accounts must exclude them from the in-app copy too —
+     * otherwise "excluded" means excluded from email and SMS but not from the
+     * list, the read count includes people who were never meant to be counted,
+     * and the desk's own figures quietly stop meaning what they say.
+     */
+    includedTest: integer("included_test", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    /**
+     * Who it went to, in words: "offers audience · never bought · away 90d+".
+     *
+     * Stored rather than reconstructed, because it cannot be reconstructed. The
+     * audience for "members who have not been for three months" is different
+     * today than it was when the message went out — people came back. Without
+     * this, the history could say a notice reached 38 people and give no way of
+     * ever knowing which 38 or why.
+     */
+    segment: text("segment").notNull().default(""),
     /**
      * Null for a studio announcement, set for a message about one person's own
      * booking — a confirmation, a cancellation, a reminder. Same table, because

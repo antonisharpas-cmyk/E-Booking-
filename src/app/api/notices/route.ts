@@ -16,13 +16,23 @@ export async function GET(req: Request) {
   const gate = await member();
   if ("res" in gate) return gate.res;
 
-  const locale = new URL(req.url).searchParams.get("locale") === "el" ? "el" : "en";
+  const url = new URL(req.url);
+  const locale = url.searchParams.get("locale") === "el" ? "el" : "en";
+
+  const asked = url.searchParams.get("filter");
+  const filter =
+    asked === "unread" || asked === "read" ? asked : ("all" as const);
+  const page = Math.max(1, Number(url.searchParams.get("page") ?? 1) || 1);
+
+  const result = noticesFor(gate.user.id, locale, { filter, page });
 
   return NextResponse.json({
-    notices: noticesFor(gate.user.id, locale).map((n) => ({
-      ...n,
-      createdAt: n.createdAt.toISOString(),
-    })),
+    ...result,
+    /* Kept as `notices` as well as `rows` so nothing that reads the old shape
+       breaks on the way past. */
+    notices: result.rows.map((n) => ({ ...n, createdAt: n.createdAt.toISOString() })),
+    rows: result.rows.map((n) => ({ ...n, createdAt: n.createdAt.toISOString() })),
+    filter,
     unread: unreadCount(gate.user.id),
   });
 }

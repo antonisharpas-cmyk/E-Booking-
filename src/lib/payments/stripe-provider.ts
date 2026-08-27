@@ -17,6 +17,10 @@ import { getStripe, stripeConfigured } from "@/lib/stripe";
  * never touches this server, so the studio stays out of PCI scope, and the
  * member never leaves apexpilates.
  *
+ * Payment methods are card, Apple Pay and Google Pay. The last two are not
+ * separate methods to Stripe — they are cards presented by a wallet — so asking
+ * for `card` is what enables all three, and excludes everything else.
+ *
  * The one exception is 3-D Secure. When the bank wants the member to confirm,
  * Stripe takes over the screen for a moment and then returns to `returnUrl`.
  * That is the bank's requirement, not a design choice, and it is the same for
@@ -35,10 +39,18 @@ export const stripeProvider: PaymentProvider = {
     const intent = await stripe.paymentIntents.create({
       amount: req.amountCents,
       currency: req.currency,
-      /* Lets the studio turn on Apple Pay, Google Pay, Link or Bancontact from
-         the Stripe dashboard without a code change: whatever is enabled and
-         applicable shows up in the same Element. */
-      automatic_payment_methods: { enabled: true },
+      /**
+       * Card only — which is also how Apple Pay and Google Pay arrive.
+       *
+       * Both wallets are the `card` type wearing a different coat: they hand
+       * Stripe a card token, so naming `card` gets all three and nothing else.
+       * The alternative, `automatic_payment_methods`, shows whatever happens to
+       * be switched on in the Stripe dashboard — Klarna, Link, iDEAL, Revolut
+       * Pay — which is a studio discovering it has offered somebody credit
+       * because a checkbox was ticked in a web console. This list is the studio's
+       * decision and it lives in the repository where it can be reviewed.
+       */
+      payment_method_types: ["card"],
       receipt_email: req.email,
       description: `APEX pilates — ${req.packName}`,
       statement_descriptor_suffix: "APEX PILATES",

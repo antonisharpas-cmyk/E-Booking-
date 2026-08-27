@@ -10,6 +10,7 @@ import {
   users,
 } from "@/db/schema";
 import { hashPassword } from "@/lib/auth";
+import { toE164 } from "@/lib/messaging/sms";
 import { getCreditSummary, grantCredits, refundOneCredit } from "@/lib/credits";
 
 /**
@@ -35,6 +36,8 @@ export type MemberSummary = {
   notifySms: boolean;
   notifyPush: boolean;
   marketingOptIn: boolean;
+  /** A dummy account the studio keeps for testing. Shown as a badge. */
+  isTest: boolean;
 };
 
 /**
@@ -54,29 +57,78 @@ export function isDeskAccount(userId: string) {
   return row?.role === "STAFF" || row?.role === "ADMIN";
 }
 
+export const MEMBERS_PER_PAGE = 10;
+
+export type MemberFilter = "all" | "test" | "real";
+
+/**
+ * The membership, searched or simply browsed.
+ *
+ * Paged, because browsing is a real way to use this screen and it used to be
+ * impossible: the list was capped at twelve with no way past them, so a studio
+ * with a hundred members could only reach somebody by typing their name. Which
+ * is fine when you know who you are looking for and useless when you are looking
+ * *for* somebody — the member who came in last week, the one whose name you half
+ * remember.
+ *
+ * `filter` separates the studio's dummy accounts from real members. Both
+ * directions are useful: "real" to see the actual membership, "test" to find the
+ * account you were experimenting with an hour ago.
+ */
 export async function findMembers(
   query: string,
-  { limit = 12, includeDesk = false }: { limit?: number; includeDesk?: boolean } = {},
+  {
+    limit = MEMBERS_PER_PAGE,
+    includeDesk = false,
+    filter = "all",
+    page = 1,
+  }: {
+    limit?: number;
+    includeDesk?: boolean;
+    filter?: MemberFilter;
+    page?: number;
+  } = {},
 ) {
   const q = query.trim().toLowerCase();
   const all = db.select().from(users).orderBy(desc(users.createdAt)).all();
   /* The studio's own accounts are not part of the membership as far as the desk
      is concerned. The owner sees them; reception does not. */
-  const rows = includeDesk
+  const visible = includeDesk
     ? all
     : all.filter((u) => u.role !== "STAFF" && u.role !== "ADMIN");
 
-  const matched = q
-    ? rows.filter(
+  const searched = q
+    ? visible.filter(
         (u) =>
           u.name.toLowerCase().includes(q) ||
           u.email.toLowerCase().includes(q) ||
           (u.phone ?? "").replace(/\s/g, "").includes(q.replace(/\s/g, "")),
       )
-    : rows;
+    : visible;
+
+  /* Counted before the filter is applied, so the three pills can each show how
+     many they would find rather than only the one in use. */
+  const counts = {
+    all: searched.length,
+    test: searched.filter((u) => u.isTest).length,
+    real: searched.filter((u) => !u.isTest).length,
+  };
+
+  const matched =
+    filter === "test"
+      ? searched.filter((u) => u.isTest)
+      : filter === "real"
+        ? searched.filter((u) => !u.isTest)
+        : searched;
+
+  const perPage = Math.min(Math.max(limit, 1), 100);
+  const pages = Math.max(1, Math.ceil(matched.length / perPage));
+  /* Somebody on page 6 who then types a search would otherwise be looking at an
+     empty page and conclude there were no results. */
+  const current = Math.min(Math.max(page, 1), pages);
 
   const out: MemberSummary[] = [];
-  for (const u of matched.slice(0, limit)) {
+  for (const u of matched.slice((current - 1) * perPage, current * perPage)) {
     out.push({
       id: u.id,
       name: u.name,
@@ -89,9 +141,11 @@ export async function findMembers(
       notifySms: u.notifySms,
       notifyPush: u.notifyPush,
       marketingOptIn: u.marketingOptIn,
+      isTest: u.isTest,
     });
   }
-  return out;
+
+  return { rows: out, total: matched.length, page: current, pages, counts };
 }
 
 /** One member, with everything the desk needs on screen at once. */
@@ -150,6 +204,7 @@ export async function memberDetail(userId: string) {
     notifySms: user.notifySms,
     notifyPush: user.notifyPush,
     marketingOptIn: user.marketingOptIn,
+    isTest: user.isTest,
     upcoming,
     payments,
     ledger,
@@ -353,6 +408,8 @@ export type ContactPatch = {
   notifySms?: boolean;
   notifyPush?: boolean;
   marketingOptIn?: boolean;
+  /** A dummy account for testing. Left out of campaigns unless included. */
+  isTest?: boolean;
 };
 
 export async function updateContact(userId: string, patch: ContactPatch) {
@@ -377,8 +434,21 @@ export async function updateContact(userId: string, patch: ContactPatch) {
 
   if (patch.phone !== undefined) {
     const phone = patch.phone.trim();
-    if ((phone.match(/\d/g) ?? []).length < 8) {
+    const digits = (phone.match(/\d/g) ?? []).length;
+    if (digits < 8 || digits > 15) {
       return { ok: false as const, code: "PHONE_INVALID" as const };
+    }
+    /* Same rule as registration, compared the same way: one number, one member.
+       Otherwise the desk correcting a typo could quietly create the duplicate
+       that registration is careful to refuse. */
+    const asked = toE164(phone);
+    if (asked) {
+      const clash = db
+        .select({ id: users.id, phone: users.phone })
+        .from(users)
+        .all()
+        .find((u) => u.id !== userId && toE164(u.phone) === asked);
+      if (clash) return { ok: false as const, code: "PHONE_TAKEN" as const };
     }
     next.phone = phone;
   }
@@ -388,6 +458,7 @@ export async function updateContact(userId: string, patch: ContactPatch) {
     "notifySms",
     "notifyPush",
     "marketingOptIn",
+    "isTest",
   ] as const) {
     if (patch[key] !== undefined) next[key] = patch[key];
   }

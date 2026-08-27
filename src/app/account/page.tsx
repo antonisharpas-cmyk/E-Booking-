@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AccountBody } from "@/components/account/AccountBody";
 import { currentUser } from "@/lib/auth";
@@ -9,6 +10,7 @@ import { getMyPurchases } from "@/lib/purchases";
 import { hasAvatar } from "@/lib/avatars";
 import { noticesFor } from "@/lib/notices";
 import { pushPublicKey } from "@/lib/messaging/push";
+import { LOCALE_COOKIE } from "@/i18n/dictionaries";
 
 export const metadata: Metadata = { title: "My account" };
 export const dynamic = "force-dynamic";
@@ -24,10 +26,20 @@ export default async function AccountPage() {
     getLedger(user.id, 25),
   ]);
 
-  const notices = noticesFor(user.id).map((n) => ({
-    ...n,
-    createdAt: n.createdAt.toISOString(),
-  }));
+  /* The language the member is reading the site in, from the same cookie the
+     layout uses. Without this the first page of notices was always English —
+     the Greek version was written, stored and then never asked for. */
+  const jar = await cookies();
+  const locale = jar.get(LOCALE_COOKIE)?.value === "el" ? "el" : "en";
+
+  /* The first page only. The list fetches the rest itself as the member pages
+     through, so the initial HTML stays small however long they have been a
+     member. */
+  const firstPage = noticesFor(user.id, locale);
+  const notices = {
+    ...firstPage,
+    rows: firstPage.rows.map((n) => ({ ...n, createdAt: n.createdAt.toISOString() })),
+  };
 
   const taken = bookings.past.filter(
     (b) => b.status === "ATTENDED" || b.status === "CONFIRMED",

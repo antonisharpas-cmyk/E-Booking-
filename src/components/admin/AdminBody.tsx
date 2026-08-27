@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Section } from "@/components/ui/Section";
 import { BookingsPanel } from "@/components/admin/BookingsPanel";
 import { ClosurePanel } from "@/components/admin/ClosurePanel";
@@ -67,7 +67,37 @@ export function AdminBody({
      too — a tab that is only hidden is not a restriction. */
   const tabs = owner ? DESK_TABS : DESK_TABS.filter((x) => x !== "analytics");
 
-  const [tab, setTab] = useState<DeskTab>("today");
+  /**
+   * The tab, kept in the URL.
+   *
+   * Two reasons, and the second is why it exists. First, the console survives a
+   * refresh — press F5 on Members and you come back to Members, not to
+   * Bookings. Second, anything that reloads the page deliberately can say where
+   * to land: saving a member's profile reloads so the desk can see the change
+   * took, and without this it dumped them on the Bookings tab, several clicks
+   * from where they were working.
+   *
+   * `replaceState` rather than a route push: the tab is not a page, and pressing
+   * back should leave the desk rather than shuffle through the tabs somebody
+   * happened to look at.
+   */
+  const [tab, setTabState] = useState<DeskTab>(() => {
+    if (typeof window === "undefined") return "today";
+    const asked = new URLSearchParams(window.location.search).get("tab");
+    return (tabs as readonly string[]).includes(asked ?? "")
+      ? (asked as DeskTab)
+      : "today";
+  });
+
+  const setTab = useCallback((next: DeskTab) => {
+    setTabState(next);
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (next === "today") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", next);
+    window.history.replaceState(null, "", url);
+  }, []);
+
   const [notice, setNotice] = useState<string | null>(null);
 
   /**

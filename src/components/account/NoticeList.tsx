@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { Pager } from "@/components/ui/Pager";
 import { useI18n } from "@/i18n/LanguageProvider";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +14,16 @@ export type NoticeRow = {
   createdAt: string;
   important: boolean;
   read: boolean;
+};
+
+export type NoticeFilter = "all" | "unread" | "read";
+
+export type NoticePageProps = {
+  rows: NoticeRow[];
+  total: number;
+  page: number;
+  pages: number;
+  counts: { all: number; unread: number; read: number };
 };
 
 /**
@@ -33,19 +44,68 @@ export type NoticeRow = {
  * and in year three. The filter is there for the same reason: "unread" is the
  * question somebody actually arrives with.
  */
-export function NoticeList({ notices }: { notices: NoticeRow[] }) {
-  const { t, fmtFullDate } = useI18n();
+export function NoticeList({ notices }: { notices: NoticePageProps }) {
+  const { t, fmtFullDate, locale } = useI18n();
   const n = t.notices;
   const router = useRouter();
+
+  const [data, setData] = useState<NoticePageProps>(notices);
+  const [filter, setFilter] = useState<NoticeFilter>("all");
   const [open, setOpen] = useState<string | null>(
     /* The newest unread one starts open: it is why they came. */
-    notices.find((x) => !x.read)?.id ?? null,
+    notices.rows.find((x) => !x.read)?.id ?? null,
   );
   const [busy, setBusy] = useState(false);
-  const [read, setRead] = useState<Set<string>>(
-    new Set(notices.filter((x) => x.read).map((x) => x.id)),
+
+  /**
+   * Fetch one page.
+   *
+   * The server owns the filtering and the counting, which is the fix for a bug
+   * that was not obvious: the list used to receive the most recent thirty
+   * notices and filter them in the browser, so "3 unread" meant three unread
+   * *within those thirty*, and a member with forty unread was told three. It
+   * also meant the thirty-first message could never be reached at all.
+   */
+  const load = useCallback(
+    async (next: { filter?: NoticeFilter; page?: number }) => {
+      const f = next.filter ?? filter;
+      const p = next.page ?? 1;
+      setBusy(true);
+      try {
+        /* The language has to travel with the request. Both halves of every
+           notice are stored; asking without saying which one you want gets you
+           English, which is how a desk announcement written carefully in Greek
+           came out in English for a member reading the site in Greek. */
+        const res = await fetch(
+          `/api/notices?filter=${f}&page=${p}&locale=${locale}`,
+        );
+        if (!res.ok) return;
+        const json = (await res.json()) as NoticePageProps;
+        setData(json);
+        setFilter(f);
+        setOpen(null);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [filter, locale],
   );
-  const [filter, setFilter] = useState<"all" | "unread" | "read">("all");
+
+  /* Switching language re-reads the list. The server rendered the first page in
+     whatever language the cookie said at the time, so without this the notices
+     would stay in the old language until the next full navigation — which looks
+     exactly like the Greek version never having been written. */
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    void load({ page: 1 });
+    /* `load` is deliberately not a dependency: it changes with `filter` too, and
+       a filter change already reloads on its own. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locale]);
 
   async function mark(noticeId?: string) {
     setBusy(true);
@@ -55,12 +115,11 @@ export function NoticeList({ notices }: { notices: NoticeRow[] }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(noticeId ? { noticeId } : {}),
       });
-      setRead((prev) => {
-        const next = new Set(prev);
-        if (noticeId) next.add(noticeId);
-        else notices.forEach((x) => next.add(x.id));
-        return next;
-      });
+      /* Re-read rather than patch in place. Marking one read can move it out of
+         the "unread" filter, change every count, and shrink the number of
+         pages — guessing at all of that in the browser is how a list ends up
+         disagreeing with itself. */
+      await load({ page: noticeId ? data.page : 1 });
       /* Refreshes the layout, which is what takes the number off their face. */
       router.refresh();
     } finally {
@@ -71,13 +130,10 @@ export function NoticeList({ notices }: { notices: NoticeRow[] }) {
   function toggle(row: NoticeRow) {
     const next = open === row.id ? null : row.id;
     setOpen(next);
-    if (next && !read.has(row.id)) void mark(row.id);
+    if (next && !row.read) void mark(row.id);
   }
 
-  const unread = notices.filter((x) => !read.has(x.id)).length;
-  const readCount = notices.length - unread;
-
-  if (!notices.length) {
+  if (data.counts.all === 0) {
     return (
       <div className="rounded-3xl border border-dashed border-mocha-200 px-6 py-10 text-center">
         <p className="text-sm text-clay">{n.empty}</p>
@@ -85,25 +141,18 @@ export function NoticeList({ notices }: { notices: NoticeRow[] }) {
     );
   }
 
-  const shown =
-    filter === "unread"
-      ? notices.filter((x) => !read.has(x.id))
-      : filter === "read"
-        ? notices.filter((x) => read.has(x.id))
-        : notices;
-
   return (
     <div>
       <div className="flex flex-wrap items-baseline justify-between gap-4">
         <h3 className="text-[13px] uppercase tracking-widest">
           {n.title}
-          {unread > 0 && (
+          {data.counts.unread > 0 && (
             <span className="ml-3 rounded-full bg-gold/20 px-2 py-0.5 text-[10px] text-[#8a6f1a] lining-nums tabular-nums">
-              {unread} {n.unread}
+              {data.counts.unread} {n.unread}
             </span>
           )}
         </h3>
-        {unread > 0 && (
+        {data.counts.unread > 0 && (
           <Button
             variant="ghost"
             size="sm"
@@ -119,16 +168,17 @@ export function NoticeList({ notices }: { notices: NoticeRow[] }) {
       <div className="mt-5 flex flex-wrap gap-2">
         {(
           [
-            ["unread", n.filterUnread, unread],
-            ["all", n.filterAll, notices.length],
-            ["read", n.filterRead, readCount],
+            ["unread", n.filterUnread, data.counts.unread],
+            ["all", n.filterAll, data.counts.all],
+            ["read", n.filterRead, data.counts.read],
           ] as const
         ).map(([key, label, count]) => (
           <button
             key={key}
             data-notice-filter={key}
             aria-pressed={filter === key}
-            onClick={() => setFilter(key)}
+            disabled={busy}
+            onClick={() => void load({ filter: key, page: 1 })}
             className={cn(
               "rounded-full border px-4 py-2 text-[10px] uppercase tracking-widest transition-colors duration-300",
               filter === key
@@ -144,30 +194,23 @@ export function NoticeList({ notices }: { notices: NoticeRow[] }) {
         ))}
       </div>
 
-      {shown.length === 0 && (
+      {data.rows.length === 0 && (
         <p className="mt-6 rounded-2xl border border-dashed border-mocha-200 px-6 py-8 text-center text-sm text-clay">
           {filter === "unread" ? n.noneUnread : n.noneRead}
         </p>
       )}
 
-      {/* Its own scroll, so a hundred messages do not bury the settings below.
-          `overscroll-contain` stops a flick inside the list from carrying on
-          into the page once it reaches the end. */}
-      <ul
-        className={cn(
-          "mt-5 space-y-3 overflow-y-auto overscroll-contain pr-1",
-          shown.length > 3 ? "max-h-[26rem]" : "",
-        )}
-      >
-        {shown.map((row) => {
-          const isRead = read.has(row.id);
+      {/* Five at a time, so the page is the same height on day one and in year
+          three, and no message is ever out of reach behind a scroll limit. */}
+      <ul className="mt-5 space-y-3">
+        {data.rows.map((row) => {
           const isOpen = open === row.id;
           return (
             <li
               key={row.id}
               className={cn(
                 "overflow-hidden rounded-3xl border transition-colors",
-                isRead
+                row.read
                   ? "border-mocha-200/70 bg-white/50"
                   : "border-gold/40 bg-gold/[0.05]",
               )}
@@ -182,7 +225,7 @@ export function NoticeList({ notices }: { notices: NoticeRow[] }) {
                     the phone and the page scrolls sideways. */}
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2.5">
-                    {!isRead && (
+                    {!row.read && (
                       <span
                         aria-hidden
                         className="h-1.5 w-1.5 shrink-0 rounded-full bg-gold"
@@ -191,7 +234,7 @@ export function NoticeList({ notices }: { notices: NoticeRow[] }) {
                     <span
                       className={cn(
                         "text-[15px] [overflow-wrap:anywhere]",
-                        isRead ? "text-mocha-500" : "text-mocha-700",
+                        row.read ? "text-mocha-500" : "text-mocha-700",
                       )}
                     >
                       {row.title}
@@ -229,6 +272,15 @@ export function NoticeList({ notices }: { notices: NoticeRow[] }) {
           );
         })}
       </ul>
+
+      <Pager
+        page={data.page}
+        pages={data.pages}
+        total={data.total}
+        busy={busy}
+        onPage={(p) => void load({ page: p })}
+        labels={{ newer: n.pagerNewer, older: n.pagerOlder, of: n.pagerOf }}
+      />
     </div>
   );
 }

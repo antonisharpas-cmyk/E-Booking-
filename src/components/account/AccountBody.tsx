@@ -18,7 +18,8 @@ import {
   isAccountTab,
   type AccountTab,
 } from "@/components/account/AccountTabs";
-import { NoticeList, type NoticeRow } from "@/components/account/NoticeList";
+import { NoticeList, type NoticePageProps } from "@/components/account/NoticeList";
+import { signOutAndGoHome } from "@/lib/sign-out";
 
 type BookingRow = {
   id: string;
@@ -72,7 +73,7 @@ type Props = {
     note: string | null;
     createdAt: string;
   }[];
-  notices: NoticeRow[];
+  notices: NoticePageProps;
   /** VAPID public key, so the notifications tab can offer push. */
   pushPublicKey: string;
 };
@@ -184,11 +185,8 @@ export function AccountBody(props: Props) {
     }
   }
 
-  async function signOut() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/");
-    router.refresh();
-  }
+  /* A document load, not a client navigation — see lib/sign-out.ts. */
+  const signOut = signOutAndGoHome;
 
   const isStaff = props.user.role === "STAFF" || props.user.role === "ADMIN";
 
@@ -395,7 +393,7 @@ export function AccountBody(props: Props) {
             }}
             /* The unread count sits on the Notifications pill as well as on
                their face in the header, so it is findable from either. */
-            unread={props.notices.filter((n) => !n.read).length}
+            unread={props.notices.counts.unread}
             /* A dot on Profile when there is something to ask: offers not
                accepted, or no birthday on file. Both are the studio's only
                chance to reach someone who has not opted in. */

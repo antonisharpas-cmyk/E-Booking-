@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { body, desk } from "@/lib/api-guard";
 import {
   deliverNotice,
+  describeSegment,
   reachOf,
   transportStatus,
   type Audience,
+  type Segment,
 } from "@/lib/messaging/deliver";
 import { pushReady } from "@/lib/messaging/push";
 import { CHANNELS, type Channel } from "@/lib/messaging/types";
@@ -23,6 +25,29 @@ import { createNotice, deleteNotice, noticeHistory } from "@/lib/notices";
  */
 export const dynamic = "force-dynamic";
 
+/**
+ * A segment, cleaned up.
+ *
+ * A day count is capped rather than trusted: an absurd number is either a typo
+ * or somebody poking at the endpoint, and in both cases the honest response is
+ * a sane audience rather than an error. Ten years is longer than the studio has
+ * existed, so nothing real is lost at the ceiling.
+ */
+function segmentFrom(raw: {
+  neverPaid: boolean;
+  noSessionsLeft: boolean;
+  inactiveDays: number;
+}): Segment {
+  const days = Number.isFinite(raw.inactiveDays)
+    ? Math.min(Math.max(Math.trunc(raw.inactiveDays), 0), 3650)
+    : 0;
+  return {
+    ...(raw.neverPaid ? { neverPaid: true } : {}),
+    ...(raw.noSessionsLeft ? { noSessionsLeft: true } : {}),
+    ...(days > 0 ? { inactiveDays: days } : {}),
+  };
+}
+
 export async function GET(req: Request) {
   const gate = await desk();
   if ("res" in gate) return gate.res;
@@ -30,12 +55,35 @@ export async function GET(req: Request) {
   /* The desk asks before writing: how many people would each channel reach if
      I sent this now. Sending blind to four hundred people is how a studio
      discovers its SMS bill after the fact. */
+  const url = new URL(req.url);
   const audience: Audience =
-    new URL(req.url).searchParams.get("audience") === "OFFERS" ? "OFFERS" : "ALL";
+    url.searchParams.get("audience") === "OFFERS" ? "OFFERS" : "ALL";
+  const includeTest = url.searchParams.get("includeTest") === "1";
+  const segment = segmentFrom({
+    neverPaid: url.searchParams.get("neverPaid") === "1",
+    noSessionsLeft: url.searchParams.get("noSessionsLeft") === "1",
+    inactiveDays: Number(url.searchParams.get("inactiveDays") ?? 0),
+  });
+
+  /* The history is filtered and paged server side. "What did we send by SMS" is
+     a question with a bill attached to it, and scrolling two hundred rows
+     looking for the ones that cost money is not an answer. */
+  const asked = url.searchParams.get("channel");
+  const channel =
+    asked === "push" || asked === "email" || asked === "sms" ? asked : null;
+  const page = Math.max(1, Number(url.searchParams.get("page") ?? 1) || 1);
+
+  const history = noticeHistory({ channel, page });
 
   return NextResponse.json({
-    notices: noticeHistory(),
-    reach: reachOf(audience),
+    /* Kept as `notices` for the rows so the screen's existing reader is happy,
+       with the paging alongside it. */
+    notices: history.rows,
+    history: { page: history.page, pages: history.pages, total: history.total, counts: history.counts },
+    channel,
+    reach: reachOf(audience, includeTest, segment),
+    includeTest,
+    segment,
     transports: { ...transportStatus(), push: { name: "Web push", ready: pushReady() } },
   });
 }
@@ -52,6 +100,10 @@ export async function POST(req: Request) {
     important?: boolean;
     audience?: string;
     channels?: string[];
+    includeTest?: boolean;
+    neverPaid?: boolean;
+    noSessionsLeft?: boolean;
+    inactiveDays?: number;
   }>(req);
 
   const title = (data?.titleEn ?? "").trim();
@@ -69,6 +121,14 @@ export async function POST(req: Request) {
   const channels = (data?.channels ?? []).filter((c): c is Channel =>
     CHANNELS.includes(c as Channel),
   );
+  /* Read from the body and sanitised here, not trusted from the screen: a
+     segment decides who gets written to, so it is checked on the way in like
+     the audience is. */
+  const segment = segmentFrom({
+    neverPaid: Boolean(data?.neverPaid),
+    noSessionsLeft: Boolean(data?.noSessionsLeft),
+    inactiveDays: Number(data?.inactiveDays ?? 0),
+  });
 
   const notice = createNotice({
     titleEn: title,
@@ -78,6 +138,8 @@ export async function POST(req: Request) {
     important: Boolean(data?.important),
     audience,
     channels,
+    includedTest: Boolean(data?.includeTest),
+    segment: describeSegment(audience, segment, Boolean(data?.includeTest)),
     staffId: gate.user.id,
   });
 
@@ -97,6 +159,8 @@ export async function POST(req: Request) {
           data?.titleEl && data?.bodyEl
             ? { subject: data.titleEl.trim(), body: data.bodyEl.trim() }
             : undefined,
+        includeTest: Boolean(data?.includeTest),
+        segment,
       })
     : [];
 

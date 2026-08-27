@@ -61,15 +61,27 @@ export function PushEnroller({ publicKey }: { publicKey: string }) {
       const reg = await navigator.serviceWorker.getRegistration("/sw.js");
       const sub = await reg?.pushManager.getSubscription();
       setState(sub ? "granted" : "default");
-      /* Permission granted but no subscription on this browser — a new browser,
-         cleared site data, or a push service that rotated its keys. Nothing to
-         ask: the member has already said yes, so just register it. */
-      if (!sub && Notification.permission === "granted") {
+      /* Register on every visit, whether or not this browser already has a
+         subscription.
+         *
+         * The subtle case, and a real bug found the hard way: a browser holds one
+         * push subscription, but an account is a different thing. Somebody who
+         * turns notifications on as one member and later signs in as another —
+         * an owner testing with a second account, a couple sharing a laptop —
+         * used to leave the second account with no device at all, while this
+         * screen cheerfully said "on for this device", because a subscription
+         * existed and nothing checked whose it was. The second member then
+         * received nothing, silently, and there was no way to tell from here.
+         *
+         * Sending it again is cheap and idempotent, and the server moves the
+         * endpoint to whoever is signed in now — which is the right answer,
+         * because that is who is sitting in front of it. */
+      if (sub || Notification.permission === "granted") {
         try {
           await subscribeRef.current?.();
           setState("granted");
         } catch {
-          setState("default");
+          setState(sub ? "granted" : "default");
         }
       }
     } catch {

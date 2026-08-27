@@ -465,10 +465,20 @@ async function main() {
   {
     /* This is the bug the studio hit twice: the change was in the seed script,
        the seed script had not been run, and the page kept showing the old
-       catalogue. A read has to be enough. */
+       catalogue. A read has to be enough.
+
+       The withdrawn pack is created here rather than assumed. It used to come
+       from an older seed, which meant this test quietly passed on databases old
+       enough to contain it and failed on a freshly seeded one — a test that
+       depends on leftover data is testing the leftovers. */
     sqlite
-      .prepare("update credit_packages set active = 1 where slug = 'intro-3'")
-      .run();
+      .prepare(
+        `insert into credit_packages
+           (id, slug, name_en, name_el, credits, price_cents, validity_days, active, sort_order)
+         values (?, 'intro-3', '3-class intro', 'Εισαγωγικό 3', 3, 4500, 60, 1, 99)
+         on conflict(slug) do update set active = 1`,
+      )
+      .run(crypto.randomUUID());
     sqlite.prepare("update instructors set photo_url = NULL").run();
 
     const withdrawn = repairCatalogue();
@@ -639,6 +649,121 @@ async function main() {
     check("ten minutes reads as minutes", leadWords(10) === "10 minutes", leadWords(10));
     /* A sweep that runs a moment late must not say "in -1 minutes". */
     check("a late sweep says now, not a negative", leadWords(0) === "now", leadWords(0));
+
+    /* ---- the Greek half, which half the members will be reading ---- */
+    const W = await import("../src/lib/messaging/wording");
+
+    const greekWhen = W.whenWords(at, "el");
+    check(
+      "the Greek names the weekday and month in Greek",
+      /Σάββατο/.test(greekWhen) && /Αυγούστου/.test(greekWhen) && /18:00/.test(greekWhen),
+      greekWhen,
+    );
+    check(
+      "and no Latin letters have leaked into it",
+      !/[A-Za-z]/.test(greekWhen),
+      greekWhen,
+    );
+    check("Greek hours inflect", W.leadWords(120, "el") === "2 ώρες", W.leadWords(120, "el"));
+    check("one Greek hour is singular", W.leadWords(60, "el") === "1 ώρα", W.leadWords(60, "el"));
+    check(
+      "Greek sessions inflect too",
+      W.sessionWords(1, "el") === "1 συνεδρία" && W.sessionWords(10, "el") === "10 συνεδρίες",
+      [W.sessionWords(1, "el"), W.sessionWords(10, "el")].join(" / "),
+    );
+    check(
+      "English sessions still pluralise",
+      W.sessionWords(1) === "1 session" && W.sessionWords(10) === "10 sessions",
+    );
+
+    /* Whole euros lose the decimals; anything else keeps them. A price of
+       "€200.00" on a receipt reads like a machine wrote it. */
+    check("round money drops the decimals", W.moneyWords(20000, "EUR") === "€200", W.moneyWords(20000, "EUR"));
+    check("uneven money keeps them", W.moneyWords(2050, "EUR").includes("20.50"), W.moneyWords(2050, "EUR"));
+
+    /* ---- what each message actually says, in both languages ---- */
+    const booked = W.bookedWords({ classEn: "Reformer Flow", classEl: "Ροή Reformer", startsAt: at });
+    check("the booking confirmation is bilingual", booked.en.subject === "Booking confirmed" && booked.el.subject === "Η κράτηση επιβεβαιώθηκε");
+    check("and names the class in each language", booked.en.body.includes("Reformer Flow") && booked.el.body.includes("Ροή Reformer"));
+
+    const kept = W.cancelledWords({ classEn: "A", classEl: "Α", startsAt: at, refunded: true });
+    const used = W.cancelledWords({ classEn: "A", classEl: "Α", startsAt: at, refunded: false });
+    check("a refunded cancellation says the session came back", kept.en.body.includes("back in your balance"));
+    check("and says so in Greek", kept.el.body.includes("επέστρεψε στο υπόλοιπό σας"));
+    check("a late cancellation says the session was used", used.en.body.includes("24-hour window"));
+    check("and says so in Greek", used.el.body.includes("εντός 24 ωρών"));
+
+    const paid = W.purchasedWords({
+      credits: 10,
+      amountCents: 20000,
+      currency: "EUR",
+      expiresAt: new Date("2026-11-25T00:00:00Z"),
+    });
+    check("the receipt names sessions, price and expiry", /10 sessions/.test(paid.en.body) && /€200/.test(paid.en.body) && /25 November 2026/.test(paid.en.body), paid.en.body);
+    check("and the Greek receipt does too", /10 συνεδρίες/.test(paid.el.body) && /Νοεμβρίου/.test(paid.el.body), paid.el.body);
+
+    const noExpiry = W.purchasedWords({ credits: 1, amountCents: 2500, currency: "EUR", expiresAt: null });
+    check(
+      "a pack with no expiry promises none",
+      !/expire/i.test(noExpiry.en.body) && !/Λήγουν/.test(noExpiry.el.body),
+      noExpiry.en.body,
+    );
+
+    /* ---- the email envelope: one letter, two languages, signed twice ---- */
+    const letter = W.forEmail(booked);
+    /* One language in the subject, deliberately. An inbox shows about fifty
+       characters, so two languages competing for them means neither is legible
+       — and the Greek is in the body where there is room for it. */
+    check("the email subject stays in one language", letter.subject === "Booking confirmed", letter.subject);
+    check("and carries no separator", !letter.subject.includes("·"), letter.subject);
+    check("the English comes first", letter.body.indexOf("Reformer Flow") < letter.body.indexOf("Ροή Reformer"));
+    check("with a rule between them", letter.body.includes(W.LANGUAGE_RULE));
+    check("signed in English", letter.body.includes("Best regards,\nAPEX pilates Team"));
+    check("and signed in Greek", letter.body.includes("Με εκτίμηση,"));
+
+    /* A desk notice the writer signed themselves must not be signed twice. That
+       is what it looked like in a real inbox: "Best regards, Apex Pilates Team"
+       followed by "Best regards, APEX pilates Team". */
+    const handSigned = W.forEmail(
+      {
+        subject: "Hello Testing",
+        body: "Hello we are testing,\n\nBest regards,\nApex Pilates Team",
+      },
+      { subject: "Γεια σας", body: "Γειααα,\n\nΚανουμε τεστινγ." },
+    );
+    check(
+      "a notice the writer signed is not signed again",
+      (handSigned.body.match(/Best regards/gi) ?? []).length === 1,
+      handSigned.body,
+    );
+    check(
+      "but the unsigned Greek half still gets one",
+      handSigned.body.includes("Με εκτίμηση,"),
+      handSigned.body,
+    );
+    /* And a message that merely mentions the words mid-sentence still gets a
+       sign-off, because the check looks at the end only. */
+    const mentions = W.forEmail({
+      subject: "Regards",
+      body: "Best regards are what we send in every email we write.\n\nThe studio is shut on Monday and reopens Tuesday at six.",
+    });
+    check(
+      "a passing mention does not suppress the sign-off",
+      mentions.body.trimEnd().endsWith("APEX pilates Team"),
+      mentions.body,
+    );
+
+    /* A desk notice with no Greek typed must not produce an empty second half
+       with a rule above it and a sign-off below. */
+    const oneLanguage = W.forEmail({ subject: "Studio closed", body: "We are shut on Monday." });
+    check("an English-only notice gets no rule", !oneLanguage.body.includes(W.LANGUAGE_RULE), oneLanguage.body);
+    check("but is still signed", oneLanguage.body.endsWith("APEX pilates Team"), oneLanguage.body);
+    check("and keeps its own subject", oneLanguage.subject === "Studio closed", oneLanguage.subject);
+
+    /* The push notification is one line on a lock screen. A sign-off in it, or
+       a second language, would be absurd — so the raw wording must stay clean. */
+    check("the push text is not signed", !booked.en.body.includes("Best regards"));
+    check("and is one language", !/[Α-Ωα-ω]/.test(booked.en.body), booked.en.body);
   }
 
   console.log(

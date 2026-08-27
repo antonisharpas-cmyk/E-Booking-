@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { creditBatches, purchases } from "@/db/schema";
 import { grantCredits } from "@/lib/credits";
 import { getPackageById } from "@/lib/catalogue";
+import { notifyPurchased } from "@/lib/messaging/events";
 
 /**
  * The one place a payment turns into sessions.
@@ -122,6 +123,12 @@ export async function fulfilPurchase(args: {
     console.log(
       `[pay] ${purchase.credits} sessions granted to ${purchase.userId} for purchase ${purchase.id}`,
     );
+    /* Told once, by whichever caller actually granted. The webhook, the browser
+       coming back and a later check all arrive here; only one of them gets
+       `granted`, which is exactly the one that should say so. Not awaited: the
+       sessions are already in the balance, and a message that fails to send must
+       not turn a completed payment into an error. */
+    void notifyPurchased(purchase.id).catch(() => {});
   }
 
   return { granted, credits: purchase.credits, status: "PAID" };

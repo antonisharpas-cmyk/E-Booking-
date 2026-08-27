@@ -25,6 +25,7 @@ export async function PATCH(req: Request) {
     notifySms?: boolean;
     notifyPush?: boolean;
     marketingOptIn?: boolean;
+    isTest?: boolean;
   }>(req);
 
   if (!data?.userId) {

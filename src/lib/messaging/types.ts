@@ -32,6 +32,19 @@ export type Transport = {
   /** False when the environment has no credentials, so the UI can say so. */
   ready: boolean;
   send(to: string, msg: Outgoing): Promise<SendResult>;
+  /**
+   * Optional: the same send, but reporting every step.
+   *
+   * Only `npm run email:test` calls this. A transport that talks a conversation
+   * rather than making one request can say which line the server objected to,
+   * and "535 Username and Password not accepted" is worth a hundred retries of
+   * "sending failed". Providers that are a single HTTPS call have nothing extra
+   * to tell, so they leave it out.
+   */
+  trace?(
+    to: string,
+    msg: Outgoing,
+  ): Promise<{ ok: boolean; error?: string; log: string[] }>;
 };
 
 /** What one channel did with one notice. */

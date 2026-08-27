@@ -54,6 +54,20 @@ function visibleTo(userId: string) {
     and ${notices.createdAt} >= (
       select u2.created_at from users u2 where u2.id = ${userId}
     )
+    /* A test account sees a studio announcement only if that announcement
+       deliberately included test accounts. Its own booking confirmations are
+       unaffected — those have a user_id and belong to it.
+
+       Without this, "excluded from the campaign" meant excluded from email and
+       SMS but not from the list, so the desk's read count included accounts it
+       had just been told were left out. Found by a test, not by reasoning. */
+    and (
+      ${notices.userId} is not null
+      or ${notices.includedTest} = 1
+      or not exists (
+        select 1 from users u3 where u3.id = ${userId} and u3.is_test = 1
+      )
+    )
   )`;
 }
 
@@ -76,6 +90,10 @@ export function createNotice(args: {
   audience?: "ALL" | "OFFERS";
   /** Which channels it was sent on, recorded so the history says what happened. */
   channels?: string[];
+  /** Whether accounts marked as tests were deliberately included. */
+  includedTest?: boolean;
+  /** Who it went to, in words. See notices.segment. */
+  segment?: string;
   /** Set for a message about one member's own booking; omitted for the studio's. */
   userId?: string | null;
   staffId?: string | null;
@@ -90,6 +108,8 @@ export function createNotice(args: {
       important: args.important ?? false,
       audience: args.audience ?? "ALL",
       channels: (args.channels ?? []).join(","),
+      includedTest: args.includedTest ?? false,
+      segment: args.segment ?? "",
       userId: args.userId ?? null,
       createdBy: args.staffId ?? null,
     })
@@ -102,11 +122,71 @@ export function deleteNotice(id: string) {
 }
 
 /** What one member sees, newest first, with their own read state. */
+export type NoticePage = {
+  rows: NoticeView[];
+  /** How many match the current filter, so a page count can be worked out. */
+  total: number;
+  page: number;
+  pages: number;
+  /** All three counts, so the filter pills can be labelled without three calls. */
+  counts: { all: number; unread: number; read: number };
+};
+
+export const NOTICES_PER_PAGE = 5;
+
+/**
+ * One page of the member's notices.
+ *
+ * Paged rather than "the most recent thirty", which is what it used to be, and
+ * the difference is not cosmetic: a member two years into their membership has
+ * several hundred of these — one for every class they booked and every one they
+ * cancelled — and the thirty-first was simply unreachable. Now every message the
+ * studio ever sent them can be got back to, five at a time.
+ *
+ * Filtering and counting happen in SQL rather than in the browser for the same
+ * reason. Filtering an array the server had already truncated gave answers that
+ * looked right and were wrong: "3 unread" meant three unread *in the last
+ * thirty*, and a member with forty unread was told three.
+ */
 export function noticesFor(
   userId: string,
   locale: "en" | "el" = "en",
-  limit = 30,
-): NoticeView[] {
+  opts: { filter?: "all" | "unread" | "read"; page?: number; perPage?: number } = {},
+): NoticePage {
+  const filter = opts.filter ?? "all";
+  const perPage = Math.min(Math.max(opts.perPage ?? NOTICES_PER_PAGE, 1), 50);
+
+  const mine = sql`${noticeReads.noticeId} = ${notices.id} and ${noticeReads.userId} = ${userId}`;
+  const unreadOnly = sql`${noticeReads.readAt} is null`;
+  const readOnly = sql`${noticeReads.readAt} is not null`;
+
+  const where =
+    filter === "unread"
+      ? sql`${visibleTo(userId)} and ${unreadOnly}`
+      : filter === "read"
+        ? sql`${visibleTo(userId)} and ${readOnly}`
+        : visibleTo(userId);
+
+  const countOf = (rule: ReturnType<typeof sql>) =>
+    db
+      .select({ n: sql<number>`count(*)` })
+      .from(notices)
+      .leftJoin(noticeReads, mine)
+      .where(rule)
+      .get()?.n ?? 0;
+
+  const counts = {
+    all: countOf(visibleTo(userId)),
+    unread: countOf(sql`${visibleTo(userId)} and ${unreadOnly}`),
+    read: countOf(sql`${visibleTo(userId)} and ${readOnly}`),
+  };
+
+  const total = filter === "all" ? counts.all : filter === "unread" ? counts.unread : counts.read;
+  const pages = Math.max(1, Math.ceil(total / perPage));
+  /* A member on page 4 who marks everything read would otherwise land on a page
+     that no longer exists and see nothing at all. */
+  const page = Math.min(Math.max(opts.page ?? 1, 1), pages);
+
   const rows = db
     .select({
       id: notices.id,
@@ -119,27 +199,31 @@ export function noticesFor(
       readAt: noticeReads.readAt,
     })
     .from(notices)
-    .leftJoin(
-      noticeReads,
-      sql`${noticeReads.noticeId} = ${notices.id} and ${noticeReads.userId} = ${userId}`,
-    )
-    .where(visibleTo(userId))
+    .leftJoin(noticeReads, mine)
+    .where(where)
     /* Timestamps are whole seconds, so two notices written in the same second
        tie — and the tie-break decided which of "Booking confirmed" and "Booking
        cancelled" appeared on top. rowid is the insertion order, so the later one
        is genuinely later. */
     .orderBy(desc(notices.createdAt), sql`${notices}.rowid desc`)
-    .limit(limit)
+    .limit(perPage)
+    .offset((page - 1) * perPage)
     .all();
 
-  return rows.map((r) => ({
-    id: r.id,
-    title: (locale === "el" && r.titleEl) || r.titleEn,
-    body: (locale === "el" && r.bodyEl) || r.bodyEn,
-    createdAt: r.createdAt,
-    important: r.important,
-    read: r.readAt !== null,
-  }));
+  return {
+    rows: rows.map((r) => ({
+      id: r.id,
+      title: (locale === "el" && r.titleEl) || r.titleEn,
+      body: (locale === "el" && r.bodyEl) || r.bodyEn,
+      createdAt: r.createdAt,
+      important: r.important,
+      read: r.readAt !== null,
+    })),
+    total,
+    page,
+    pages,
+    counts,
+  };
 }
 
 /** The number next to the member's face in the corner. */
@@ -179,8 +263,55 @@ export function markRead(userId: string, noticeId?: string) {
   return ids.length;
 }
 
-/** For the desk: what has been sent, and how many people have read each one. */
-export function noticeHistory(limit = 20) {
+export const HISTORY_PER_PAGE = 5;
+
+/**
+ * For the desk: what has been sent, and how many people have read each one.
+ *
+ * Filtered by channel and paged, because "what did we send by SMS" is a real
+ * question with a real cost attached to it, and scrolling a single list of two
+ * hundred announcements looking for the ones that cost money is not an answer.
+ *
+ * The channel filter reads the `channels` column — what was chosen when the
+ * notice went out — which is exactly what the chips on each row show, so the
+ * filter and the display can never disagree.
+ */
+export function noticeHistory(
+  opts: { channel?: "push" | "email" | "sms" | null; page?: number; perPage?: number } = {},
+) {
+  const perPage = Math.min(Math.max(opts.perPage ?? HISTORY_PER_PAGE, 1), 50);
+  const channel = opts.channel ?? null;
+
+  /* The studio's own announcements. Personal booking confirmations live in the
+     same table and are the member's business, not a list for the desk to scroll
+     through — there are hundreds of them and none is news. */
+  const base = isNull(notices.userId);
+  const where = channel
+    ? sql`${base} and (',' || ${notices.channels} || ',') like ${"%," + channel + ",%"}`
+    : base;
+
+  const countFor = (c: "push" | "email" | "sms" | null) =>
+    db
+      .select({ n: sql<number>`count(*)` })
+      .from(notices)
+      .where(
+        c
+          ? sql`${base} and (',' || ${notices.channels} || ',') like ${"%," + c + ",%"}`
+          : base,
+      )
+      .get()?.n ?? 0;
+
+  const counts = {
+    all: countFor(null),
+    push: countFor("push"),
+    email: countFor("email"),
+    sms: countFor("sms"),
+  };
+
+  const total = channel ? counts[channel] : counts.all;
+  const pages = Math.max(1, Math.ceil(total / perPage));
+  const page = Math.min(Math.max(opts.page ?? 1, 1), pages);
+
   const rows = db
     .select({
       id: notices.id,
@@ -191,47 +322,54 @@ export function noticeHistory(limit = 20) {
       important: notices.important,
       audience: notices.audience,
       channels: notices.channels,
+      segment: notices.segment,
       createdAt: notices.createdAt,
       author: users.name,
     })
     .from(notices)
     .leftJoin(users, eq(notices.createdBy, users.id))
-    /* The studio's own announcements. Personal booking confirmations live in the
-       same table and are the member's business, not a list for the desk to
-       scroll through — there are hundreds of them and none is news. */
-    .where(isNull(notices.userId))
+    .where(where)
     .orderBy(desc(notices.createdAt), sql`${notices}.rowid desc`)
-    .limit(limit)
+    .limit(perPage)
+    .offset((page - 1) * perPage)
     .all();
 
+  /* "3 of 40 read" has to be out of the members who could read it, so test
+     accounts are not in the denominator. */
   const members =
     db
       .select({ n: sql<number>`count(*)` })
       .from(users)
-      .where(eq(users.role, "MEMBER"))
+      .where(sql`${users.role} = 'MEMBER' and ${users.isTest} = 0`)
       .get()?.n ?? 0;
 
-  return rows.map((r) => ({
-    ...r,
-    members,
-    /* What each channel did with it, so "sent" is a fact rather than a hope. */
-    deliveries: db
-      .select()
-      .from(noticeDeliveries)
-      .where(eq(noticeDeliveries.noticeId, r.id))
-      .all()
-      .map((d) => ({
-        channel: d.channel,
-        sent: d.sent,
-        failed: d.failed,
-        skipped: d.skipped,
-        detail: d.detail,
-      })),
-    reads:
-      db
-        .select({ n: sql<number>`count(*)` })
-        .from(noticeReads)
-        .where(eq(noticeReads.noticeId, r.id))
-        .get()?.n ?? 0,
-  }));
+  return {
+    rows: rows.map((r) => ({
+      ...r,
+      members,
+      /* What each channel did with it, so "sent" is a fact rather than a hope. */
+      deliveries: db
+        .select()
+        .from(noticeDeliveries)
+        .where(eq(noticeDeliveries.noticeId, r.id))
+        .all()
+        .map((d) => ({
+          channel: d.channel,
+          sent: d.sent,
+          failed: d.failed,
+          skipped: d.skipped,
+          detail: d.detail,
+        })),
+      reads:
+        db
+          .select({ n: sql<number>`count(*)` })
+          .from(noticeReads)
+          .where(eq(noticeReads.noticeId, r.id))
+          .get()?.n ?? 0,
+    })),
+    total,
+    page,
+    pages,
+    counts,
+  };
 }

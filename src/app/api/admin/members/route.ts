@@ -33,9 +33,24 @@ export async function GET(req: Request) {
     return NextResponse.json({ member: detail });
   }
 
+  const asked = url.searchParams.get("filter");
+  const filter =
+    asked === "test" || asked === "real" ? asked : ("all" as const);
+  const page = Math.max(1, Number(url.searchParams.get("page") ?? 1) || 1);
+
+  const found = await findMembers(url.searchParams.get("q") ?? "", {
+    includeDesk: canSeeDesk,
+    filter,
+    page,
+  });
+
   return NextResponse.json({
-    members: await findMembers(url.searchParams.get("q") ?? "", {
-      includeDesk: canSeeDesk,
-    }),
+    /* `members` is the rows, as it always was, with the paging alongside. */
+    members: found.rows,
+    total: found.total,
+    page: found.page,
+    pages: found.pages,
+    counts: found.counts,
+    filter,
   });
 }

@@ -11,6 +11,13 @@
  */
 const B = process.argv[2] ?? "http://localhost:3000";
 
+/* One number, one account — so every registration in this suite needs its own.
+   Registering two members with the same phone is now correctly refused. */
+let __phoneSeq = 0;
+function uniquePhone() {
+  return `+35799${String(100000 + ((Date.now() % 800000) + __phoneSeq++ * 13)).slice(0, 6)}`;
+}
+
 function jar() {
   return new Map();
 }
@@ -60,7 +67,7 @@ async function member(tag) {
     body: {
       name: `Pay ${tag}`,
       email,
-      phone: "+357 99 123456",
+      phone: uniquePhone(),
       password: "test12345",
       serviceOptIn: true,
     },
@@ -241,6 +248,82 @@ console.log("\n7. The webhook is still sealed");
     "an unsigned webhook is refused",
     r.status === 400 || r.status === 503,
     r.status,
+  );
+}
+
+/* ------------------------------------------------------------------ 8 */
+console.log("\n8. Paying tells the member, once");
+{
+  const buyer = jar();
+  const email = `paid-${Date.now()}@apex.test`;
+  await req(buyer, "/api/auth/register", {
+    method: "POST",
+    body: {
+      name: "Paid Notice",
+      email,
+      phone: uniquePhone(),
+      password: "test12345",
+      serviceOptIn: true,
+    },
+  });
+  /* Timestamps are whole seconds and notices from before somebody joined are
+     not theirs — so the boundary is put beyond doubt before counting. */
+  await new Promise((r) => setTimeout(r, 1100));
+
+  const start = await req(buyer, "/api/notices");
+  check("nothing unread to begin with", start.json?.unread === 0, start.json?.unread);
+
+  const opened = await req(buyer, "/api/checkout", {
+    method: "POST",
+    body: { packSlug: "pack-10" },
+  });
+  const midway = await req(buyer, "/api/notices");
+  /* Opening a payment is not paying. Telling somebody their sessions have
+     arrived while the card form is still on screen would be a lie. */
+  check(
+    "opening the payment says nothing",
+    midway.json?.unread === 0,
+    midway.json?.unread,
+  );
+
+  const settled = await req(buyer, "/api/payments/settle", {
+    method: "POST",
+    body: { purchaseId: opened.json?.purchaseId },
+  });
+  check("the payment settles", settled.json?.status === "PAID", settled.json);
+
+  const after = await req(buyer, "/api/notices");
+  check("the member is told", after.json?.unread === 1, after.json?.unread);
+  const msg = (after.json?.notices ?? [])[0];
+  check("with the payment named", msg?.title === "Payment received", msg?.title);
+  check(
+    "the sessions, the price and the expiry",
+    /10 sessions/.test(msg?.body ?? "") &&
+      /€200/.test(msg?.body ?? "") &&
+      /expire on/.test(msg?.body ?? ""),
+    msg?.body,
+  );
+
+  /* The webhook, the browser coming back and a later check all report the same
+     payment. Only the one that granted the sessions may speak. */
+  await req(buyer, "/api/payments/settle", {
+    method: "POST",
+    body: { purchaseId: opened.json?.purchaseId },
+  });
+  await req(buyer, "/api/payments/settle", {
+    method: "POST",
+    body: { purchaseId: opened.json?.purchaseId },
+  });
+  const again = await req(buyer, "/api/notices");
+  check(
+    "settling three times still tells them once",
+    again.json?.unread === 1,
+    again.json?.unread,
+  );
+  check(
+    "and grants the sessions once",
+    (await req(buyer, "/api/bookings")).json?.credits === 10,
+    "balance moved on a repeat settle",
   );
 }
 

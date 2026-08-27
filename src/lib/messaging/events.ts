@@ -1,61 +1,74 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { bookings, classSessions, classTypes, users } from "@/db/schema";
-import { STUDIO } from "@/lib/studio";
+import {
+  bookings,
+  classSessions,
+  classTypes,
+  creditBatches,
+  purchases,
+  users,
+} from "@/db/schema";
 import { createNotice } from "@/lib/notices";
 import { dueReminders, markSent } from "@/lib/reminders";
 import { emailTransport } from "./email";
 import { sendPush, subscriptionsFor } from "./push";
 import { smsTransport, toE164 } from "./sms";
 import type { Channel, Outgoing } from "./types";
+import {
+  bookedWords,
+  cancelledWords,
+  forEmail,
+  leadWords,
+  purchasedWords,
+  reminderWords,
+  whenWords,
+  type Bilingual,
+} from "./wording";
 
 /**
- * The three messages the studio sends without anybody writing them.
+ * The four messages the studio sends without anybody writing them.
  *
- *   booked      "You are booked" — the moment a class is taken
+ *   booked      "The booking is confirmed" — the moment a class is taken
  *   cancelled   "That booking is cancelled" — and whether the session came back
+ *   purchased   "Payment received" — the sessions, the price, when they expire
  *   reminder    "Your class is in two hours" — at each member's own lead time
  *
- * All three are push by default and push only. That is deliberate: these fire
- * per booking rather than per announcement, so putting SMS on them would put a
- * few cents on every single booking the studio takes, four hundred times a
- * month, without anybody deciding to spend it. `REMINDER_CHANNELS` widens it if
- * the studio wants to — "push,email" is the sensible next step, and email costs
- * nothing per message on any of the providers.
- *
- * All three land in the member's own account: the number on their photograph goes
- * up and the message is waiting in Notifications. That is the copy that matters,
- * because it is the one they can go and look at afterwards.
- *
- * Whether a *phone* notification also appears is a separate question, and the
- * answer differs by message:
- *
- *   booked / cancelled   in-app only. The member is standing in the app, having
- *                        just pressed the button — the screen has already told
- *                        them, and a system pop-up on top of that is the app
- *                        talking over itself.
- *   reminder             in-app *and* push. This one exists precisely because
- *                        they are not looking at the site: an inbox message
- *                        nobody opens two hours before their class is not a
- *                        reminder, it is a diary entry.
- *
- * One constant decides it, and it is one line to change your mind.
+ * Which channels each one uses is the table below and nothing else. It used to
+ * be an environment variable plus a second constant, which meant the answer to
+ * "does a booking send an email?" lived in two files and a `.env` — so the table
+ * is now the only place, and it reads like the decision it encodes.
  */
 
-/** Which of the automatic messages also buzz the phone. */
-const ALSO_PUSH = { booked: false, cancelled: false, reminder: true };
+/** Where each automatic message is allowed to go. The studio's own spec. */
+const SENDS: Record<
+  "booked" | "cancelled" | "purchased" | "reminder",
+  { email: boolean; push: boolean; sms: boolean }
+> = {
+  /* A member who has just pressed Book is looking at the screen that told them
+     it worked. The badge goes up and the message is in their list; anything
+     more is the app talking over itself. */
+  booked: { email: false, push: false, sms: false },
+  cancelled: { email: false, push: false, sms: false },
 
-/** Which channels the automatic messages may use. Push always; the rest opt in. */
-function allowedChannels(): Channel[] {
-  const raw = (process.env.REMINDER_CHANNELS ?? "push")
-    .toLowerCase()
-    .split(",")
-    .map((s) => s.trim());
-  const out: Channel[] = ["push"];
-  if (raw.includes("email")) out.push("email");
-  if (raw.includes("sms")) out.push("sms");
-  return out;
-}
+  /* Money is the exception. A payment is the one thing a member may need to
+     produce later — to check what they were charged, or when it expires — and
+     an email is the copy that survives outside the app. */
+  purchased: { email: true, push: false, sms: false },
+
+  /* The one that buzzes the phone, and the only one that should. It exists
+     precisely because the member is *not* looking at the site: an inbox message
+     two hours before a class, that nobody opens, is not a reminder — it is a
+     diary entry. Push costs nothing and needs no provider, so this is the one
+     place the free channel earns its keep. */
+  reminder: { email: false, push: true, sms: false },
+};
+
+/**
+ * The in-app copy is not in that table because it is not a channel. It is
+ * written first, unconditionally, for every message — it is what puts the number
+ * on the member's photograph, and it is the one copy that cannot fail to be
+ * delivered because nothing has to deliver it.
+ */
 
 /* ------------------------------------------------------- one member, one push */
 
@@ -80,7 +93,8 @@ type BookingFacts = {
   notifyEmail: boolean;
   notifySms: boolean;
   startsAt: Date;
-  className: string;
+  classEn: string;
+  classEl: string;
 };
 
 function factsFor(bookingId: string): BookingFacts | null {
@@ -93,7 +107,8 @@ function factsFor(bookingId: string): BookingFacts | null {
       notifyEmail: users.notifyEmail,
       notifySms: users.notifySms,
       startsAt: classSessions.startsAt,
-      className: classTypes.nameEn,
+      classEn: classTypes.nameEn,
+      classEl: classTypes.nameEl,
     })
     .from(bookings)
     .innerJoin(users, eq(bookings.userId, users.id))
@@ -101,53 +116,30 @@ function factsFor(bookingId: string): BookingFacts | null {
     .innerJoin(classTypes, eq(classSessions.classTypeId, classTypes.id))
     .where(eq(bookings.id, bookingId))
     .get();
-  return row ?? null;
+  if (!row) return null;
+  /* An older class type may have no Greek name. Falling back to the English one
+     is better than a message with a hole in it. */
+  return { ...row, classEl: row.classEl || row.classEn };
 }
 
 /**
- * "Saturday 29 August at 18:00", in the studio's own timezone.
+ * The member's own account copy, in both languages.
  *
- * Exported so the wording is testable. This is the whole substance of a booking
- * confirmation — a member reads the day and the hour and nothing else — so it is
- * worth an assertion rather than a hope.
- */
-export function whenWords(d: Date) {
-  const day = new Intl.DateTimeFormat("en-GB", {
-    timeZone: STUDIO.timezone,
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  }).format(d);
-  const time = new Intl.DateTimeFormat("en-GB", {
-    timeZone: STUDIO.timezone,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(d);
-  return `${day} at ${time}`;
-}
-
-/** Minutes, said the way a person would say them. */
-export function leadWords(minutes: number) {
-  if (minutes <= 0) return "now";
-  if (minutes < 60) return `${minutes} minutes`;
-  const h = minutes / 60;
-  if (Number.isInteger(h)) return h === 1 ? "1 hour" : `${h} hours`;
-  return `${Math.floor(h)}h ${minutes % 60}m`;
-}
-
-/**
- * The member's own account copy.
+ * Both are stored so the site can show whichever the member is reading it in —
+ * it already knows that, and a bilingual card in a list would be twice as tall
+ * for no gain.
  *
  * Never throws outward: this is called from a booking that has already
  * succeeded, and a failure to write a courtesy message must not surface as a
  * failure to book.
  */
-function inbox(userId: string, msg: Outgoing) {
+function inbox(userId: string, words: Bilingual) {
   try {
     createNotice({
-      titleEn: msg.subject,
-      bodyEn: msg.body,
+      titleEn: words.en.subject,
+      bodyEn: words.en.body,
+      titleEl: words.el.subject,
+      bodyEl: words.el.body,
       userId,
       staffId: null,
     });
@@ -156,71 +148,113 @@ function inbox(userId: string, msg: Outgoing) {
   }
 }
 
-/* ------------------------------------------------------------ the three sends */
+/* ------------------------------------------------------------- the four sends */
 
 /**
- * Fired when a class is booked. Never awaited by the booking route: a push that
- * fails must not turn a successful booking into an error on screen.
+ * Fired when a class is booked. Never awaited by the booking route: a message
+ * that fails must not turn a successful booking into an error on screen.
  */
 export async function notifyBooked(bookingId: string) {
   const f = factsFor(bookingId);
   if (!f) return 0;
-
-  return deliverPersonal(
-    f,
-    {
-      subject: "Booking confirmed",
-      body: `${f.className} — ${whenWords(f.startsAt)}. See you at the studio.`,
-      url: "/account?tab=notifications",
-    },
-    ALSO_PUSH.booked,
-  );
+  return deliverPersonal(f, bookedWords(f), SENDS.booked);
 }
 
 /** Fired when a booking is cancelled, saying whether the session came back. */
 export async function notifyCancelled(bookingId: string, refunded: boolean) {
   const f = factsFor(bookingId);
   if (!f) return 0;
-
   return deliverPersonal(
     f,
-    {
-      subject: "Booking cancelled",
-      body:
-        `${f.className} — ${whenWords(f.startsAt)} is cancelled. ` +
-        (refunded
-          ? "The session is back in your balance."
-          : "This was inside the 24-hour window, so the session was used."),
-      url: "/account?tab=notifications",
-    },
-    ALSO_PUSH.cancelled,
+    cancelledWords({ ...f, refunded }),
+    SENDS.cancelled,
   );
 }
 
+/**
+ * Fired once a payment has actually become sessions.
+ *
+ * Called from the single place that grants them, and only by the caller that
+ * won the race to grant — a card payment gets reported by the webhook, the
+ * browser coming back, and sometimes a later check, so anything hooked less
+ * carefully than this would tell the member three times that they had paid.
+ *
+ * The expiry is read from the batch that was just written rather than
+ * recalculated, so the message cannot promise a date the balance disagrees with.
+ */
+export async function notifyPurchased(purchaseId: string) {
+  const row = db
+    .select({
+      userId: users.id,
+      name: users.name,
+      email: users.email,
+      phone: users.phone,
+      notifyEmail: users.notifyEmail,
+      notifySms: users.notifySms,
+      credits: purchases.credits,
+      amountCents: purchases.amountCents,
+      currency: purchases.currency,
+      expiresAt: creditBatches.expiresAt,
+    })
+    .from(purchases)
+    .innerJoin(users, eq(purchases.userId, users.id))
+    .leftJoin(creditBatches, eq(creditBatches.purchaseId, purchases.id))
+    .where(eq(purchases.id, purchaseId))
+    .get();
+  if (!row) return 0;
+
+  return deliverPersonal(
+    {
+      userId: row.userId,
+      name: row.name,
+      email: row.email,
+      phone: row.phone,
+      notifyEmail: row.notifyEmail,
+      notifySms: row.notifySms,
+      /* Not a class, so these are unused by the wording below. */
+      startsAt: new Date(),
+      classEn: "",
+      classEl: "",
+    },
+    purchasedWords({
+      credits: row.credits,
+      amountCents: row.amountCents,
+      currency: row.currency,
+      expiresAt: row.expiresAt ?? null,
+    }),
+    SENDS.purchased,
+  );
+}
+
+/**
+ * One member, one message, whichever channels the table allows it.
+ *
+ * The member's own consent narrows that further and can never widen it: a
+ * message the studio has not put email on stays off email even for somebody who
+ * would happily receive it.
+ */
 async function deliverPersonal(
   f: BookingFacts,
-  msg: Outgoing,
-  alsoPush: boolean,
+  words: Bilingual,
+  sends: { email: boolean; push: boolean; sms: boolean },
 ) {
-  const channels = allowedChannels();
-
   /* The account copy, always. Written first and outside any condition: it is
      the one the member can come back to, and it is what puts the number on
      their photograph. */
-  inbox(f.userId, msg);
+  inbox(f.userId, words);
 
-  let reached = alsoPush ? await pushToUser(f.userId, msg) : 0;
+  let reached = sends.push ? await pushToUser(f.userId, words.en) : 0;
 
-  if (channels.includes("email") && f.notifyEmail && f.email) {
-    const res = await emailTransport().send(f.email, msg);
+  if (sends.email && f.notifyEmail && f.email) {
+    const res = await emailTransport().send(f.email, forEmail(words));
     if (res.ok) reached++;
   }
-  if (channels.includes("sms") && f.notifySms) {
+  if (sends.sms && f.notifySms) {
     const number = toE164(f.phone);
     if (number) {
       const res = await smsTransport().send(number, {
-        subject: msg.subject,
-        body: `APEX pilates: ${msg.subject}. ${msg.body}`.slice(0, 300),
+        subject: words.en.subject,
+        body: `APEX pilates: ${words.en.subject}. ${words.en.body}`.slice(0, 300),
       });
       if (res.ok) reached++;
     }
@@ -238,10 +272,34 @@ async function deliverPersonal(
  * never allowed notifications.
  */
 export async function runDueReminders(now = new Date()) {
-  const due = dueReminders(now);
-  if (due.length === 0) return { due: 0, pushed: 0, emailed: 0, texted: 0 };
+  const queue = dueReminders(now);
+  if (queue.length === 0) {
+    return { due: 0, pushed: 0, emailed: 0, texted: 0, stale: 0 };
+  }
 
-  const channels = allowedChannels();
+  /**
+   * A reminder for a class that has already begun is not a reminder.
+   *
+   * This matters the first time a sweep runs after not running for a while:
+   * without it, a server coming back up would tell somebody their Tuesday class
+   * starts "now" on Thursday, for every class they had booked in between. The
+   * rows are closed rather than left pending, because they will never become
+   * sendable — every minute that passes makes them more wrong.
+   *
+   * A reminder that is merely *late* still goes: "starts in 5 minutes" when
+   * thirty was intended is worth having, and better than silence.
+   */
+  const stale = queue.filter((r) => r.startsAt.getTime() <= now.getTime());
+  const due = queue.filter((r) => r.startsAt.getTime() > now.getTime());
+
+  if (stale.length > 0) {
+    markSent(stale.map((r) => r.id), now);
+  }
+
+  if (due.length === 0) {
+    return { due: 0, pushed: 0, emailed: 0, texted: 0, stale: stale.length };
+  }
+
   let pushed = 0;
   let emailed = 0;
   let texted = 0;
@@ -251,31 +309,27 @@ export async function runDueReminders(now = new Date()) {
       0,
       Math.round((r.startsAt.getTime() - now.getTime()) / 60_000),
     );
-    const msg: Outgoing = {
-      subject: "Your class is coming up",
-      body: `Your class starts in ${leadWords(minutes)} — ${whenWords(r.startsAt)}.`,
-      url: "/account",
-    };
+    const words = reminderWords({ minutes, startsAt: r.startsAt });
 
     /* The row remembers which channels the member had on when they booked. The
-       studio's own setting can narrow that but never widen it. */
+       table above can narrow that but never widen it. */
     const rowChannels = r.channels.split(",");
-    const use = (c: Channel) => channels.includes(c) && rowChannels.includes(c);
+    const use = (c: Channel) =>
+      SENDS.reminder[c as "email" | "sms"] && rowChannels.includes(c);
 
-    /* Both, for this one. See ALSO_PUSH above. */
-    inbox(r.userId, msg);
-    if (ALSO_PUSH.reminder) pushed += await pushToUser(r.userId, msg);
+    inbox(r.userId, words);
+    if (SENDS.reminder.push) pushed += await pushToUser(r.userId, words.en);
 
     if (use("email") && r.userEmail) {
-      const res = await emailTransport().send(r.userEmail, msg);
+      const res = await emailTransport().send(r.userEmail, forEmail(words));
       if (res.ok) emailed++;
     }
     if (use("sms")) {
       const number = toE164(r.userPhone);
       if (number) {
         const res = await smsTransport().send(number, {
-          subject: msg.subject,
-          body: `APEX pilates: ${msg.body}`.slice(0, 300),
+          subject: words.en.subject,
+          body: `APEX pilates: ${words.en.body}`.slice(0, 300),
         });
         if (res.ok) texted++;
       }
@@ -283,7 +337,7 @@ export async function runDueReminders(now = new Date()) {
   }
 
   markSent(due.map((r) => r.id), now);
-  return { due: due.length, pushed, emailed, texted };
+  return { due: due.length, pushed, emailed, texted, stale: stale.length };
 }
 
 /**
@@ -304,3 +358,6 @@ export function nudgeReminders() {
     /* A failed sweep is retried a minute later by the next visitor. */
   });
 }
+
+/* Re-exported so the wording stays testable from where it always was. */
+export { whenWords, leadWords };

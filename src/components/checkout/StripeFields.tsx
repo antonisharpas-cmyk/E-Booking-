@@ -137,7 +137,18 @@ function Form({
 
   return (
     <form onSubmit={pay} noValidate>
-      <PaymentElement onReady={() => setReady(true)} />
+      {/* Card, Apple Pay, Google Pay. "auto" means each wallet appears only on a
+          device that can actually use it — an Apple Pay button on a Windows
+          desktop is a button that cannot work. The intent is nailed down here as
+          well as on the server so a future change has to be deliberate in both
+          places. */}
+      <PaymentElement
+        onReady={() => setReady(true)}
+        options={{
+          wallets: { applePay: "auto", googlePay: "auto" },
+          layout: { type: "tabs", defaultCollapsed: false },
+        }}
+      />
 
       {error && (
         <p

@@ -11,7 +11,19 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const { t } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") || "/account";
+  /**
+   * Where to go afterwards.
+   *
+   * The timetable, not the account page. Somebody who has just signed in or just
+   * signed up is here to book a class — that is what the site is for — and the
+   * account page is a filing cabinet: a balance, some settings, a list of past
+   * sessions. Landing there means one more click before the thing they came to
+   * do, every single time.
+   *
+   * A `next` in the URL still wins, because that is somebody who was interrupted
+   * on their way somewhere specific and should be put back.
+   */
+  const next = params.get("next") || "/timetable";
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,18 +47,45 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           };
 
     /* Said here in the reader's own language rather than leaving them to
-       press the button and read a code back from the server. */
+       press the button and read a code back from the server. The server checks
+       all of this again — a browser is a suggestion — but being told which field
+       is wrong before submitting is the difference between correcting a typo and
+       guessing. */
     if (mode === "register") {
-      const phone = String(form.get("phone") ?? "").trim();
-      if ((phone.match(/\d/g) ?? []).length < 8) {
-        setError(t.auth.errPhone);
+      const stop = (msg: string) => {
+        setError(msg);
         setBusy(false);
-        return;
+      };
+
+      if (String(form.get("name") ?? "").trim().length < 2) {
+        return stop(t.auth.errName);
+      }
+
+      const email = String(form.get("email") ?? "").trim();
+      /* Not a full RFC address parser — those reject real addresses. This asks
+         the three questions worth asking: is there an @, is there something
+         either side of it, and does the domain have a dot with letters after it.
+         The screenshot that prompted this had "cristiano" in the email box. */
+      if (!/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(email)) {
+        return stop(t.auth.errEmail);
+      }
+
+      const phone = String(form.get("phone") ?? "").trim();
+      const digits = (phone.match(/\d/g) ?? []).length;
+      /* Eight is a Cyprus landline or mobile without the country code; more is
+         a number with one. Anything shorter cannot be dialled. */
+      if (digits < 8) {
+        return stop(t.auth.errPhone);
+      }
+      if (digits > 15) {
+        /* E.164 caps at fifteen digits, so more than that is a typo. */
+        return stop(t.auth.errPhone);
+      }
+      if (String(form.get("password") ?? "").length < 8) {
+        return stop(t.auth.errPassword);
       }
       if (form.get("serviceOptIn") !== "on") {
-        setError(t.auth.errServiceConsent);
-        setBusy(false);
-        return;
+        return stop(t.auth.errServiceConsent);
       }
     }
 
@@ -59,12 +98,17 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       const data = (await res.json()) as { ok?: boolean; error?: string };
 
       if (data.ok) {
-        router.push(next);
-        router.refresh();
+        /* A document load rather than a client navigation. Everything that shows
+           who is signed in — the header, the session count on their photograph,
+           the notice badge — is rendered on the server, and a client push with a
+           refresh chasing it lands on the timetable still looking signed out for
+           a moment. */
+        window.location.assign(next);
         return;
       }
       const known: Record<string, string> = {
         EMAIL_TAKEN: t.auth.emailTaken,
+        PHONE_TAKEN: t.auth.phoneTaken,
         INVALID_CREDENTIALS: t.auth.invalid,
         PHONE_REQUIRED: t.auth.errPhone,
         PHONE_INVALID: t.auth.errPhone,
@@ -137,20 +181,21 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             {!isLogin && (
               <div>
                 <label className="label" htmlFor="phone">
-                  {t.common.phone}{" "}
-                  <span aria-hidden className="text-clay/70">
-                    *
-                  </span>
+                  {t.common.phone}
                 </label>
+                {/* Still required — the field is marked `required` and checked
+                    on the server. The asterisk and the explanation went because
+                    every field on this form is required, so marking one of them
+                    told the reader nothing except that the others might not be. */}
                 <input
                   id="phone"
                   name="phone"
                   type="tel"
+                  inputMode="tel"
                   autoComplete="tel"
                   required
                   className="input"
                 />
-                <p className="mt-2 text-[11px] text-clay">{t.auth.phoneWhy}</p>
               </div>
             )}
 
@@ -233,7 +278,9 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                 the pricing page to start again. */}
             <Link
               href={`${isLogin ? "/register" : "/login"}${
-                next !== "/account" ? `?next=${encodeURIComponent(next)}` : ""
+                /* Only carry `next` when it is a real destination somebody was
+                   sent here from. The default is not worth putting in a URL. */
+                next !== "/timetable" ? `?next=${encodeURIComponent(next)}` : ""
               }`}
               className="link-underline text-mocha-600"
             >

@@ -169,6 +169,10 @@ console.log("\nGetting a message out");
   const email = (process.env.EMAIL_PROVIDER ?? "log").toLowerCase();
   const sms = (process.env.SMS_PROVIDER ?? "log").toLowerCase();
   const emailKeyed =
+    (email === "smtp" &&
+      process.env.SMTP_HOST &&
+      process.env.SMTP_USER &&
+      process.env.SMTP_PASS) ||
     (email === "resend" && process.env.RESEND_API_KEY) ||
     (email === "brevo" && process.env.BREVO_API_KEY);
   const smsKeyed =
@@ -181,8 +185,54 @@ console.log("\nGetting a message out");
   email === "log"
     ? warn("email: log mode — nothing is actually sent", "docs/notifications.md")
     : emailKeyed
-      ? ok(`email: ${email}`)
+      ? ok(
+          email === "smtp"
+            ? `email: smtp as ${process.env.SMTP_USER}`
+            : `email: ${email}`,
+        )
       : bad(`email: ${email} selected but its key is missing`, "docs/notifications.md");
+
+  /* The mistake that wastes an afternoon: a mailbox provider will not send as a
+     mailbox you did not sign in as, and the rejection it gives ("550 not
+     allowed") reads like a problem with the recipient rather than the sender.
+
+     But this is only true of *mailboxes*. A relay — Brevo, Mailgun, SendGrid —
+     signs in with an account identifier that is deliberately nothing like the
+     address it sends as, and telling somebody that is broken would send them
+     looking for a fault that is not there. So it is a hard problem only where
+     the host is a mailbox provider, and silence elsewhere. */
+  const MAILBOX_HOSTS =
+    /(^|\.)(gmail\.com|google\.com|googlemail\.com|outlook\.com|office365\.com|hotmail\.com|live\.com|yahoo\.com|icloud\.com|me\.com|zoho\.com|zoho\.eu|yandex\.ru|gmx\.net|mail\.ru)$/i;
+
+  if (email === "smtp" && emailKeyed) {
+    const sender = /<([^>]+)>/.exec(process.env.EMAIL_FROM ?? "")?.[1]?.trim() ??
+      (process.env.EMAIL_FROM ?? "").trim();
+    const host = process.env.SMTP_HOST;
+    const isMailbox = MAILBOX_HOSTS.test(host.replace(/^smtp[-.]?/i, ""));
+
+    if (!sender) {
+      warn("email: EMAIL_FROM is not set, so the default address will be used",
+           'EMAIL_FROM="APEX pilates <info@ergonsite.com>"');
+    } else if (sender.toLowerCase() !== process.env.SMTP_USER.toLowerCase()) {
+      isMailbox
+        ? bad(
+            `email: signs in to ${host} as ${process.env.SMTP_USER} but sends as ${sender} — a mailbox will refuse that`,
+            "make EMAIL_FROM use the same mailbox as SMTP_USER",
+          )
+        : ok(`email: smtp via ${host}, sending as ${sender}`);
+    }
+  }
+
+  /* Which automatic messages use email is no longer an environment variable —
+     it is the SENDS table in src/lib/messaging/events.ts, which is the only
+     place it lives. Nothing here to check, and a warning about a setting that
+     no longer does anything would send somebody editing .env for an afternoon. */
+  if (process.env.REMINDER_CHANNELS) {
+    warn(
+      "REMINDER_CHANNELS is set but no longer does anything",
+      "the channels are the SENDS table in src/lib/messaging/events.ts — safe to delete the line",
+    );
+  }
 
   sms === "log"
     ? warn("sms: log mode — nothing is actually sent", "docs/notifications.md")

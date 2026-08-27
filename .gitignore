@@ -11,6 +11,7 @@ next-env.d.ts
 # secrets — never commit these
 .env
 .env*.local
+.env*.bak*
 
 # local SQLite database and its working files
 *.db

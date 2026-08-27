@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { Pager } from "@/components/ui/Pager";
 import { useI18n } from "@/i18n/LanguageProvider";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,7 @@ type Sent = {
   important: boolean;
   audience: string;
   channels: string;
+  segment: string;
   createdAt: string;
   author: string | null;
   reads: number;
@@ -38,7 +40,20 @@ type Sent = {
   deliveries: Delivery[];
 };
 
-type Reach = { people: number; push: number; email: number; sms: number };
+type Reach = {
+  people: number;
+  push: number;
+  email: number;
+  sms: number;
+  /** How many accounts are marked as tests, so their exclusion can be stated. */
+  testAccounts: number;
+};
+type HistoryMeta = {
+  page: number;
+  pages: number;
+  total: number;
+  counts: { all: number; push: number; email: number; sms: number };
+};
 type Transports = Record<string, { name: string; ready: boolean }>;
 type Channel = "push" | "email" | "sms";
 
@@ -61,22 +76,96 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
   const [reach, setReach] = useState<Reach | null>(null);
   const [transports, setTransports] = useState<Transports>({});
 
-  const load = useCallback(async (which: "ALL" | "OFFERS") => {
-    const res = await fetch(`/api/admin/notices?audience=${which}`);
-    if (!res.ok) return;
-    const data = (await res.json()) as {
-      notices: Sent[];
-      reach: Reach;
-      transports: Transports;
-    };
-    setHistory(data.notices ?? []);
-    setReach(data.reach ?? null);
-    setTransports(data.transports ?? {});
-  }, []);
+  /* Test accounts are out unless somebody deliberately puts them in. The default
+     is the one that matters: a real announcement counted as reaching 41 people
+     when four of them are the owner's dummy accounts is a number that will be
+     quoted back at somebody later. */
+  const [includeTest, setIncludeTest] = useState(false);
+
+  /* Narrowing by what members have actually done. Separate from the audience
+     above, which is about consent: these decide relevance, that decides
+     permission, and the permission one is never weakened by these. */
+  const [neverPaid, setNeverPaid] = useState(false);
+  const [noSessionsLeft, setNoSessionsLeft] = useState(false);
+  const [awayValue, setAwayValue] = useState(0);
+  const [awayUnit, setAwayUnit] = useState<"days" | "weeks" | "months">("months");
+
+  /* Months are 30 days. The desk is choosing a rough cohort — "people we have
+     not seen since the summer" — not computing a billing period, and a filter
+     that quietly disagreed with a calendar month by a day or two would never be
+     noticed and never matter. */
+  const awayDays =
+    awayValue <= 0
+      ? 0
+      : awayValue * (awayUnit === "days" ? 1 : awayUnit === "weeks" ? 7 : 30);
+
+  /* Which channel's history to show, and where in it. */
+  const [channel, setChannel] = useState<Channel | null>(null);
+  const [meta, setMeta] = useState<HistoryMeta | null>(null);
+  const [paging, setPaging] = useState(false);
+
+  const load = useCallback(
+    async (opts: {
+      audience: "ALL" | "OFFERS";
+      includeTest: boolean;
+      channel: Channel | null;
+      page: number;
+      neverPaid: boolean;
+      noSessionsLeft: boolean;
+      awayDays: number;
+    }) => {
+      const q = new URLSearchParams({
+        audience: opts.audience,
+        includeTest: opts.includeTest ? "1" : "0",
+        page: String(opts.page),
+        neverPaid: opts.neverPaid ? "1" : "0",
+        noSessionsLeft: opts.noSessionsLeft ? "1" : "0",
+        inactiveDays: String(opts.awayDays),
+      });
+      if (opts.channel) q.set("channel", opts.channel);
+
+      const res = await fetch(`/api/admin/notices?${q}`);
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        notices: Sent[];
+        history: HistoryMeta;
+        reach: Reach;
+        transports: Transports;
+      };
+      setHistory(data.notices ?? []);
+      setMeta(data.history ?? null);
+      setReach(data.reach ?? null);
+      setTransports(data.transports ?? {});
+    },
+    [],
+  );
+
+  const refresh = useCallback(
+    (page = 1) =>
+      load({
+        audience,
+        includeTest,
+        channel,
+        page,
+        neverPaid,
+        noSessionsLeft,
+        awayDays,
+      }),
+    [load, audience, includeTest, channel, neverPaid, noSessionsLeft, awayDays],
+  );
 
   useEffect(() => {
-    void load(audience);
-  }, [load, audience]);
+    void refresh(1);
+  }, [refresh]);
+
+  async function goPage(page: number) {
+    setPaging(true);
+    try {
+      await refresh(page);
+    } finally {
+      setPaging(false);
+    }
+  }
 
   const toggle = (c: Channel) =>
     setChannels((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]));
@@ -95,6 +184,10 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
           important,
           audience,
           channels,
+          includeTest,
+          neverPaid,
+          noSessionsLeft,
+          inactiveDays: awayDays,
         }),
       });
       const data = (await res.json()) as {
@@ -119,7 +212,7 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
       setTitleEl("");
       setTextEl("");
       setImportant(false);
-      await load(audience);
+      await refresh(1);
     } finally {
       setBusy(null);
     }
@@ -226,6 +319,139 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
               </button>
             ))}
           </div>
+
+          {/* ------------------------------------- narrow it by what they did */}
+          <p className="mt-6 text-[10px] uppercase tracking-brand text-clay">
+            {d.segTitle}
+          </p>
+          <p className="mt-2 text-[11px] leading-relaxed text-clay">
+            {d.segHelp}
+          </p>
+
+          <div className="mt-4 space-y-2">
+            {(
+              [
+                ["neverPaid", d.segNeverPaid, d.segNeverPaidWhy, neverPaid, setNeverPaid],
+                [
+                  "noSessions",
+                  d.segNoSessions,
+                  d.segNoSessionsWhy,
+                  noSessionsLeft,
+                  setNoSessionsLeft,
+                ],
+              ] as const
+            ).map(([key, label, why, on, set]) => (
+              <button
+                key={key}
+                type="button"
+                data-segment={key}
+                aria-pressed={on}
+                onClick={() => set((v: boolean) => !v)}
+                className={cn(
+                  "flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition-colors duration-300",
+                  on
+                    ? "border-mocha-600 bg-mocha-600/[0.06]"
+                    : "border-mocha-200 hover:border-mocha-400",
+                )}
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border text-[11px]",
+                    on ? "border-mocha-600 bg-mocha-600 text-cream" : "border-mocha-300",
+                  )}
+                >
+                  {on ? "✓" : ""}
+                </span>
+                <span className="flex-1">
+                  <span className="text-[13px] text-mocha-700">{label}</span>
+                  <span className="mt-1 block text-[11px] leading-relaxed text-clay">
+                    {why}
+                  </span>
+                </span>
+              </button>
+            ))}
+
+            {/* Not been in for a while. Zero means "do not filter by this" —
+                a number is easier to clear than a fourth checkbox. */}
+            <div
+              className={cn(
+                "rounded-2xl border p-4 transition-colors duration-300",
+                awayDays > 0
+                  ? "border-mocha-600 bg-mocha-600/[0.06]"
+                  : "border-mocha-200",
+              )}
+            >
+              <p className="text-[13px] text-mocha-700">{d.segAway}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  max={120}
+                  value={awayValue}
+                  data-segment="awayValue"
+                  onChange={(e) => setAwayValue(Math.max(0, Number(e.target.value) || 0))}
+                  className="input w-20 lining-nums tabular-nums"
+                  aria-label={d.segAway}
+                />
+                <div className="flex gap-1.5">
+                  {(
+                    [
+                      ["days", d.segDays],
+                      ["weeks", d.segWeeks],
+                      ["months", d.segMonths],
+                    ] as const
+                  ).map(([unit, label]) => (
+                    <button
+                      key={unit}
+                      type="button"
+                      data-segment-unit={unit}
+                      aria-pressed={awayUnit === unit}
+                      onClick={() => setAwayUnit(unit)}
+                      className={cn(
+                        "rounded-full border px-3 py-1.5 text-[10px] uppercase tracking-widest transition-colors",
+                        awayUnit === unit
+                          ? "border-mocha-600 bg-mocha-600 text-cream"
+                          : "border-mocha-200 text-mocha-500 hover:border-mocha-400",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {awayValue > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setAwayValue(0)}
+                    className="text-[10px] uppercase tracking-widest text-clay underline decoration-clay/40 underline-offset-4"
+                  >
+                    {d.segClear}
+                  </button>
+                )}
+              </div>
+              <p className="mt-2 text-[11px] leading-relaxed text-clay">
+                {awayDays > 0
+                  ? d.segAwayOn.replace("{n}", String(awayDays))
+                  : d.segAwayOff}
+              </p>
+            </div>
+          </div>
+
+          {/* The number that matters. Filters can narrow an audience to nobody,
+              and pressing send on nobody should not be a surprise. */}
+          {reach && (
+            <p
+              data-reach-total
+              className={cn(
+                "mt-4 text-[12px] leading-relaxed",
+                reach.people === 0 ? "text-red-700" : "text-mocha-600",
+              )}
+            >
+              {reach.people === 0
+                ? d.segNobody
+                : d.segMatches.replace("{n}", String(reach.people))}
+            </p>
+          )}
         </div>
 
         {/* ------------------------------------------------ how it goes out */}
@@ -294,10 +520,53 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
           </div>
         </div>
 
+        {/* Only shown when there is at least one test account. A checkbox that
+            can never change anything is one more thing to read. */}
+        {reach && reach.testAccounts > 0 && (
+          <button
+            type="button"
+            data-include-test={includeTest ? "on" : "off"}
+            aria-pressed={includeTest}
+            onClick={() => setIncludeTest((v) => !v)}
+            className={cn(
+              "mt-6 flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition-colors duration-300",
+              includeTest
+                ? "border-mocha-600 bg-mocha-600/[0.06]"
+                : "border-mocha-200 hover:border-mocha-400",
+            )}
+          >
+            <span
+              aria-hidden
+              className={cn(
+                "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border text-[11px]",
+                includeTest ? "border-mocha-600 bg-mocha-600 text-cream" : "border-mocha-300",
+              )}
+            >
+              {includeTest ? "✓" : ""}
+            </span>
+            <span className="flex-1">
+              <span className="text-[13px] text-mocha-700">
+                {d.noticeIncludeTest}
+              </span>
+              <span className="mt-1 block text-[11px] leading-relaxed text-clay">
+                {(includeTest ? d.noticeIncludeTestOn : d.noticeIncludeTestOff).replace(
+                  "{n}",
+                  String(reach.testAccounts),
+                )}
+              </span>
+            </span>
+          </button>
+        )}
+
         <Button
           className="mt-6 block"
           size="sm"
-          disabled={busy === "send" || title.trim().length < 3 || text.trim().length < 3}
+          disabled={
+            busy === "send" ||
+            title.trim().length < 3 ||
+            text.trim().length < 3 ||
+            reach?.people === 0
+          }
           onClick={send}
         >
           {busy === "send"
@@ -312,6 +581,39 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
         <p className="text-[10px] uppercase tracking-brand text-clay">
           {d.noticeHistory}
         </p>
+
+        {/* "What did we send by SMS" is a question with a bill attached, so it
+            gets its own answer rather than a scroll through everything. */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          {(
+            [
+              [null, d.noticeFilterAll, meta?.counts.all],
+              ["push", d.chanPush, meta?.counts.push],
+              ["email", d.chanEmail, meta?.counts.email],
+              ["sms", d.chanSms, meta?.counts.sms],
+            ] as const
+          ).map(([key, label, count]) => (
+            <button
+              key={key ?? "all"}
+              type="button"
+              data-history-filter={key ?? "all"}
+              aria-pressed={channel === key}
+              disabled={paging}
+              onClick={() => setChannel(key)}
+              className={cn(
+                "rounded-full border px-3.5 py-1.5 text-[10px] uppercase tracking-widest transition-colors duration-300",
+                channel === key
+                  ? "border-mocha-600 bg-mocha-600 text-cream"
+                  : "border-mocha-200 text-mocha-500 hover:border-mocha-400",
+              )}
+            >
+              {label}
+              <span className="ml-2 lining-nums tabular-nums opacity-70">
+                {count ?? 0}
+              </span>
+            </button>
+          ))}
+        </div>
 
         {history.length === 0 ? (
           <p className="mt-5 text-sm text-clay">{d.noticeNone}</p>
@@ -336,11 +638,15 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
                 <p className="mt-1 text-[11px] uppercase tracking-widest text-clay">
                   {fmtFullDate(h.createdAt)}
                   {h.author ? ` · ${h.author}` : ""}
-                  {` · ${
-                    h.audience === "OFFERS"
+                </p>
+                {/* Who it went to, in the words recorded when it went out. It
+                    cannot be worked out later: the audience for "not been for
+                    three months" is different today, because people came back. */}
+                <p className="mt-1 text-[11px] text-clay [overflow-wrap:anywhere]">
+                  {h.segment ||
+                    (h.audience === "OFFERS"
                       ? d.noticeAudienceOffers
-                      : d.noticeAudienceAll
-                  }`}
+                      : d.noticeAudienceAll)}
                 </p>
                 {h.deliveries.length > 0 && (
                   <p className="mt-1 text-[11px] text-clay lining-nums tabular-nums">
@@ -358,6 +664,21 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
               </li>
             ))}
           </ul>
+        )}
+
+        {meta && (
+          <Pager
+            page={meta.page}
+            pages={meta.pages}
+            total={meta.total}
+            busy={paging}
+            onPage={(p) => void goPage(p)}
+            labels={{
+              newer: t.notices.pagerNewer,
+              older: t.notices.pagerOlder,
+              of: t.notices.pagerOf,
+            }}
+          />
         )}
       </div>
     </div>

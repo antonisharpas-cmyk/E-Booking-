@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useI18n } from "@/i18n/LanguageProvider";
+import { Pager } from "@/components/ui/Pager";
 import { cn } from "@/lib/utils";
 
 /**
@@ -22,6 +23,15 @@ type Found = {
   phone: string | null;
   role: string;
   credits: number;
+  isTest: boolean;
+};
+
+type MemberFilter = "all" | "real" | "test";
+type ListMeta = {
+  page: number;
+  pages: number;
+  total: number;
+  counts: { all: number; real: number; test: number };
 };
 
 type Detail = {
@@ -36,6 +46,7 @@ type Detail = {
   notifySms: boolean;
   notifyPush: boolean;
   marketingOptIn: boolean;
+  isTest: boolean;
   upcoming: { id: string; startsAt: string; className: string }[];
   payments: {
     id: string;
@@ -81,19 +92,55 @@ export function MemberDesk({ onNotice }: { onNotice: (s: string) => void }) {
     notifyPush: false,
     marketingOptIn: false,
   });
+  /* Not folded into `channels` above: this is not a consent, it is a label the
+     studio puts on an account, and mixing an administrative marker in with "may
+     we email you" invites somebody to switch it by accident. */
+  const [isTest, setIsTest] = useState(false);
   const [newPassword, setNewPassword] = useState("");
 
-  const search = useCallback(async (q: string) => {
-    const res = await fetch(`/api/admin/members?q=${encodeURIComponent(q)}`);
-    if (!res.ok) return;
-    const data = (await res.json()) as { members: Found[] };
-    setFound(data.members ?? []);
-  }, []);
+  /* Browsing the list is a real way to use this screen, not a fallback for
+     failing to search: the member who came in last week, the one whose name you
+     half remember. It used to be capped at twelve with no way past them. */
+  const [filter, setFilter] = useState<MemberFilter>("all");
+  const [meta, setMeta] = useState<ListMeta | null>(null);
+  const [paging, setPaging] = useState(false);
 
+  const search = useCallback(
+    async (q: string, f: MemberFilter, page: number) => {
+      const params = new URLSearchParams({
+        q,
+        filter: f,
+        page: String(page),
+      });
+      const res = await fetch(`/api/admin/members?${params}`);
+      if (!res.ok) return;
+      const data = (await res.json()) as { members: Found[] } & ListMeta;
+      setFound(data.members ?? []);
+      setMeta({
+        page: data.page,
+        pages: data.pages,
+        total: data.total,
+        counts: data.counts,
+      });
+    },
+    [],
+  );
+
+  /* Typing or changing the filter always returns to page 1: staying on page 4
+     of a new result set shows an empty list, which reads as "no matches". */
   useEffect(() => {
-    const id = window.setTimeout(() => void search(query), 220);
+    const id = window.setTimeout(() => void search(query, filter, 1), 220);
     return () => window.clearTimeout(id);
-  }, [query, search]);
+  }, [query, filter, search]);
+
+  async function goPage(page: number) {
+    setPaging(true);
+    try {
+      await search(query, filter, page);
+    } finally {
+      setPaging(false);
+    }
+  }
 
   const load = useCallback(async (id: string) => {
     const res = await fetch(`/api/admin/members?id=${id}`);
@@ -108,6 +155,7 @@ export function MemberDesk({ onNotice }: { onNotice: (s: string) => void }) {
       notifyPush: data.member.notifyPush,
       marketingOptIn: data.member.marketingOptIn,
     });
+    setIsTest(data.member.isTest);
     setNewPassword("");
   }, []);
 
@@ -125,7 +173,9 @@ export function MemberDesk({ onNotice }: { onNotice: (s: string) => void }) {
         return null;
       }
       if (member) await load(member.id);
-      await search(query);
+      /* Stay where the desk was: a save on page 3 should not throw them back to
+         page 1 of the list. */
+      await search(query, filter, meta?.page ?? 1);
       return data;
     } finally {
       setBusy(null);
@@ -144,6 +194,41 @@ export function MemberDesk({ onNotice }: { onNotice: (s: string) => void }) {
           aria-label={d.search}
         />
 
+        {/* Both directions are useful: the real membership, and the dummy
+            account you were experimenting with an hour ago. Hidden entirely
+            when there are no test accounts to separate out. */}
+        {meta && meta.counts.test > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {(
+              [
+                ["all", d.memberFilterAll, meta.counts.all],
+                ["real", d.memberFilterReal, meta.counts.real],
+                ["test", d.memberFilterTest, meta.counts.test],
+              ] as const
+            ).map(([key, label, count]) => (
+              <button
+                key={key}
+                type="button"
+                data-member-filter={key}
+                aria-pressed={filter === key}
+                disabled={paging}
+                onClick={() => setFilter(key)}
+                className={cn(
+                  "rounded-full border px-3.5 py-1.5 text-[10px] uppercase tracking-widest transition-colors duration-300",
+                  filter === key
+                    ? "border-mocha-600 bg-mocha-600 text-cream"
+                    : "border-mocha-200 text-mocha-500 hover:border-mocha-400",
+                )}
+              >
+                {label}
+                <span className="ml-2 lining-nums tabular-nums opacity-70">
+                  {count}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <ul className="mt-4 space-y-2">
           {found.length === 0 && (
             <li className="px-4 py-3 text-sm text-clay">{d.noMembers}</li>
@@ -160,8 +245,25 @@ export function MemberDesk({ onNotice }: { onNotice: (s: string) => void }) {
                 )}
               >
                 <span className="flex items-baseline justify-between gap-3">
-                  <span className="text-[14px]">{m.name}</span>
-                  <span className="text-[12px] lining-nums tabular-nums opacity-70">
+                  <span className="min-w-0 flex-1 text-[14px] [overflow-wrap:anywhere]">
+                    {m.name}
+                    {/* Marked on the row, not only inside the profile: the
+                        whole point is telling a dummy account apart from a
+                        real member at a glance. */}
+                    {m.isTest && (
+                      <span
+                        className={cn(
+                          "ml-2 rounded-full px-2 py-0.5 align-middle text-[9px] uppercase tracking-widest",
+                          member?.id === m.id
+                            ? "bg-cream/20 text-cream"
+                            : "bg-gold/20 text-[#8a6f1a]",
+                        )}
+                      >
+                        {d.memberFilterTest}
+                      </span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-[12px] lining-nums tabular-nums opacity-70">
                     {m.credits}
                   </span>
                 </span>
@@ -178,6 +280,21 @@ export function MemberDesk({ onNotice }: { onNotice: (s: string) => void }) {
             </li>
           ))}
         </ul>
+
+        {meta && (
+          <Pager
+            page={meta.page}
+            pages={meta.pages}
+            total={meta.total}
+            busy={paging}
+            onPage={(p) => void goPage(p)}
+            labels={{
+              newer: t.notices.pagerNewer,
+              older: t.notices.pagerOlder,
+              of: t.notices.pagerOf,
+            }}
+          />
+        )}
       </div>
 
       {/* ------------------------------------------------------------ member */}
@@ -396,6 +513,40 @@ export function MemberDesk({ onNotice }: { onNotice: (s: string) => void }) {
               ))}
             </div>
 
+            {/* A marker, not a preference. Deliberately below the channels and
+                deliberately spelt out: an account switched to a test stops
+                receiving campaigns and stops being counted as a member, and
+                somebody discovering that by accident weeks later would rightly
+                be annoyed. */}
+            <button
+              type="button"
+              data-member-test={isTest ? "on" : "off"}
+              aria-pressed={isTest}
+              onClick={() => setIsTest((v) => !v)}
+              className={cn(
+                "mt-6 flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition-colors duration-300",
+                isTest
+                  ? "border-gold/60 bg-gold/[0.07]"
+                  : "border-mocha-200 hover:border-mocha-400",
+              )}
+            >
+              <span
+                aria-hidden
+                className={cn(
+                  "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border text-[11px]",
+                  isTest ? "border-gold bg-gold text-mocha-700" : "border-mocha-300",
+                )}
+              >
+                {isTest ? "✓" : ""}
+              </span>
+              <span className="flex-1">
+                <span className="text-[13px] text-mocha-700">{d.memberTest}</span>
+                <span className="mt-1 block text-[11px] leading-relaxed text-clay">
+                  {d.memberTestWhy}
+                </span>
+              </span>
+            </button>
+
             <Button
               size="sm"
               className="mt-5"
@@ -403,11 +554,28 @@ export function MemberDesk({ onNotice }: { onNotice: (s: string) => void }) {
               onClick={async () => {
                 const res = await post(
                   "/api/admin/member",
-                  { userId: member.id, email, phone, ...channels },
+                  { userId: member.id, email, phone, ...channels, isTest },
                   "contact",
                   "PATCH",
                 );
-                if (res) onNotice(`${member.name}: ${t.common.save}d`);
+                if (res) {
+                  onNotice(`${member.name}: ${t.common.save}d`);
+                  /* A full reload, back to the members list.
+                   *
+                   * The desk edits an email, a phone, a consent, a test-account
+                   * marker — none of which changes anything visible on this
+                   * screen, so "Saved" was the only evidence and it looked
+                   * identical whether the save had taken or not. Reloading makes
+                   * the screen re-read every one of those values from the
+                   * database, and picks up the knock-on effects: the test badge
+                   * in the list, and the reach counts over in Notices.
+                   *
+                   * `?tab=members` because a plain reload landed on Bookings —
+                   * the tab is client state, and a reload reset it. Saving a
+                   * member and being thrown onto a different screen is worse
+                   * than no confirmation at all. */
+                  window.location.assign("/admin?tab=members");
+                }
               }}
             >
               {busy === "contact" ? t.common.loading : t.common.save}

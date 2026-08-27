@@ -29,6 +29,7 @@ const COLUMNS: Record<string, Column[]> = {
     { name: "notify_email", ddl: "integer default 1 not null" },
     { name: "notify_sms", ddl: "integer default 0 not null" },
     { name: "notify_push", ddl: "integer default 1 not null" },
+    { name: "is_test", ddl: "integer default 0 not null" },
     { name: "reminder_minutes", ddl: "integer" },
     { name: "birth_date", ddl: "text" },
     { name: "height_cm", ddl: "integer" },
@@ -40,6 +41,8 @@ const COLUMNS: Record<string, Column[]> = {
   notices: [
     { name: "channels", ddl: "text default '' not null" },
     { name: "user_id", ddl: "text references users(id) on delete cascade" },
+    { name: "included_test", ddl: "integer default 0 not null" },
+    { name: "segment", ddl: "text default '' not null" },
   ],
 };
 
@@ -91,6 +94,8 @@ const TABLES: { name: string; ddl: string }[] = [
             audience text default 'ALL' not null,
             channels text default '' not null,
             user_id text references users(id) on delete cascade,
+            included_test integer default 0 not null,
+            segment text default '' not null,
             important integer default 0 not null,
             created_by text references users(id),
             created_at integer not null

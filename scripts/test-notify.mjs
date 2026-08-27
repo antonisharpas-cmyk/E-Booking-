@@ -51,6 +51,13 @@ const check = (l, c, x) => {
   }
 };
 
+/* A different number for every test member, because one number now means one
+   account — the suite used to register everybody as +357 99 123456, which is
+   exactly the duplicate the site is meant to refuse. */
+let phoneSeq = 0;
+const nextPhone = () =>
+  `+35799${String(100000 + ((Date.now() % 800000) + phoneSeq++ * 7)).slice(0, 6)}`;
+
 async function member(tag, { marketing = false } = {}) {
   const j = jar();
   const email = `notify-${tag}-${Date.now()}-${Math.floor(performance.now())}@apex.test`;
@@ -59,7 +66,7 @@ async function member(tag, { marketing = false } = {}) {
     body: {
       name: `Notify ${tag}`,
       email,
-      phone: "+357 99 123456",
+      phone: nextPhone(),
       password: "test12345",
       serviceOptIn: true,
       marketingOptIn: marketing,
@@ -552,6 +559,16 @@ console.log("\n10b. Booking and cancelling land in the member's own inbox");
     method: "POST",
     body: { purchaseId: opened.json?.purchaseId },
   });
+  /* Paying is itself one of the automatic messages, so it is counted here
+     rather than being a surprise in the booking numbers below. */
+  const afterPaying = await req(punter.j, "/api/notices");
+  check(
+    "paying for the pack tells them",
+    afterPaying.json?.unread === 1 &&
+      (afterPaying.json?.notices ?? [])[0]?.title === "Payment received",
+    afterPaying.json?.notices?.slice(0, 2),
+  );
+
   const list = await req(punter.j, "/api/sessions?days=10");
   const target = (list.json?.sessions ?? []).find(
     (x) =>
@@ -567,7 +584,7 @@ console.log("\n10b. Booking and cancelling land in the member's own inbox");
   const afterBooking = await req(punter.j, "/api/notices");
   check(
     "the number on their photograph goes up",
-    afterBooking.json?.unread === 1,
+    afterBooking.json?.unread === 2,
     afterBooking.json?.unread,
   );
   const confirmation = (afterBooking.json?.notices ?? [])[0];
@@ -588,7 +605,7 @@ console.log("\n10b. Booking and cancelling land in the member's own inbox");
     body: { bookingId: booked.json.bookingId },
   });
   const afterCancel = await req(punter.j, "/api/notices");
-  check("cancelling adds another", afterCancel.json?.unread === 2, afterCancel.json?.unread);
+  check("cancelling adds another", afterCancel.json?.unread === 3, afterCancel.json?.unread);
   check(
     "which says the session came back",
     /back in your balance/.test((afterCancel.json?.notices ?? [])[0]?.body ?? ""),
@@ -647,6 +664,653 @@ console.log("\n12. Members cannot send notices");
   check("a member is refused", shut.status === 403, shut.status);
   const peek = await req(fresh.j, "/api/admin/notices");
   check("and cannot read the reach either", peek.status === 403, peek.status);
+}
+
+/* ----------------------------------------------------------------- 13 */
+console.log("\n13. Test accounts are left out of campaigns");
+{
+  const dummy = await member("dummy", { marketing: true });
+  check("a member to mark as a test exists", dummy.ok);
+
+  /* Find its id the way the desk does. */
+  const found = await req(staff, `/api/admin/members?q=${encodeURIComponent(dummy.email)}`);
+  const id = found.json?.members?.[0]?.id;
+  check("the desk can find it", Boolean(id), found.json?.members?.length);
+
+  const before = await req(staff, "/api/admin/notices?audience=ALL");
+  const beforePeople = before.json?.reach?.people ?? 0;
+
+  const mark = await req(staff, "/api/admin/member", {
+    method: "PATCH",
+    body: { userId: id, isTest: true },
+  });
+  check("it can be marked as a test account", mark.json?.ok === true, mark.json);
+
+  const after = await req(staff, "/api/admin/notices?audience=ALL");
+  check(
+    "and the reach drops by exactly one",
+    (after.json?.reach?.people ?? 0) === beforePeople - 1,
+    { before: beforePeople, after: after.json?.reach?.people },
+  );
+  check(
+    "the desk is told how many are excluded",
+    (after.json?.reach?.testAccounts ?? 0) >= 1,
+    after.json?.reach?.testAccounts,
+  );
+  check("and they are out by default", after.json?.includeTest === false, after.json?.includeTest);
+
+  const included = await req(staff, "/api/admin/notices?audience=ALL&includeTest=1");
+  check(
+    "asking for them puts them back",
+    (included.json?.reach?.people ?? 0) === beforePeople,
+    { asked: included.json?.reach?.people, expected: beforePeople },
+  );
+
+  /* The reach figure is a promise about delivery, so check the delivery keeps
+     it — a screen that says 40 and a sender that reaches 41 is worse than no
+     screen at all. */
+  const sent = await req(staff, "/api/admin/notices", {
+    method: "POST",
+    body: {
+      titleEn: "Excluding the dummies",
+      bodyEn: "This one must skip the test account.",
+      audience: "ALL",
+      channels: ["email"],
+    },
+  });
+  const emailReport = (sent.json?.reports ?? []).find((r) => r.channel === "email");
+  const attempted = (emailReport?.sent ?? 0) + (emailReport?.failed ?? 0) + (emailReport?.skipped ?? 0);
+  check(
+    "a real campaign counts only real members",
+    attempted === (after.json?.reach?.people ?? -1),
+    { attempted, reach: after.json?.reach?.people },
+  );
+
+  /* And the in-app copy: a test account should not see it either. */
+  const dummySees = await req(dummy.j, "/api/notices?filter=all&page=1");
+  const titles = (dummySees.json?.rows ?? []).map((r) => r.title);
+  check(
+    "the test account never received it",
+    !titles.includes("Excluding the dummies"),
+    titles,
+  );
+
+  const withThem = await req(staff, "/api/admin/notices", {
+    method: "POST",
+    body: {
+      titleEn: "Including the dummies",
+      bodyEn: "This one is deliberately sent to test accounts too.",
+      audience: "ALL",
+      channels: ["email"],
+      includeTest: true,
+    },
+  });
+  const r2 = (withThem.json?.reports ?? []).find((x) => x.channel === "email");
+  const attempted2 = (r2?.sent ?? 0) + (r2?.failed ?? 0) + (r2?.skipped ?? 0);
+  check("including them reaches one more", attempted2 === attempted + 1, { attempted, attempted2 });
+
+  const nowSees = await req(dummy.j, "/api/notices?filter=all&page=1");
+  check(
+    "and the test account does receive that one",
+    (nowSees.json?.rows ?? []).some((r) => r.title === "Including the dummies"),
+    (nowSees.json?.rows ?? []).map((r) => r.title),
+  );
+}
+
+/* ----------------------------------------------------------------- 14 */
+console.log("\n14. Paging, so nothing is out of reach");
+{
+  const reader = await member("pager");
+  check("a member to page through exists", reader.ok);
+
+  /* Twelve notices: three pages of five, with the last one short. */
+  for (let i = 1; i <= 12; i++) {
+    await req(staff, "/api/admin/notices", {
+      method: "POST",
+      body: {
+        titleEn: `Paging notice ${String(i).padStart(2, "0")}`,
+        bodyEn: `Number ${i}.`,
+        audience: "ALL",
+        channels: [],
+      },
+    });
+  }
+
+  const p1 = await req(reader.j, "/api/notices?filter=all&page=1");
+  check("a page holds five", (p1.json?.rows ?? []).length === 5, p1.json?.rows?.length);
+  check("and says how many pages there are", (p1.json?.pages ?? 0) >= 3, p1.json?.pages);
+  check(
+    "the total counts everything, not just this page",
+    (p1.json?.total ?? 0) >= 12,
+    p1.json?.total,
+  );
+  check(
+    "the newest is first",
+    p1.json?.rows?.[0]?.title === "Paging notice 12",
+    p1.json?.rows?.[0]?.title,
+  );
+
+  const p2 = await req(reader.j, "/api/notices?filter=all&page=2");
+  check(
+    "page two carries on where page one stopped",
+    p2.json?.rows?.[0]?.title === "Paging notice 07",
+    p2.json?.rows?.[0]?.title,
+  );
+  const ids1 = new Set((p1.json?.rows ?? []).map((r) => r.id));
+  check(
+    "and repeats nothing from page one",
+    (p2.json?.rows ?? []).every((r) => !ids1.has(r.id)),
+  );
+
+  /* The bug this replaced: counts computed from a truncated list. Twelve
+     notices with a five-row page must still report twelve unread. */
+  check(
+    "the unread count is the real one, not the page's",
+    (p1.json?.counts?.unread ?? 0) >= 12,
+    p1.json?.counts,
+  );
+
+  const beyond = await req(reader.j, "/api/notices?filter=all&page=999");
+  check(
+    "asking past the end lands on the last page rather than nothing",
+    (beyond.json?.rows ?? []).length > 0 && beyond.json?.page === beyond.json?.pages,
+    { page: beyond.json?.page, pages: beyond.json?.pages },
+  );
+
+  /* Reading one must move it between the filters, across the whole set. */
+  const target = p1.json?.rows?.[0];
+  await req(reader.j, "/api/notices/read", {
+    method: "POST",
+    body: { noticeId: target.id },
+  });
+  const readOnly = await req(reader.j, "/api/notices?filter=read&page=1");
+  check(
+    "the read filter finds it",
+    (readOnly.json?.rows ?? []).some((r) => r.id === target.id),
+    readOnly.json?.rows?.length,
+  );
+  const unreadOnly = await req(reader.j, "/api/notices?filter=unread&page=1");
+  check(
+    "and the unread filter no longer does",
+    !(unreadOnly.json?.rows ?? []).some((r) => r.id === target.id),
+  );
+  check(
+    "the counts move with it",
+    (unreadOnly.json?.counts?.read ?? 0) >= 1,
+    unreadOnly.json?.counts,
+  );
+}
+
+/* ----------------------------------------------------------------- 15 */
+console.log("\n15. The desk's history, by channel");
+{
+  const all = await req(staff, "/api/admin/notices?page=1");
+  check("the history pages too", (all.json?.notices ?? []).length <= 5, all.json?.notices?.length);
+  check("with a page count", (all.json?.history?.pages ?? 0) >= 1, all.json?.history);
+
+  const bySms = await req(staff, "/api/admin/notices?channel=sms&page=1");
+  check(
+    "filtering by SMS never shows more than everything",
+    (bySms.json?.history?.total ?? 0) <= (all.json?.history?.total ?? 0),
+    { sms: bySms.json?.history?.total, all: all.json?.history?.total },
+  );
+  check(
+    "and every row it returns actually used SMS",
+    (bySms.json?.notices ?? []).every((n) => n.channels.split(",").includes("sms")),
+    (bySms.json?.notices ?? []).map((n) => n.channels),
+  );
+
+  const byEmail = await req(staff, "/api/admin/notices?channel=email&page=1");
+  check(
+    "the email filter is honest too",
+    (byEmail.json?.notices ?? []).every((n) => n.channels.split(",").includes("email")),
+    (byEmail.json?.notices ?? []).map((n) => n.channels),
+  );
+  check(
+    "and email has at least the two campaigns just sent",
+    (byEmail.json?.history?.total ?? 0) >= 2,
+    byEmail.json?.history?.total,
+  );
+
+  /* "push" must not match a notice that only used "email" — the filter is a
+     substring match on a comma list, which is exactly where that goes wrong. */
+  const byPush = await req(staff, "/api/admin/notices?channel=push&page=1");
+  check(
+    "no channel filter leaks another channel's rows",
+    (byPush.json?.notices ?? []).every((n) => n.channels.split(",").includes("push")),
+    (byPush.json?.notices ?? []).map((n) => n.channels),
+  );
+  check(
+    "the counts add up to at least the filtered totals",
+    (all.json?.history?.counts?.all ?? 0) >= (byPush.json?.history?.total ?? 0),
+    all.json?.history?.counts,
+  );
+
+  const nonsense = await req(staff, "/api/admin/notices?channel=carrier-pigeon&page=1");
+  check(
+    "an unknown channel is ignored rather than returning nothing",
+    (nonsense.json?.history?.total ?? 0) === (all.json?.history?.total ?? 0),
+    { nonsense: nonsense.json?.history?.total, all: all.json?.history?.total },
+  );
+}
+
+/* ----------------------------------------------------------------- 16 */
+console.log("\n16. A notice written in Greek arrives in Greek");
+{
+  const reader = await member("greek");
+  check("a member to read it exists", reader.ok);
+
+  const sent = await req(staff, "/api/admin/notices", {
+    method: "POST",
+    body: {
+      titleEn: "Closed on Monday",
+      bodyEn: "The studio is shut for the holiday.",
+      titleEl: "Κλειστά τη Δευτέρα",
+      bodyEl: "Το στούντιο είναι κλειστό για την αργία.",
+      audience: "ALL",
+      channels: [],
+    },
+  });
+  check("the desk can send both languages", sent.json?.ok === true, sent.json);
+
+  const en = await req(reader.j, "/api/notices?filter=all&page=1&locale=en");
+  check(
+    "asking in English gets the English",
+    en.json?.rows?.[0]?.title === "Closed on Monday",
+    en.json?.rows?.[0]?.title,
+  );
+
+  /* The bug: the list never sent a locale, so the Greek version was written,
+     stored, and then never asked for. */
+  const el = await req(reader.j, "/api/notices?filter=all&page=1&locale=el");
+  check(
+    "asking in Greek gets the Greek",
+    el.json?.rows?.[0]?.title === "Κλειστά τη Δευτέρα",
+    el.json?.rows?.[0]?.title,
+  );
+  check(
+    "and the Greek body too",
+    el.json?.rows?.[0]?.body === "Το στούντιο είναι κλειστό για την αργία.",
+    el.json?.rows?.[0]?.body,
+  );
+
+  /* A notice with no Greek typed must fall back rather than come back blank. */
+  await req(staff, "/api/admin/notices", {
+    method: "POST",
+    body: {
+      titleEn: "English only notice",
+      bodyEn: "No Greek was typed for this one.",
+      audience: "ALL",
+      channels: [],
+    },
+  });
+  const fallback = await req(reader.j, "/api/notices?filter=all&page=1&locale=el");
+  check(
+    "an untranslated notice falls back to English rather than showing empty",
+    fallback.json?.rows?.[0]?.title === "English only notice",
+    fallback.json?.rows?.[0]?.title,
+  );
+}
+
+/* ----------------------------------------------------------------- 17 */
+console.log("\n17. One phone number, one account");
+{
+  const phone = `+3579${Math.floor(1000000 + Math.random() * 8999999)}`;
+  const first = await req(jar(), "/api/auth/register", {
+    method: "POST",
+    body: {
+      name: "Phone One",
+      email: `phone-one-${Date.now()}@apex.test`,
+      phone,
+      password: "test12345",
+      serviceOptIn: true,
+    },
+  });
+  check("the first account is created", first.json?.ok === true, first.json);
+
+  const same = await req(jar(), "/api/auth/register", {
+    method: "POST",
+    body: {
+      name: "Phone Two",
+      email: `phone-two-${Date.now()}@apex.test`,
+      phone,
+      password: "test12345",
+      serviceOptIn: true,
+    },
+  });
+  check("the same number is refused", same.status === 409, same.status);
+  check("and says why", same.json?.error === "PHONE_TAKEN", same.json);
+
+  /* Written differently, it is still the same number. A plain string compare
+     would let this through as a third member. */
+  const spaced = await req(jar(), "/api/auth/register", {
+    method: "POST",
+    body: {
+      name: "Phone Three",
+      email: `phone-three-${Date.now()}@apex.test`,
+      phone: phone.replace("+357", "00357").replace(/(\d{2})(\d{6})$/, "$1 $2"),
+      password: "test12345",
+      serviceOptIn: true,
+    },
+  });
+  check(
+    "the same number written another way is also refused",
+    spaced.json?.error === "PHONE_TAKEN",
+    { sent: phone.replace("+357", "00357"), got: spaced.json },
+  );
+
+  const short = await req(jar(), "/api/auth/register", {
+    method: "POST",
+    body: {
+      name: "Phone Short",
+      email: `phone-short-${Date.now()}@apex.test`,
+      phone: "9912",
+      password: "test12345",
+      serviceOptIn: true,
+    },
+  });
+  check("too few digits is refused", short.status === 400, short.status);
+
+  const long = await req(jar(), "/api/auth/register", {
+    method: "POST",
+    body: {
+      name: "Phone Long",
+      email: `phone-long-${Date.now()}@apex.test`,
+      phone: "+35799123456789012345",
+      password: "test12345",
+      serviceOptIn: true,
+    },
+  });
+  check("too many digits is refused", long.status === 400, long.status);
+
+  const badEmail = await req(jar(), "/api/auth/register", {
+    method: "POST",
+    body: {
+      name: "No At Sign",
+      email: "cristiano",
+      phone: "+35799000111",
+      password: "test12345",
+      serviceOptIn: true,
+    },
+  });
+  check("an address with no @ is refused", badEmail.status === 400, badEmail.status);
+}
+
+/* ----------------------------------------------------------------- 18 */
+console.log("\n18. The membership list pages and filters");
+{
+  const all = await req(staff, "/api/admin/members?page=1");
+  check("a page holds ten at most", (all.json?.members ?? []).length <= 10, all.json?.members?.length);
+  check("with a page count", (all.json?.pages ?? 0) >= 1, all.json?.pages);
+  check(
+    "and counts for each filter",
+    typeof all.json?.counts?.real === "number" && typeof all.json?.counts?.test === "number",
+    all.json?.counts,
+  );
+  check(
+    "the filter counts add up to the total",
+    (all.json?.counts?.real ?? 0) + (all.json?.counts?.test ?? 0) === (all.json?.counts?.all ?? -1),
+    all.json?.counts,
+  );
+
+  const real = await req(staff, "/api/admin/members?filter=real&page=1");
+  check("the members filter shows no test accounts", (real.json?.members ?? []).every((m) => !m.isTest));
+  const test = await req(staff, "/api/admin/members?filter=test&page=1");
+  check("the test filter shows only test accounts", (test.json?.members ?? []).every((m) => m.isTest));
+  check("and there is at least one to find", (test.json?.members ?? []).length >= 1, test.json?.members?.length);
+
+  if ((all.json?.pages ?? 1) > 1) {
+    const p2 = await req(staff, "/api/admin/members?page=2");
+    const ids = new Set((all.json?.members ?? []).map((m) => m.id));
+    check(
+      "page two repeats nobody from page one",
+      (p2.json?.members ?? []).every((m) => !ids.has(m.id)),
+    );
+  }
+
+  const beyond = await req(staff, "/api/admin/members?page=999");
+  check(
+    "asking past the end lands on the last page",
+    beyond.json?.page === beyond.json?.pages,
+    { page: beyond.json?.page, pages: beyond.json?.pages },
+  );
+}
+
+/* ----------------------------------------------------------------- 19 */
+console.log("\n19. Rolling the rota forward, and taking it back");
+{
+  const once = await req(staff, "/api/admin/generate", {
+    method: "POST",
+    body: { weeks: 10 },
+  });
+  check("it rolls forward", once.json?.ok === true, once.json);
+  check(
+    "and reports the ids of what it created",
+    Array.isArray(once.json?.createdIds),
+    typeof once.json?.createdIds,
+  );
+  check(
+    "the count matches the ids",
+    (once.json?.createdIds ?? []).length === once.json?.created,
+    { ids: once.json?.createdIds?.length, created: once.json?.created },
+  );
+
+  /* The property that makes an accidental press harmless. */
+  const twice = await req(staff, "/api/admin/generate", {
+    method: "POST",
+    body: { weeks: 10 },
+  });
+  check(
+    "running it again creates nothing at all",
+    twice.json?.created === 0,
+    twice.json?.created,
+  );
+
+  const ids = once.json?.createdIds ?? [];
+  if (ids.length > 0) {
+    const undone = await req(staff, "/api/admin/generate", {
+      method: "DELETE",
+      body: { ids },
+    });
+    check("the run can be undone", undone.json?.ok === true, undone.json);
+    check(
+      "and everything unbooked is gone",
+      (undone.json?.removed ?? 0) + (undone.json?.kept ?? 0) === ids.length,
+      undone.json,
+    );
+
+    /* Undoing twice must not error, and must not remove anything else. */
+    const again = await req(staff, "/api/admin/generate", {
+      method: "DELETE",
+      body: { ids },
+    });
+    check("undoing twice removes nothing more", again.json?.removed === 0, again.json);
+  }
+
+  const empty = await req(staff, "/api/admin/generate", {
+    method: "DELETE",
+    body: { ids: [] },
+  });
+  check("an empty undo is refused rather than doing something odd", empty.status === 400, empty.status);
+
+  /* And a booked class survives an undo. */
+  const roll = await req(staff, "/api/admin/generate", { method: "POST", body: { weeks: 10 } });
+  const fresh = roll.json?.createdIds ?? [];
+  if (fresh.length > 2) {
+    const buyer = await member("undo");
+    /* Give them a session so they can book. */
+    const list = await req(staff, `/api/admin/members?q=${encodeURIComponent(buyer.email)}`);
+    const buyerId = list.json?.members?.[0]?.id;
+    await req(staff, "/api/admin/grant", {
+      method: "POST",
+      body: { userId: buyerId, credits: 2, validityDays: 90, note: "undo test" },
+    });
+    const booked = await req(buyer.j, "/api/bookings", {
+      method: "POST",
+      body: { sessionId: fresh[fresh.length - 1] },
+    });
+    check("a member books one of the new classes", booked.json?.ok === true, booked.json);
+
+    const undone = await req(staff, "/api/admin/generate", {
+      method: "DELETE",
+      body: { ids: fresh },
+    });
+    check(
+      "the booked class is kept, not deleted under the member",
+      (undone.json?.kept ?? 0) >= 1,
+      undone.json,
+    );
+  }
+}
+
+/* ----------------------------------------------------------------- 20 */
+console.log("\n20. Campaign filters pick out who a message is for");
+{
+  const base = await req(staff, "/api/admin/notices?audience=ALL");
+  const everyone = base.json?.reach?.people ?? 0;
+  check("there is a baseline audience", everyone > 0, everyone);
+
+  /* Somebody who has never paid. Every test member registers and never buys,
+     so this filter should find plenty. */
+  const never = await req(staff, "/api/admin/notices?audience=ALL&neverPaid=1");
+  check(
+    "never-bought is a subset of everyone",
+    (never.json?.reach?.people ?? 0) <= everyone,
+    { never: never.json?.reach?.people, everyone },
+  );
+  check("and finds somebody", (never.json?.reach?.people ?? 0) > 0, never.json?.reach);
+
+  /* A member who buys must drop out of it. That is the whole point of the
+     filter, and the only way to know it works. */
+  const buyer = await member("filter-buyer");
+  const found = await req(staff, `/api/admin/members?q=${encodeURIComponent(buyer.email)}`);
+  const buyerId = found.json?.members?.[0]?.id;
+  check("a member to buy something exists", Boolean(buyerId), found.json?.members?.length);
+
+  const beforeBuy = (await req(staff, "/api/admin/notices?audience=ALL&neverPaid=1")).json
+    ?.reach?.people ?? 0;
+
+  /* A desk sale writes a PAID purchase exactly as a card payment does. */
+  const sold = await req(staff, "/api/admin/sessions", {
+    method: "POST",
+    body: { userId: buyerId, credits: 5, validityDays: 90, method: "cash", amountCents: 10000 },
+  });
+  const afterBuy = (await req(staff, "/api/admin/notices?audience=ALL&neverPaid=1")).json
+    ?.reach?.people ?? 0;
+  check(
+    "buying at the desk takes them out of never-bought",
+    afterBuy === beforeBuy - 1,
+    { beforeBuy, afterBuy, sold: sold.json },
+  );
+
+  /* No sessions left. The buyer above now has five, so they must be excluded. */
+  const noneLeft = await req(staff, "/api/admin/notices?audience=ALL&noSessionsLeft=1");
+  check(
+    "no-sessions-left is a subset too",
+    (noneLeft.json?.reach?.people ?? 0) <= everyone,
+    noneLeft.json?.reach?.people,
+  );
+
+  /* Away for a while. Nobody in a freshly seeded database has attended
+     anything, so a large window should match everybody the audience covers —
+     which is the documented behaviour: never been counts as away. */
+  const away = await req(staff, "/api/admin/notices?audience=ALL&inactiveDays=90");
+  check(
+    "away-90-days includes members who have never been",
+    (away.json?.reach?.people ?? 0) > 0,
+    away.json?.reach?.people,
+  );
+
+  /* Filters combine with AND, so two of them can only narrow. */
+  const both = await req(
+    staff,
+    "/api/admin/notices?audience=ALL&neverPaid=1&noSessionsLeft=1",
+  );
+  check(
+    "two filters never widen the audience",
+    (both.json?.reach?.people ?? 0) <= Math.min(
+      never.json?.reach?.people ?? 0,
+      noneLeft.json?.reach?.people ?? 0,
+    ),
+    {
+      both: both.json?.reach?.people,
+      never: never.json?.reach?.people,
+      noneLeft: noneLeft.json?.reach?.people,
+    },
+  );
+
+  /* The rule that must never bend: a filter cannot reach past consent. */
+  const declined = await member("filter-declined", { marketing: false });
+  check("a member who declined offers exists", declined.ok);
+  const offersNever = await req(
+    staff,
+    "/api/admin/notices?audience=OFFERS&neverPaid=1",
+  );
+  const allNever = await req(staff, "/api/admin/notices?audience=ALL&neverPaid=1");
+  check(
+    "the offers audience with a filter is never larger than everyone with it",
+    (offersNever.json?.reach?.people ?? 0) <= (allNever.json?.reach?.people ?? 0),
+    { offers: offersNever.json?.reach?.people, all: allNever.json?.reach?.people },
+  );
+
+  const promo = await req(staff, "/api/admin/notices", {
+    method: "POST",
+    body: {
+      titleEn: "Come back to the studio",
+      bodyEn: "Twenty per cent off your first pack.",
+      audience: "OFFERS",
+      channels: ["email"],
+      neverPaid: true,
+      inactiveDays: 30,
+    },
+  });
+  check("a filtered campaign sends", promo.json?.ok === true, promo.json);
+
+  const sawIt = await req(declined.j, "/api/notices?filter=all&page=1");
+  check(
+    "a member who declined offers never sees it, filter or no filter",
+    !(sawIt.json?.rows ?? []).some((r) => r.title === "Come back to the studio"),
+    (sawIt.json?.rows ?? []).map((r) => r.title),
+  );
+
+  /* And the history records who it went to, because that cannot be worked out
+     afterwards — the audience changes as members come back. */
+  const hist = await req(staff, "/api/admin/notices?page=1");
+  const row = (hist.json?.notices ?? []).find(
+    (n) => n.titleEn === "Come back to the studio",
+  );
+  check("the notice is in the history", Boolean(row), hist.json?.notices?.length);
+  check(
+    "with the audience it went to written down",
+    typeof row?.segment === "string" &&
+      row.segment.includes("offers") &&
+      row.segment.includes("never bought") &&
+      row.segment.includes("30d"),
+    row?.segment,
+  );
+
+  /* A nonsense day count must not produce a nonsense audience. */
+  const silly = await req(
+    staff,
+    "/api/admin/notices?audience=ALL&inactiveDays=999999999",
+  );
+  check(
+    "an absurd window is capped rather than breaking",
+    typeof silly.json?.reach?.people === "number",
+    silly.json?.reach,
+  );
+  /* Measured now, not at the top of this section: members were created in
+     between and the audience legitimately grew. Comparing against a stale
+     baseline was the first version of this test, and it failed for the wrong
+     reason — which is its own small lesson about counting live data. */
+  const nowEveryone = (await req(staff, "/api/admin/notices?audience=ALL")).json?.reach
+    ?.people ?? 0;
+  const negative = await req(staff, "/api/admin/notices?audience=ALL&inactiveDays=-5");
+  check(
+    "a negative window is ignored, not applied backwards",
+    (negative.json?.reach?.people ?? -1) === nowEveryone,
+    { negative: negative.json?.reach?.people, nowEveryone },
+  );
 }
 
 console.log(

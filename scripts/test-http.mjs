@@ -4,6 +4,13 @@
  *   node scripts/test-http.mjs http://localhost:3100
  */
 const BASE = process.argv[2] ?? "http://localhost:3000";
+
+/* One number, one account — so every registration in this suite needs its own.
+   Registering two members with the same phone is now correctly refused. */
+let __phoneSeq = 0;
+function uniquePhone() {
+  return `+35799${String(100000 + ((Date.now() % 800000) + __phoneSeq++ * 13)).slice(0, 6)}`;
+}
 let pass = 0,
   fail = 0;
 const jar = new Map();
@@ -66,6 +73,16 @@ for (const p of [
   check(`GET ${p} → 200`, r.status === 200, r.status);
 }
 
+/* The cover carries its own way in, because the header hides its account chip
+   over that section — so without this a visitor on the home page has no visible
+   sign-in at all. */
+const coverOut = await req("/");
+check(
+  "the cover offers a sign in when nobody is signed in",
+  coverOut.text.includes("Already a member") && coverOut.text.includes('href="/login"'),
+  "no sign-in on the cover",
+);
+
 console.log("\n2. Guarded pages are closed when signed out");
 const guardedAccount = await req("/account");
 check(
@@ -102,7 +119,7 @@ const reg = await req("/api/auth/register", {
     name: "HTTP Tester",
     email,
     password: "test12345",
-    phone: "+357 99 111 222",
+    phone: uniquePhone(),
     serviceOptIn: true,
   },
 });
@@ -115,7 +132,7 @@ const dupe = await req("/api/auth/register", {
     name: "HTTP Tester",
     email,
     password: "test12345",
-    phone: "+357 99 111 222",
+    phone: uniquePhone(),
     serviceOptIn: true,
   },
 });
@@ -125,6 +142,19 @@ console.log("\n4. Account page now loads");
 const acct = await req("/account");
 check("GET /account → 200", acct.status === 200, acct.status);
 check("session balance shows on page", acct.text.includes("Session balance"));
+
+/* And once signed in, the same spot shows who you are instead. */
+const coverIn = await req("/");
+check(
+  "the cover shows the member instead once signed in",
+  coverIn.text.includes("HTTP Tester") || coverIn.text.includes("HTTP"),
+  "no member on the cover",
+);
+check(
+  "and stops offering a sign in",
+  !coverIn.text.includes("Already a member"),
+  "the cover still asks them to sign in",
+);
 
 console.log("\n4b. Every account section is reachable by its own address");
 /* The header menu links to these. Each has to render its own section: clicking
@@ -231,7 +261,7 @@ await req("/api/auth/register", {
     name: "Second User",
     email: `other-${Date.now()}@apex.test`,
     password: "test12345",
-    phone: "+357 99 222 333",
+    phone: uniquePhone(),
     serviceOptIn: true,
   },
 });

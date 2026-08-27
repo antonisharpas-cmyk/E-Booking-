@@ -9,6 +9,13 @@
  * room and four hundred people's phone numbers.
  */
 const B = process.argv[2] ?? "http://localhost:3000";
+
+/* One number, one account — so every registration in this suite needs its own.
+   Registering two members with the same phone is now correctly refused. */
+let __phoneSeq = 0;
+function uniquePhone() {
+  return `+35799${String(100000 + ((Date.now() % 800000) + __phoneSeq++ * 13)).slice(0, 6)}`;
+}
 /* Two accounts open this console and they are not owed the same view. */
 const OWNER = { email: "owner@apexpilates.cy", password: "ownerdev123" };
 const RECEPTION = {
@@ -64,7 +71,7 @@ async function member(tag) {
     body: {
       name: `Desk ${tag}`,
       email,
-      phone: "+357 99 000111",
+      phone: uniquePhone(),
       password: "test12345",
       serviceOptIn: true,
     },
@@ -448,7 +455,7 @@ console.log("\n4. Their details, and their password");
     body: {
       userId: buyerId,
       email: newEmail,
-      phone: "+357 99 222333",
+      phone: uniquePhone(),
       notifySms: true,
     },
   });

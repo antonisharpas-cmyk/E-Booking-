@@ -63,6 +63,13 @@ export const en = {
         "Small-group Reformer Pilates on Technogym equipment. Precise coaching, calm rooms, and a body that moves better every week.",
       primary: "Book a class",
       secondary: "View pricing",
+      /* Under the two buttons on the cover, where the header's own account chip
+         is hidden — see Header.tsx cover mode. */
+      memberAsk: "Already a member?",
+      notMemberAsk: "No member yet?",
+      notMemberJoin: "Create account now!",
+      memberSignIn: "Sign in",
+      memberAccount: "My account",
       stat1: "Reformers in the room",
       stat1v: "Five",
       stat2: "Class length",
@@ -444,6 +451,45 @@ export const en = {
     noticeHistory: "Sent already",
     noticeReads: "read",
     noticeNone: "Nothing sent yet.",
+    rotaResult: "{created} classes added, {skipped} were already there.",
+    rotaUndo: "Undo this",
+    rotaUndoWhy:
+      "Removes only the classes this run added, and only those nobody has booked. A booked class stays.",
+    rotaNothingToUndo:
+      "Nothing was added, so nothing to undo — those weeks were already on the timetable. Running this again is always safe.",
+    rotaUndone: "{removed} classes removed. {kept} kept because they have bookings.",
+    segTitle: "Narrow it down",
+    segHelp:
+      "Optional. These pick out who the message is relevant to. They never widen the audience above — somebody who declined offers still gets no offers.",
+    segNeverPaid: "Never bought a pack",
+    segNeverPaidWhy:
+      "No payment yet, by card or at the desk. Free sessions given as an adjustment do not count as buying.",
+    segNoSessions: "No sessions left",
+    segNoSessionsWhy:
+      "Nothing in the balance, or everything they had has expired.",
+    segAway: "Not been for",
+    segDays: "days",
+    segWeeks: "weeks",
+    segMonths: "months",
+    segAwayOn:
+      "Last class {n} days ago or longer — and members who have never been, since they are the same audience for this kind of message.",
+    segAwayOff: "Leave at 0 to include everybody, however recently they came.",
+    segClear: "Clear",
+    segMatches: "{n} members match.",
+    segNobody:
+      "Nobody matches these filters. Loosen one before sending — there is nobody to send to.",
+    noticeFilterAll: "All",
+    memberFilterAll: "All",
+    memberFilterReal: "Members",
+    memberFilterTest: "Test",
+    noticeIncludeTest: "Include test accounts",
+    noticeIncludeTestOn:
+      "{n} test account(s) will receive this. Useful for checking what a member sees.",
+    noticeIncludeTestOff:
+      "{n} test account(s) left out, so the reach figures count real members only.",
+    memberTest: "Test account",
+    memberTestWhy:
+      "A dummy account for trying things out. Left out of anything the desk sends, and out of the member count, unless deliberately included.",
     priceTitle: "Run an offer",
     priceHelp:
       "A rule on the whole list, and if you want, a different one on a single pack. Discounted prices round down to a whole euro, and are never shown without the old price beside them.",
@@ -475,6 +521,9 @@ export const en = {
     filterRead: "Read",
     noneUnread: "Nothing unread.",
     noneRead: "Nothing read yet.",
+    pagerNewer: "Newer",
+    pagerOlder: "Older",
+    pagerOf: "Page {page} of {pages}",
   },
   accountTabs: {
     label: "Account sections",
@@ -601,7 +650,7 @@ export const en = {
     loginBody: "Sign in to book classes and check your sessions.",
     registerTitle: "Create your account.",
     registerBody: "Thirty seconds, and your sessions live here from then on.",
-    noAccount: "No account yet?",
+    noAccount: "Not a member yet?",
     hasAccount: "Already have an account?",
     signIn: "Sign in",
     signUp: "Create account",
@@ -621,6 +670,7 @@ export const en = {
     passwordHint: "At least 8 characters",
     invalid: "Email or password is incorrect.",
     emailTaken: "An account with that email already exists.",
+    phoneTaken: "That phone number is already on another account.",
   },
   account: {
     greeting: "Hello",
@@ -824,6 +874,11 @@ export const el: typeof en = {
         "Reformer Pilates σε μικρά γκρουπ, σε εξοπλισμό Technogym. Ακριβής καθοδήγηση, ήρεμος χώρος και ένα σώμα που κινείται καλύτερα κάθε εβδομάδα.",
       primary: "Κλείσε μάθημα",
       secondary: "Δες τις τιμές",
+      memberAsk: "Είσαι ήδη μέλος;",
+      notMemberAsk: "Δεν είσαι μέλος ακόμη;",
+      notMemberJoin: "Δημιούργησε λογαριασμό τώρα!",
+      memberSignIn: "Σύνδεση",
+      memberAccount: "Ο λογαριασμός μου",
       stat1: "Reformers στην αίθουσα",
       stat1v: "Πέντε",
       stat2: "Διάρκεια",
@@ -1197,6 +1252,44 @@ export const el: typeof en = {
     noticeHistory: "Έχουν σταλεί",
     noticeReads: "διάβασαν",
     noticeNone: "Δεν έχει σταλεί τίποτα.",
+    rotaResult: "Προστέθηκαν {created} μαθήματα, {skipped} υπήρχαν ήδη.",
+    rotaUndo: "Αναίρεση",
+    rotaUndoWhy:
+      "Αφαιρεί μόνο τα μαθήματα που πρόσθεσε αυτή η εκτέλεση, και μόνο όσα δεν έχουν κρατήσεις. Ένα μάθημα με κράτηση παραμένει.",
+    rotaNothingToUndo:
+      "Δεν προστέθηκε τίποτα, άρα δεν υπάρχει τι να αναιρεθεί — οι εβδομάδες ήταν ήδη στο πρόγραμμα. Η επανάληψη είναι πάντα ασφαλής.",
+    rotaUndone: "Αφαιρέθηκαν {removed} μαθήματα. {kept} παρέμειναν γιατί έχουν κρατήσεις.",
+    segTitle: "Περιορισμός",
+    segHelp:
+      "Προαιρετικό. Επιλέγουν σε ποιους έχει νόημα το μήνυμα. Δεν διευρύνουν ποτέ το κοινό παραπάνω — όποιος αρνήθηκε τις προσφορές δεν λαμβάνει προσφορές.",
+    segNeverPaid: "Δεν αγόρασαν ποτέ πακέτο",
+    segNeverPaidWhy:
+      "Καμία πληρωμή ακόμη, με κάρτα ή στο γραφείο. Οι δωρεάν συνεδρίες δεν λογίζονται ως αγορά.",
+    segNoSessions: "Χωρίς υπόλοιπο συνεδριών",
+    segNoSessionsWhy: "Δεν έχουν υπόλοιπο, ή έχει λήξει.",
+    segAway: "Δεν έχουν έρθει για",
+    segDays: "ημέρες",
+    segWeeks: "εβδομάδες",
+    segMonths: "μήνες",
+    segAwayOn:
+      "Τελευταίο μάθημα πριν από {n} ημέρες ή περισσότερο — και όσοι δεν έχουν έρθει ποτέ, γιατί είναι το ίδιο κοινό για τέτοιο μήνυμα.",
+    segAwayOff: "Αφήστε 0 για να συμπεριληφθούν όλοι.",
+    segClear: "Καθαρισμός",
+    segMatches: "{n} μέλη ταιριάζουν.",
+    segNobody:
+      "Κανένα μέλος δεν ταιριάζει. Χαλαρώστε ένα φίλτρο πριν στείλετε — δεν υπάρχει παραλήπτης.",
+    noticeFilterAll: "Όλα",
+    memberFilterAll: "Όλοι",
+    memberFilterReal: "Μέλη",
+    memberFilterTest: "Δοκιμαστικοί",
+    noticeIncludeTest: "Να συμπεριληφθούν οι δοκιμαστικοί λογαριασμοί",
+    noticeIncludeTestOn:
+      "{n} δοκιμαστικός/οί λογαριασμός/οί θα το λάβουν. Χρήσιμο για να δείτε τι βλέπει ένα μέλος.",
+    noticeIncludeTestOff:
+      "{n} δοκιμαστικός/οί λογαριασμός/οί εξαιρούνται, ώστε οι αριθμοί να μετρούν μόνο πραγματικά μέλη.",
+    memberTest: "Δοκιμαστικός λογαριασμός",
+    memberTestWhy:
+      "Ψεύτικος λογαριασμός για δοκιμές. Εξαιρείται από ό,τι στέλνει το γραφείο και από την καταμέτρηση μελών, εκτός αν συμπεριληφθεί σκόπιμα.",
     priceTitle: "Προσφορά",
     priceHelp:
       "Ένας κανόνας για όλη τη λίστα και, αν θέλεις, διαφορετικός για ένα πακέτο. Οι τιμές με έκπτωση στρογγυλοποιούνται προς τα κάτω σε ακέραιο ευρώ και δείχνονται πάντα μαζί με την παλιά τιμή.",
@@ -1227,6 +1320,9 @@ export const el: typeof en = {
     filterRead: "Αναγνωσμένα",
     noneUnread: "Δεν υπάρχει κάτι μη αναγνωσμένο.",
     noneRead: "Δεν έχει διαβαστεί κάτι ακόμη.",
+    pagerNewer: "Νεότερα",
+    pagerOlder: "Παλαιότερα",
+    pagerOf: "Σελίδα {page} από {pages}",
   },
   accountTabs: {
     label: "Ενότητες λογαριασμού",
@@ -1354,7 +1450,7 @@ export const el: typeof en = {
       "Συνδέσου για να κλείσεις μαθήματα και να δεις τις συνεδρίες σου.",
     registerTitle: "Δημιούργησε λογαριασμό.",
     registerBody: "Τριάντα δευτερόλεπτα, και οι συνεδρίες σου μένουν εδώ.",
-    noAccount: "Δεν έχεις λογαριασμό;",
+    noAccount: "Δεν είσαι μέλος ακόμη;",
     hasAccount: "Έχεις ήδη λογαριασμό;",
     signIn: "Σύνδεση",
     signUp: "Δημιουργία λογαριασμού",
@@ -1375,6 +1471,7 @@ export const el: typeof en = {
     passwordHint: "Τουλάχιστον 8 χαρακτήρες",
     invalid: "Το email ή ο κωδικός δεν είναι σωστά.",
     emailTaken: "Υπάρχει ήδη λογαριασμός με αυτό το email.",
+    phoneTaken: "Αυτό το τηλέφωνο χρησιμοποιείται ήδη σε άλλο λογαριασμό.",
   },
   account: {
     greeting: "Γεια σου",

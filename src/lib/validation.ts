@@ -16,7 +16,11 @@ const phone = z
   .trim()
   .min(8, "PHONE_REQUIRED")
   .max(32, "PHONE_INVALID")
-  .refine((v) => (v.match(/\d/g) ?? []).length >= 8, "PHONE_INVALID");
+  /* Eight digits is a Cyprus number without its country code; fifteen is the
+     most any number in the world has, because E.164 says so. Between those two
+     it might be real; outside them it certainly is not. */
+  .refine((v) => (v.match(/\d/g) ?? []).length >= 8, "PHONE_INVALID")
+  .refine((v) => (v.match(/\d/g) ?? []).length <= 15, "PHONE_INVALID");
 
 export const registerSchema = z.object({
   name: z

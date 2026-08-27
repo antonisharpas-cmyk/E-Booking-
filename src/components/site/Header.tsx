@@ -10,6 +10,7 @@ import { useI18n } from "@/i18n/LanguageProvider";
 import { UserAvatar } from "@/components/account/UserAvatar";
 import { ACCOUNT_TABS } from "@/components/account/AccountTabs";
 import { cn } from "@/lib/utils";
+import { signOutAndGoHome } from "@/lib/sign-out";
 
 export type HeaderUser = {
   name: string;
@@ -58,11 +59,8 @@ export function Header({ user }: { user: HeaderUser }) {
     { href: "/contact", label: t.nav.contact },
   ];
 
-  async function signOut() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/");
-    router.refresh();
-  }
+  /* A document load, not a client navigation — see lib/sign-out.ts. */
+  const signOut = signOutAndGoHome;
 
   /* Tapping a nav item for the page you are already on used to do nothing at
      all: Link treats it as a no-op, and the sheet only closes when the path

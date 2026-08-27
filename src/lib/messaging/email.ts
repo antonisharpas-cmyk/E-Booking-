@@ -1,22 +1,35 @@
+import { smtp, smtpConfigFromEnv } from "./smtp";
+import { LANGUAGE_RULE } from "./wording";
 import type { Outgoing, SendResult, Transport } from "./types";
 
 /**
- * Email, through whichever company the studio signs up with.
+ * Email, by one of three routes.
  *
- *   EMAIL_PROVIDER=log            nothing leaves the building (the default)
- *   EMAIL_PROVIDER=resend         RESEND_API_KEY
- *   EMAIL_PROVIDER=brevo          BREVO_API_KEY
- *   EMAIL_FROM="APEX pilates <hello@apexpilates.cy>"
+ *   EMAIL_PROVIDER=log       nothing leaves the building (the default)
+ *   EMAIL_PROVIDER=smtp      SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
+ *   EMAIL_PROVIDER=resend    RESEND_API_KEY
+ *   EMAIL_PROVIDER=brevo     BREVO_API_KEY
+ *   EMAIL_FROM="APEX pilates <info@ergonsite.com>"
  *
- * Both are plain HTTPS calls, so there is no SDK to keep up to date and no
- * SMTP connection to nurse. Brevo is here as well as Resend because it also
- * sends SMS, and one account for both is one less thing for the studio to
- * manage.
+ * The difference that matters is what each one asks of you before it will send.
  *
- * Whatever the provider, the sending domain has to be verified with DNS records
- * first — see docs/notifications.md. Without that, mail either bounces or lands
- * in spam, which is worse than not sending it: the studio would believe forty
- * people had been told about a cancelled class.
+ * `smtp` signs in to a mailbox that already exists and sends as it. Nothing
+ * about the domain changes, no DNS records are added, and it works in the ten
+ * minutes it takes to create an app password. It is not a bulk sender — see
+ * smtp.ts for the limits — so it suits confirmations well and a 400-member
+ * announcement barely.
+ *
+ * `resend` and `brevo` are companies you sign up with, and each needs the
+ * sending *domain* verified with DNS records first. That is more setup and the
+ * better answer once the studio has its own domain: they are built to send
+ * thousands, they report bounces, and they do not throttle. Brevo is here as
+ * well as Resend because it also sends SMS, and one account for both is one less
+ * thing for the studio to manage.
+ *
+ * With the domain unverified, mail either bounces or lands in spam, which is
+ * worse than not sending it: the studio would believe forty people had been told
+ * about a cancelled class. That is the trap `smtp` sidesteps — a mailbox's own
+ * domain is already trusted to send its own mail.
  */
 
 const FROM = process.env.EMAIL_FROM ?? "APEX pilates <hello@apexpilates.cy>";
@@ -25,12 +38,16 @@ const FROM = process.env.EMAIL_FROM ?? "APEX pilates <hello@apexpilates.cy>";
 function html(msg: Outgoing) {
   const paragraphs = msg.body
     .split(/\n{2,}/)
-    .map(
-      (p) =>
-        `<p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#4a3a39">${escape(
-          p,
-        ).replace(/\n/g, "<br>")}</p>`,
-    )
+    .map((p) => {
+      /* The marker between the English and the Greek. In plain text it has to
+         be characters; here it can be an actual line, which is what it means. */
+      if (p.trim() === LANGUAGE_RULE) {
+        return '<hr style="border:none;border-top:1px solid #e7dcd3;margin:26px 0">';
+      }
+      return `<p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#4a3a39">${escape(
+        p,
+      ).replace(/\n/g, "<br>")}</p>`;
+    })
     .join("");
 
   return `<!doctype html><html><body style="margin:0;background:#FBF7F2;padding:32px 16px">
@@ -130,6 +147,16 @@ function brevo(key: string): Transport {
 export function emailTransport(): Transport {
   const which = (process.env.EMAIL_PROVIDER ?? "log").toLowerCase();
 
+  if (which === "smtp") {
+    const cfg = smtpConfigFromEnv();
+    return cfg
+      ? smtp(cfg, FROM, html)
+      : {
+          name: "SMTP (missing SMTP_HOST, SMTP_USER or SMTP_PASS)",
+          ready: false,
+          send: notReady,
+        };
+  }
   if (which === "resend") {
     const key = process.env.RESEND_API_KEY;
     return key

@@ -44,6 +44,17 @@ export function ClosurePanel({
   const [affected, setAffected] = useState<Affected[] | null>(null);
   const [weeks, setWeeks] = useState(6);
 
+  /* What the last roll-forward actually added, kept so it can be taken back.
+     Rolling forward is safe to repeat — the classes are unique per template and
+     time, so a second run changes nothing — but a run that went further ahead
+     than intended is worth being able to undo without editing the timetable by
+     hand. */
+  const [lastRun, setLastRun] = useState<{
+    created: number;
+    skipped: number;
+    ids: string[];
+  } | null>(null);
+
   async function generate() {
     setBusy("generate");
     try {
@@ -52,10 +63,44 @@ export function ClosurePanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ weeks }),
       });
-      const data = (await res.json()) as { created?: number; skipped?: number };
+      const data = (await res.json()) as {
+        created?: number;
+        skipped?: number;
+        createdIds?: string[];
+      };
+      setLastRun({
+        created: data.created ?? 0,
+        skipped: data.skipped ?? 0,
+        ids: data.createdIds ?? [],
+      });
       onNotice(
-        `+${data.created ?? 0} classes created, ${data.skipped ?? 0} skipped`,
+        d.rotaResult
+          .replace("{created}", String(data.created ?? 0))
+          .replace("{skipped}", String(data.skipped ?? 0)),
       );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function undoGenerate() {
+    if (!lastRun?.ids.length) return;
+    setBusy("undo");
+    try {
+      const res = await fetch("/api/admin/generate", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: lastRun.ids }),
+      });
+      const data = (await res.json()) as { removed?: number; kept?: number };
+      onNotice(
+        d.rotaUndone
+          .replace("{removed}", String(data.removed ?? 0))
+          .replace("{kept}", String(data.kept ?? 0)),
+      );
+      setLastRun(null);
+      /* The class count above it is server-rendered. */
+      window.location.reload();
     } finally {
       setBusy(null);
     }
@@ -274,6 +319,38 @@ export function ClosurePanel({
               {busy === "generate" ? t.common.loading : t.admin.generate}
             </Button>
           </div>
+
+          {/* What the run did, and the way back. Shown only after a run, because
+              before one there is nothing to say and nothing to undo. */}
+          {lastRun && (
+            <div className="mt-5 rounded-2xl border border-mocha-200/70 bg-cream-200/40 p-4">
+              <p className="text-[12px] leading-relaxed text-mocha-600">
+                {d.rotaResult
+                  .replace("{created}", String(lastRun.created))
+                  .replace("{skipped}", String(lastRun.skipped))}
+              </p>
+              {lastRun.created > 0 ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-3"
+                    disabled={busy === "undo"}
+                    onClick={undoGenerate}
+                  >
+                    {busy === "undo" ? t.common.loading : d.rotaUndo}
+                  </Button>
+                  <p className="mt-2 text-[11px] leading-relaxed text-clay">
+                    {d.rotaUndoWhy}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-2 text-[11px] leading-relaxed text-clay">
+                  {d.rotaNothingToUndo}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

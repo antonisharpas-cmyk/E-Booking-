@@ -1,10 +1,28 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
+import { UserAvatar } from "@/components/account/UserAvatar";
 import { ButtonLink } from "@/components/ui/Button";
 import { Monogram } from "@/components/ui/Monogram";
 import { useI18n } from "@/i18n/LanguageProvider";
 import { STUDIO } from "@/lib/studio";
+import { cn } from "@/lib/utils";
+
+/**
+ * Whoever is looking at the cover, if anybody is.
+ *
+ * The header hides its own account chip over this section — it becomes a
+ * centred wordmark with a MENU control, see Header.tsx — so on the home page
+ * this is the only place a member can see that they are signed in, or a visitor
+ * can find the way in. Hence a third thing under the two buttons rather than
+ * relying on the bar above.
+ */
+export type HeroUser = {
+  name: string;
+  hasPhoto: boolean;
+  credits: number;
+} | null;
 
 /**
  * The cover: a full-viewport photograph of a class with the type centred over
@@ -28,7 +46,7 @@ import { STUDIO } from "@/lib/studio";
  * The entrance is CSS keyframes with staggered delays. The hero is on the
  * critical path of every first visit, so it carries no animation library.
  */
-export function Hero() {
+export function Hero({ user }: { user: HeroUser }) {
   const { t } = useI18n();
 
   return (
@@ -116,6 +134,66 @@ export function Hero() {
           >
             {t.home.hero.secondary}
           </ButtonLink>
+        </div>
+
+        {/* Under the two buttons, deliberately quieter than both: a way in for a
+            visitor, and proof of being signed in for a member. Neither is the
+            thing the cover is asking anybody to do, so neither is a third
+            button competing with the two above. */}
+        <div
+          className="mt-[clamp(1.1rem,2.5svh,1.75rem)] animate-fade-in"
+          style={{ animationDelay: "700ms" }}
+        >
+          {user ? (
+            <Link
+              href="/account"
+              aria-label={t.home.hero.memberAccount}
+              className={cn(
+                "inline-flex items-center gap-2.5 rounded-full border border-cream/30 bg-cream/[0.08] py-1.5 pl-1.5 pr-4",
+                "text-cream backdrop-blur-sm transition-colors duration-500 hover:border-cream/60 hover:bg-cream/15",
+              )}
+            >
+              <UserAvatar
+                hasPhoto={user.hasPhoto}
+                name={user.name}
+                className="h-8 w-8 border-cream/25 bg-cream/15 text-cream"
+              />
+              <span className="text-[13px]">{user.name.split(" ")[0]}</span>
+              <span aria-hidden className="text-cream/30">
+                ·
+              </span>
+              {/* The number a returning member actually came to check, and the
+                  header is not showing it here. */}
+              <span className="text-[13px] text-cream/70 lining-nums tabular-nums">
+                {user.credits} {t.common.credits}
+              </span>
+            </Link>
+          ) : (
+            /* Two lines rather than one: signing in and signing up are different
+               errands, and running them together reads as a single sentence
+               nobody finishes. The visitor who has no account is the larger
+               group on a home page, so they get their own line. */
+            <div className="space-y-1.5 text-center">
+              <p className="text-[13px] text-cream/65">
+                {t.home.hero.memberAsk}{" "}
+                <Link
+                  href="/login"
+                  className="link-underline text-cream hover:text-cream"
+                >
+                  {t.home.hero.memberSignIn}
+                </Link>
+              </p>
+              <p className="text-[13px] text-cream/65">
+                {t.home.hero.notMemberAsk}{" "}
+                <Link
+                  href="/register"
+                  className="link-underline text-cream hover:text-cream"
+                >
+                  {t.home.hero.notMemberJoin}
+                </Link>
+              </p>
+            </div>
+          )}
         </div>
 
         {/* The mark closes the composition under the buttons. It is decorative,

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { createSession, hashPassword } from "@/lib/auth";
+import { toE164 } from "@/lib/messaging/sms";
 import { REMINDER_DEFAULT_MINUTES } from "@/lib/profile";
 import { registerSchema } from "@/lib/validation";
 
@@ -22,6 +23,30 @@ export async function POST(req: Request) {
   });
   if (existing) {
     return NextResponse.json({ error: "EMAIL_TAKEN" }, { status: 409 });
+  }
+
+  /**
+   * And the phone, which matters as much as the email.
+   *
+   * A number is how the studio reaches somebody when a class moves, and two
+   * accounts sharing one is two people the desk cannot tell apart on the phone —
+   * plus, once SMS is connected, two texts to the same handset for two different
+   * bookings.
+   *
+   * Compared in normalised form rather than as typed. "+357 99 123456",
+   * "99123456" and "0035799123456" are one number, and a plain string
+   * comparison would happily let all three through as three members.
+   */
+  const asked = toE164(phone);
+  if (asked) {
+    const clash = db
+      .select({ id: users.id, phone: users.phone })
+      .from(users)
+      .all()
+      .find((u) => toE164(u.phone) === asked);
+    if (clash) {
+      return NextResponse.json({ error: "PHONE_TAKEN" }, { status: 409 });
+    }
   }
 
   const user = db
