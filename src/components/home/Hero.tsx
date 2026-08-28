@@ -146,7 +146,10 @@ export function Hero({ user }: { user: HeroUser }) {
         >
           {user ? (
             <Link
-              href="/account"
+              /* Profile showing, and the top of the page. Somebody pressing
+                 their own face is going to their account, not to a section
+                 buried in it — the balance is the thing they came to see. */
+              href="/account?tab=profile"
               aria-label={t.home.hero.memberAccount}
               className={cn(
                 "inline-flex items-center gap-2.5 rounded-full border border-cream/30 bg-cream/[0.08] py-1.5 pl-1.5 pr-4",

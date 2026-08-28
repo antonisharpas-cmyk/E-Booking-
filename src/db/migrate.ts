@@ -38,6 +38,12 @@ const COLUMNS: Record<string, Column[]> = {
   ],
   instructors: [{ name: "photo_url", ddl: "text" }],
   purchases: [{ name: "provider_ref", ddl: "text" }],
+  /* The spend window — which class dates a batch may be paid towards, which is
+     a different question from when the batch expires. See lib/promo.ts. */
+  credit_batches: [
+    { name: "usable_from", ddl: "integer" },
+    { name: "usable_to", ddl: "integer" },
+  ],
   notices: [
     { name: "channels", ddl: "text default '' not null" },
     { name: "user_id", ddl: "text references users(id) on delete cascade" },

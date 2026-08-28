@@ -36,7 +36,7 @@ const tls = {
 };
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 import { existsSync, readFileSync as readEnv } from "node:fs";
-import { eq } from "drizzle-orm";
+import { asc, eq, gt } from "drizzle-orm";
 
 /* Read .env the way the server does, so this runs with no ceremony. */
 if (existsSync(".env")) {
@@ -76,7 +76,23 @@ const port: number = await new Promise((resolve) =>
 );
 
 const user = db.select().from(users).limit(1).get()!;
-const session = db.select().from(classSessions).limit(1).get()!;
+/* A class that has not happened yet.
+   The sweep deliberately drops a reminder for a class already under way — a
+   "your class starts in two hours" arriving after it finished is worse than
+   silence. `limit(1)` took the *oldest* session in the table, so this suite
+   passed the week it was written and reported a mysterious stale:1 every week
+   after, which reads as a broken reminder rather than a stale fixture. */
+const session = db
+  .select()
+  .from(classSessions)
+  .where(gt(classSessions.startsAt, new Date(Date.now() + 60 * 60_000)))
+  .orderBy(asc(classSessions.startsAt))
+  .limit(1)
+  .get()!;
+if (!session) {
+  console.log("  ✗ no future class in the timetable — run npm run db:seed");
+  process.exit(1);
+}
 
 const booking = db
   .insert(bookings)

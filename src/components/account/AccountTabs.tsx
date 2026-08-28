@@ -69,14 +69,38 @@ export function AccountTabs({
      edge is drawn only then, so it never sits as a smudge over the last pill. */
   const [more, setMore] = useState(false);
 
-  /* Six pills do not fit across a phone, so the row scrolls. That is fine for
-     a thumb, but not for a section chosen somewhere else — the header menu
-     links straight to Payments, and the pill for it starts off-screen. Bring
-     whichever one is live into view. */
+  /**
+   * Six pills do not fit across a phone, so the row scrolls. That is fine for a
+   * thumb, but not for a section chosen somewhere else — the header menu links
+   * straight to Payments, and the pill for it starts off-screen. Centre whichever
+   * one is live.
+   *
+   * The row is scrolled directly rather than by asking the browser to bring the
+   * pill into view, and that is the entire point of this code. `scrollIntoView`
+   * moves whatever ancestor it has to, including the page: on a desktop, where
+   * the pills sit nine hundred pixels down, it dragged the whole account page
+   * down 249 pixels the moment it loaded — cutting the member's own name off
+   * behind the header, on the one screen that opens with a greeting. `block:
+   * "nearest"` does not prevent that; it only makes it the smallest possible
+   * amount, and the smallest possible amount was still 249 pixels.
+   *
+   * Setting `scrollLeft` on the row can only ever move the row.
+   */
   useEffect(() => {
-    row.current
-      ?.querySelector<HTMLElement>('[aria-selected="true"]')
-      ?.scrollIntoView({ block: "nearest", inline: "center" });
+    const el = row.current;
+    const pill = el?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!el || !pill) return;
+
+    /* Already comfortably in view: leave it alone rather than nudging the row
+       under somebody's thumb. */
+    const left = pill.offsetLeft;
+    const right = left + pill.offsetWidth;
+    if (left >= el.scrollLeft && right <= el.scrollLeft + el.clientWidth) return;
+
+    el.scrollTo({
+      left: Math.max(0, left - (el.clientWidth - pill.offsetWidth) / 2),
+      behavior: "smooth",
+    });
   }, [active]);
 
   useEffect(() => {

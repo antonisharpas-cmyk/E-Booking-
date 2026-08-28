@@ -6,7 +6,7 @@ import {
   classTypes,
   instructors,
 } from "@/db/schema";
-import { refundOneCredit, spendOneCredit } from "./credits";
+import { refundOneCredit, spendableAnywhere, spendOneCredit } from "./credits";
 import { repairScheduleOnce } from "./schedule-repair";
 import {
   FREE_CANCELLATION_HOURS,
@@ -21,7 +21,9 @@ export type BookingResultCode =
   | "TOO_LATE"
   | "CLASS_FULL"
   | "ALREADY_BOOKED"
-  | "NO_CREDITS";
+  | "NO_CREDITS"
+  /** They hold sessions, but none of them may pay for a class on this date. */
+  | "CREDITS_NOT_VALID_HERE";
 
 export type BookingResult =
   | { ok: true; bookingId: string; creditBatchId: string | null }
@@ -76,8 +78,23 @@ export function bookClass(
 
     if (taken >= session.capacity) return { ok: false, code: "CLASS_FULL" };
 
-    const batchId = spendOneCredit(userId, { note: session.id }, now);
-    if (!batchId) return { ok: false, code: "NO_CREDITS" };
+    /* The class date goes in, so a session that may only be spent on the
+       opening week cannot be burned on a class in November. */
+    const batchId = spendOneCredit(
+      userId,
+      { note: session.id, classStartsAt: session.startsAt },
+      now,
+    );
+    if (!batchId) {
+      /* Distinguish "you have nothing" from "you have something that cannot pay
+         for this class". A member looking at a balance of 1 and being told they
+         have no sessions would reasonably think the site was broken. */
+      const anyLeft = spendableAnywhere(userId, now);
+      return {
+        ok: false,
+        code: anyLeft ? "CREDITS_NOT_VALID_HERE" : "NO_CREDITS",
+      };
+    }
 
     let bookingId: string;
     if (existing) {

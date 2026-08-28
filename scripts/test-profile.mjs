@@ -16,16 +16,21 @@ let pass=0,fail=0;
 const check=(l,c,x)=>{ if(c){pass++;console.log('  ✓ '+l)} else {fail++;console.log('  ✗ '+l, x??'')} };
 
 const email=`prof-${Date.now()}@apex.test`;
+/* A phone nobody else in the database holds. Numbers are unique now, so a
+   fixed one here made the suite pass exactly once per database and then
+   fail on PHONE_TAKEN forever — a green run that expires is worse than a
+   red one, because it looks like a regression in the app. */
+const phone=`+35799${String(400000+(Date.now()%500000)).slice(0,6)}`;
 console.log('\n1. Registration now demands a phone and the service consent');
 let r=await req('/api/auth/register',{method:'POST',body:{name:'Prof Test',email,password:'test12345',serviceOptIn:true}});
 check('no phone is refused', r.json?.error==='PHONE_REQUIRED', r.json);
 r=await req('/api/auth/register',{method:'POST',body:{name:'Prof Test',email,phone:'123',password:'test12345',serviceOptIn:true}});
 check('a too-short phone is refused', r.json?.error==='PHONE_REQUIRED'||r.json?.error==='PHONE_INVALID', r.json);
-r=await req('/api/auth/register',{method:'POST',body:{name:'Prof Test',email,phone:'+357 99 123456',password:'test12345'}});
+r=await req('/api/auth/register',{method:'POST',body:{name:'Prof Test',email,phone,password:'test12345'}});
 check('missing service consent is refused', r.json?.error==='SERVICE_CONSENT_REQUIRED', r.json);
-r=await req('/api/auth/register',{method:'POST',body:{name:'Prof Test',email,phone:'+357 99 123456',password:'test12345',serviceOptIn:false}});
+r=await req('/api/auth/register',{method:'POST',body:{name:'Prof Test',email,phone,password:'test12345',serviceOptIn:false}});
 check('declining the service consent is refused', r.json?.error==='SERVICE_CONSENT_REQUIRED', r.json);
-r=await req('/api/auth/register',{method:'POST',body:{name:'Prof Test',email,phone:'+357 99 123456',password:'test12345',serviceOptIn:true}});
+r=await req('/api/auth/register',{method:'POST',body:{name:'Prof Test',email,phone,password:'test12345',serviceOptIn:true}});
 check('registers with a phone and consent', r.json?.ok===true, r.json);
 check('marketing consent is optional and defaults off', true);
 

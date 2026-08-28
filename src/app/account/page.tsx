@@ -64,6 +64,8 @@ export default async function AccountPage() {
           creditsTotal: b.creditsTotal,
           expiresAt: b.expiresAt?.toISOString() ?? null,
           source: b.source,
+          usableFrom: b.usableFrom?.toISOString() ?? null,
+          usableTo: b.usableTo?.toISOString() ?? null,
         })),
       }}
       notices={notices}

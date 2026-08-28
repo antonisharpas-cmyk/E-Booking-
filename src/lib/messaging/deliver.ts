@@ -4,6 +4,7 @@ import { noticeDeliveries, users } from "@/db/schema";
 import { emailTransport } from "./email";
 import { sendPush, subscriptionsFor } from "./push";
 import { smsTransport, toE164 } from "./sms";
+import { smsBodyFor, smsCost } from "./segments";
 import { forEmail } from "./wording";
 import type { Channel, ChannelReport, Outgoing } from "./types";
 
@@ -199,6 +200,16 @@ export async function deliverNotice(args: {
   includeTest?: boolean;
   /** Narrow it further by what members have done. See Segment. */
   segment?: Segment;
+  /**
+   * Which language goes out by SMS. Chosen per message at the desk rather than
+   * stored per member: the studio's own decision, and it avoids asking four
+   * hundred people a question none of them wants.
+   *
+   * English by default because it is one segment and Greek is three.
+   */
+  smsLang?: "en" | "el" | "both";
+  /** A short hand-written version, when the notice is too long to text. */
+  smsText?: { en?: string; el?: string };
 }): Promise<ChannelReport[]> {
   const people = recipientsFor(
     args.audience,
@@ -257,18 +268,32 @@ export async function deliverNotice(args: {
 
     if (channel === "sms") {
       const t = smsTransport();
+      /* Composed once. It is the same text four hundred times, and the segment
+         count is the same for all of them — so the cost is known before the
+         first one leaves rather than discovered from the invoice. */
+      const text = smsBodyFor(
+        args.smsLang ?? "en",
+        args.en,
+        args.el,
+        args.smsText,
+      );
+      const cost = smsCost(text);
+      /* Recorded on the report so the desk sees what it actually sent, in the
+         units it is billed in. "Sent 187" and "187 messages" are different
+         numbers whenever the text ran past one segment, and the second one is
+         the one on the bill. */
+      report.segments = cost.segments;
+      report.encoding = cost.encoding;
+
       for (const p of people) {
         const number = p.notifySms ? toE164(p.phone) : null;
         if (!number) {
           report.skipped++;
           continue;
         }
-        /* SMS carries the words alone — no subject line, and short, because
-           every 160 characters is another message on the invoice. */
-        const res = await t.send(number, {
-          subject: args.en.subject,
-          body: `APEX pilates: ${args.en.subject}\n${args.en.body}`.slice(0, 320),
-        });
+        /* No subject line: a text message has no room for one, and the studio's
+           name is already the sender in the recipient's inbox. */
+        const res = await t.send(number, { subject: args.en.subject, body: text });
         if (res.ok) report.sent++;
         else {
           report.failed++;

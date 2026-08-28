@@ -192,39 +192,142 @@ Configuring a provider does not mean every message emails. Which ones do is the
 only — plus whatever the desk ticks when it sends a notice. See *Every message
 the studio sends* below.
 
-### 3. SMS — an account, a sender name, and a real cost
+### 3. SMS — SMS.to, a sender name, and a real cost
+
+The studio's provider is **SMS.to** — a Cyprus company, so a euro invoice, a
+Cyprus route and support in the same timezone. About **€0.02** a message, against
+roughly €0.074 for Twilio at the same destination.
 
 ```
-SMS_PROVIDER=twilio
-TWILIO_ACCOUNT_SID=ACxxxxxxxx
-TWILIO_AUTH_TOKEN=xxxxxxxx
-TWILIO_FROM=+357xxxxxxx        # or an approved alphanumeric sender
+SMS_PROVIDER=smsto             # log | smsto | twilio | brevo
+SMSTO_API_KEY=xxxxxxxx
+SMS_SENDER=APEXPILATES         # 11 characters maximum
+SMS_PRICE_PER_SEGMENT=0.02     # so the desk sees euros, not only a count
+SMS_MAX_SEGMENTS=4             # the guard on an accidental blast
 ```
 
-or, on the same Brevo account as the email:
+**Turning it on is one line.** Everything works before the account exists:
+`SMS_PROVIDER=log` runs the whole pipeline, fills in the desk's counts, writes
+the history and prints each message to the server console. Change `log` to
+`smsto`, paste the key, restart. Change it back to stop dead.
+
+Twilio and Brevo are still there, unchanged, in case the studio ever moves. That
+is the point of four transports rather than one: the day a provider raises its
+price or loses a route should be an afternoon, not a rewrite.
+
+#### The sender is a name, not a number
+
+`APEXPILATES` appears in the recipient's inbox where a phone number would be. It
+costs nothing, and it beats an unrecognised +357 that reads as spam. Two things
+follow from it:
+
+- **It must be whitelisted with SMS.to before the first send.** Their
+  documentation says Cyprus requires this; Messente and Vonage both say Cyprus
+  needs no pre-registration. Either way it is a support ticket rather than a
+  regulator filing — but ask about the lead time, because discovering it takes
+  three days is fine in July and a disaster on opening week.
+- **It is strictly one-way.** There is no number, so a member cannot reply and
+  **"reply STOP" cannot work**. The opt-out is the switch in their account. If
+  the studio ever wants replies, SMS.to rent virtual Cyprus numbers — that is the
+  real reason to pay for one, not the sending.
+
+#### Greek costs three times English, and both costs five
+
+This is the part that surprises people, so the desk is told rather than trusted
+to know. An SMS is billed per **segment**, and the segment size depends on the
+alphabet:
+
+| | Characters per segment |
+| --- | --- |
+| Latin | **160** (153 once it splits) |
+| Anything with one Greek letter | **70** (67 once it splits) |
+
+There is no partial penalty. One `ά` in an otherwise English message re-encodes
+the whole thing, English half included. So for a ~140-character announcement:
+
+| What goes out | Segments each | Relative cost |
+| --- | --- | --- |
+| English | 1 | ×1 |
+| Greek | 3 | ×3 |
+| **Both in one message** | **5** | **×5** |
+
+Both-languages is not double. It is five times, because the English half is
+billed at Greek prices — which is why the desk defaults to English and gets a
+warning when it picks Greek.
+
+#### What the desk sees
+
+Ticking SMS opens a panel with three language buttons and a **preview of the
+message as it will arrive** — sender name and all — with the cost under it:
 
 ```
-SMS_PROVIDER=brevo
-BREVO_API_KEY=xkeysib-xxxxxxxx
-SMS_SENDER=APEXpilates         # 11 characters maximum
+106 characters · one message holds 160 · 26 billed to 26 people ≈ €0.52
+Everyone gets one text. Billed as 1 message each.
 ```
 
-Three things to know before you turn this on:
+Two numbers, said separately on purpose, because conflating them is what confuses
+people. **The member always receives one text**, however long it is: the network
+splits a long message into pieces and the handset stitches them back together
+before showing it. The invoice counts the pieces. So past 160 characters it reads:
 
-- **It costs money per message.** Roughly a few cents each in Cyprus. A text to
-  400 members is a real invoice, every time. That is why SMS is off by default
-  for members and unticked by default at the desk.
-- **Greek text halves the length.** A message in Latin characters fits 160
-  characters per SMS; anything with Greek letters drops to 70, so the same words
-  can cost twice as much. The desk screen shows how many people it will reach so
-  the number is never a surprise.
-- **An alphanumeric sender ("APEXpilates") must be registered** with the provider
-  for Cyprus, and cannot receive replies. A real number can receive replies but
-  looks less like the studio.
+```
+Everyone still sees one text, but it is billed as 2 messages each.
+Drop 22 characters to make it 1.
+```
+
+"Billed as 2 each" is a true statement nobody can act on. "Drop 22 characters" is
+the same fact as an instruction, so it gets read.
+
+**There is nothing to fill in.** The text follows the message the desk already
+wrote — an earlier version of this had its own empty box, which meant typing the
+same announcement twice, and the second copy is the one that gets forgotten.
+
+The preview is **always** visible, editing or not. That matters most for *Both*,
+where the interesting question is not what the two texts say but how they read
+stacked in one message — so the preview shows exactly that, English then a blank
+line then Greek, which is what arrives.
+
+If different words are wanted on a lock screen than on a screen, *Change the
+wording* opens **one box per language actually going out, each named**: English
+alone shows one box, Greek alone shows one box, Both shows two. Each starts
+pre-filled with what was about to be sent, so changing three words is changing
+three words — except the Greek box when no Greek has been typed upstairs, which
+starts empty rather than pre-filled with English, since a box labelled Greek
+containing English words invites somebody to send exactly that.
+
+*Use the message above* clears the override and goes back to following. Cleared
+rather than hidden, so there is never a stale draft lurking behind a closed
+panel.
+
+Past `SMS_MAX_SEGMENTS` the send is **refused by the server**, not just warned
+about in the screen, and refused *before* the notice is written so the desk can
+shorten it and send once. A screen is a suggestion; this one has an invoice
+attached.
+
+#### Running out of credit
+
+The silent failure: credit hits zero, every send fails, and nothing on the site
+looks different. `npm run doctor` reports the SMS.to balance and warns under €2.
+The balance endpoint is unverified — there is no account yet — so it reports
+"could not read the balance" rather than inventing a number.
 
 Numbers are normalised automatically: a member typing `99 123 456` becomes
 `+35799123456`. Set `SMS_DEFAULT_COUNTRY` if the studio ever has members outside
 Cyprus as the majority.
+
+#### Testing it
+
+```bash
+npm run test:sms
+```
+
+55 checks, no account and no network. Half of them are the segment arithmetic at
+its boundaries — 160/161, 70/71, the euro sign costing two — because if that is
+wrong the desk is quoting a price the studio will not be charged, and nothing
+would reveal it until the invoice. The other half point the transport at a local
+server standing in for api.sms.to and assert what actually goes on the wire: the
+endpoint, the bearer token, `sender_id`, Greek surviving intact, and a 401 being
+reported as a failure rather than swallowed.
 
 ### 4. Nothing configured?
 
@@ -491,17 +594,38 @@ had happened to load the right page in the right minute. A reminder that depends
 on somebody visiting the site is not a reminder, because the member it is for is
 by definition not visiting the site.
 
-The server now keeps its own clock. `src/instrumentation.ts` runs
-`runDueReminders()` **every sixty seconds** from the moment the server starts,
-whether or not anything else is happening, and logs a line whenever it sends
-something:
+The server now keeps its own clock. `src/instrumentation.ts` — the one Next.js
+hook that runs without a request — sets a timer that **every sixty seconds** posts
+to `/api/cron/reminders`, the same route a production scheduler will call. It logs
+a line whenever it sends something:
 
 ```
 [reminders] sweeping every 60s
 [reminders] 1 due · pushed 1 · emailed 0 · texted 0
 ```
 
-If that first line is not in the server log at startup, nothing is sweeping.
+If that first line is not in the server log at startup, nothing is sweeping. The
+usual reason is a missing `CRON_SECRET`, which the file says out loud rather than
+failing quietly every minute — the route refuses an unauthenticated caller, and
+it should, or anyone could make four hundred phones buzz.
+
+**It knocks on its own front door rather than calling the function**, and that is
+not squeamishness. Next compiles `instrumentation.ts` for *every* runtime, edge
+included, and follows every import — including a dynamic one, and including one
+behind a runtime check that correctly returns first. Importing the sweep from
+there dragged `web-push` into an edge bundle, then `https-proxy-agent`, then
+Node's `http`, which edge does not have: `Module not found: Can't resolve 'http'`
+and every page 500 on the dev server, while `next build` was perfectly happy.
+That is the worst kind of difference to have between the two.
+
+So the file imports nothing at all. The module graph from it is empty and cannot
+break again, and the timer exercises the *same* code path as the production
+scheduler rather than a second one that could drift away from it.
+
+`next.config.ts` also names `web-push` and `better-sqlite3` in
+`serverExternalPackages`, so webpack leaves both as ordinary server-side requires
+— one is Node-only, the other is a compiled binary, and neither belongs in a
+bundle.
 
 **A reminder for a class that has already started is closed without being sent.**
 This matters the first time a sweep runs after an outage: without it, a server

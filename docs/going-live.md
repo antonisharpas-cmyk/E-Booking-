@@ -260,6 +260,12 @@ we will do it properly; it is not a checkbox.
    somebody will eventually try to reconcile.
 8. **Replace the dev desk passwords** — `npm run staff -- password <email>`.
    `ownerdev123` on a public site is not a password.
+9. **SMS, when the studio has the account.** The code is finished and sitting on
+   `SMS_PROVIDER=log`, which sends nothing and charges nothing. To switch it on:
+   set `SMS_PROVIDER=smsto` and `SMSTO_API_KEY=…` in the *server's* environment,
+   and get `APEXPILATES` whitelisted with SMS.to first — ask them how long that
+   takes before you need it. `npm run doctor` will then report the sender and the
+   remaining credit. See `docs/notifications.md`.
 
 ---
 

@@ -9,6 +9,7 @@ import {
   type Segment,
 } from "@/lib/messaging/deliver";
 import { pushReady } from "@/lib/messaging/push";
+import { MAX_SEGMENTS, smsBodyFor, smsCost } from "@/lib/messaging/segments";
 import { CHANNELS, type Channel } from "@/lib/messaging/types";
 import { createNotice, deleteNotice, noticeHistory } from "@/lib/notices";
 
@@ -85,6 +86,18 @@ export async function GET(req: Request) {
     includeTest,
     segment,
     transports: { ...transportStatus(), push: { name: "Web push", ready: pushReady() } },
+    /* So the screen can put a number next to the SMS box while the desk types.
+       The price is configuration, not a guess: unset it and the screen shows
+       segments and stays quiet about money, which is the honest failure mode. */
+    sms: {
+      maxSegments: MAX_SEGMENTS,
+      /* The name that will appear where a phone number normally does, so the
+         preview at the desk shows the real thing rather than a guess. */
+      sender: process.env.SMS_SENDER ?? process.env.TWILIO_FROM ?? "APEX pilates",
+      pricePerSegment: Number.isFinite(Number(process.env.SMS_PRICE_PER_SEGMENT))
+        ? Number(process.env.SMS_PRICE_PER_SEGMENT)
+        : null,
+    },
   });
 }
 
@@ -104,6 +117,9 @@ export async function POST(req: Request) {
     neverPaid?: boolean;
     noSessionsLeft?: boolean;
     inactiveDays?: number;
+    smsLang?: string;
+    smsEn?: string;
+    smsEl?: string;
   }>(req);
 
   const title = (data?.titleEn ?? "").trim();
@@ -129,6 +145,45 @@ export async function POST(req: Request) {
     noSessionsLeft: Boolean(data?.noSessionsLeft),
     inactiveDays: Number(data?.inactiveDays ?? 0),
   });
+
+  /* Which language the text message carries, and a short version of it.
+     English unless asked otherwise, because English is one segment and Greek is
+     three. Anything unrecognised means English rather than an error — a typo in
+     a field should not stop a studio announcing that a class is cancelled. */
+  const smsLang: "en" | "el" | "both" =
+    data?.smsLang === "el" ? "el" : data?.smsLang === "both" ? "both" : "en";
+  const smsText = {
+    en: (data?.smsEn ?? "").trim() || undefined,
+    el: (data?.smsEl ?? "").trim() || undefined,
+  };
+
+  /* The guard that stops an expensive mistake.
+     Checked here and not only in the screen, because the screen is a suggestion
+     and this one has an invoice attached. The message is refused *before* the
+     notice is written, so the desk can shorten the text and send once rather
+     than finding a half-sent announcement in the history. */
+  if (channels.includes("sms")) {
+    const preview = smsBodyFor(
+      smsLang,
+      { subject: title, body: text },
+      data?.titleEl && data?.bodyEl
+        ? { subject: data.titleEl.trim(), body: data.bodyEl.trim() }
+        : undefined,
+      smsText,
+    );
+    const cost = smsCost(preview);
+    if (cost.segments > MAX_SEGMENTS) {
+      return NextResponse.json(
+        {
+          error: "SMS_TOO_LONG",
+          segments: cost.segments,
+          max: MAX_SEGMENTS,
+          encoding: cost.encoding,
+        },
+        { status: 400 },
+      );
+    }
+  }
 
   const notice = createNotice({
     titleEn: title,
@@ -161,6 +216,8 @@ export async function POST(req: Request) {
             : undefined,
         includeTest: Boolean(data?.includeTest),
         segment,
+        smsLang,
+        smsText,
       })
     : [];
 

@@ -428,6 +428,34 @@ export const en = {
     chanEmailWhy: "To members who left email on.",
     chanSms: "SMS",
     chanSmsWhy: "Costs money per message. Only members who turned SMS on.",
+    /* SMS is the only channel with an invoice attached, so it gets its own
+       words. The character count is not pedantry: one Greek letter takes the
+       limit from 160 to 70, so the same announcement is one message or five. */
+    smsTitle: "Text message",
+    smsLangEn: "English",
+    smsLangEl: "Greek",
+    smsLangBoth: "Both",
+    /* The preview replaced two empty boxes. Nobody writes the announcement
+       twice now — they see what will be sent, and change it only if they want
+       different words on a lock screen than on a screen. */
+    smsEdit: "Change the wording",
+    smsFollow: "Use the message above",
+    smsEmpty: "Write the message above and it will appear here",
+    /* Said as the member's experience first, then as the invoice.
+       They are different numbers and conflating them is what confuses people:
+       a long text arrives on the phone as ONE message and is billed as several,
+       because the network splits it and the handset stitches it back together. */
+    smsCount: "{chars} characters · {alphabet}",
+    smsLatinAlphabet: "one message holds 160",
+    smsGreekAlphabet: "one message holds 70 (Greek)",
+    smsFitsOne: "Everyone gets one text. Billed as 1 message each.",
+    smsSplit:
+      "Everyone still sees one text, but it is billed as {segments} messages each. Drop {over} characters to make it 1.",
+    smsTotal: "{n} billed to {people} people",
+    smsGreekWarning:
+      "Greek text fits 70 characters per message instead of 160, so this costs more than the same message in English.",
+    smsTooLong:
+      "This is {n} messages per person, over the limit of {max}. Shorten the text, or send it without SMS.",
     chanReaches: "reaches {n}",
     chanNotSet: "not connected yet",
     /* Push has no company to connect to — only keys to generate. Said
@@ -458,7 +486,7 @@ export const en = {
     rotaNothingToUndo:
       "Nothing was added, so nothing to undo — those weeks were already on the timetable. Running this again is always safe.",
     rotaUndone: "{removed} classes removed. {kept} kept because they have bookings.",
-    segTitle: "Narrow it down",
+    segTitle: "Exclusive categories",
     segHelp:
       "Optional. These pick out who the message is relevant to. They never widen the audience above — somebody who declined offers still gets no offers.",
     segNeverPaid: "Never bought a pack",
@@ -679,6 +707,8 @@ export const en = {
     walletBuy: "Buy a session pack",
     walletTopUp: "Top up sessions",
     expiring: "Expiring",
+    walletWindowed:
+      "{n} of these is a free opening-week session — it can only be used for a class between {from} and {to}.",
     expiringOn: "expires",
     upcomingTitle: "Upcoming classes",
     upcomingEmpty: "Nothing booked yet. The timetable is waiting.",
@@ -709,6 +739,8 @@ export const en = {
     successBody: "See you on the reformer.",
     noCredits: "You have no sessions left.",
     noCreditsCta: "Buy a session pack",
+    creditsNotValidHere:
+      "Your free opening-week session cannot be used for this class — it is only for the opening week. Pick a class in that week, or buy a pack to book any date.",
     alreadyBooked: "You have already booked this class.",
     classFull: "This class is full.",
     tooLate: "Booking has closed for this class.",
@@ -1231,6 +1263,24 @@ export const el: typeof en = {
     chanEmailWhy: "Στα μέλη που έχουν ενεργό το email.",
     chanSms: "SMS",
     chanSmsWhy: "Έχει κόστος ανά μήνυμα. Μόνο στα μέλη που ενεργοποίησαν SMS.",
+    smsTitle: "Γραπτό μήνυμα",
+    smsLangEn: "Αγγλικά",
+    smsLangEl: "Ελληνικά",
+    smsLangBoth: "Και τα δύο",
+    smsEdit: "Αλλαγή κειμένου",
+    smsFollow: "Χρήση του μηνύματος πιο πάνω",
+    smsEmpty: "Γράψτε το μήνυμα πιο πάνω και θα εμφανιστεί εδώ",
+    smsCount: "{chars} χαρακτήρες · {alphabet}",
+    smsLatinAlphabet: "ένα μήνυμα χωρά 160",
+    smsGreekAlphabet: "ένα μήνυμα χωρά 70 (ελληνικά)",
+    smsFitsOne: "Όλοι λαμβάνουν ένα μήνυμα. Χρεώνεται ως 1 ανά άτομο.",
+    smsSplit:
+      "Όλοι βλέπουν ένα μήνυμα, αλλά χρεώνεται ως {segments} ανά άτομο. Αφαιρέστε {over} χαρακτήρες για να γίνει 1.",
+    smsTotal: "{n} χρεώσεις σε {people} άτομα",
+    smsGreekWarning:
+      "Τα ελληνικά χωρούν 70 χαρακτήρες ανά μήνυμα αντί για 160, γι' αυτό κοστίζουν περισσότερο από το ίδιο μήνυμα στα αγγλικά.",
+    smsTooLong:
+      "Αυτό είναι {n} μηνύματα ανά άτομο, πάνω από το όριο των {max}. Συντομεύστε το κείμενο ή στείλτε το χωρίς SMS.",
     chanReaches: "φτάνει σε {n}",
     chanNotSet: "δεν έχει συνδεθεί",
     chanNoKeys: "δεν έχει ρυθμιστεί — npm run push:keys",
@@ -1259,7 +1309,7 @@ export const el: typeof en = {
     rotaNothingToUndo:
       "Δεν προστέθηκε τίποτα, άρα δεν υπάρχει τι να αναιρεθεί — οι εβδομάδες ήταν ήδη στο πρόγραμμα. Η επανάληψη είναι πάντα ασφαλής.",
     rotaUndone: "Αφαιρέθηκαν {removed} μαθήματα. {kept} παρέμειναν γιατί έχουν κρατήσεις.",
-    segTitle: "Περιορισμός",
+    segTitle: "Αποκλειστικές κατηγορίες",
     segHelp:
       "Προαιρετικό. Επιλέγουν σε ποιους έχει νόημα το μήνυμα. Δεν διευρύνουν ποτέ το κοινό παραπάνω — όποιος αρνήθηκε τις προσφορές δεν λαμβάνει προσφορές.",
     segNeverPaid: "Δεν αγόρασαν ποτέ πακέτο",
@@ -1480,6 +1530,8 @@ export const el: typeof en = {
     walletBuy: "Αγόρασε πακέτο συνεδριών",
     walletTopUp: "Ανανέωση συνεδριών",
     expiring: "Λήγουν",
+    walletWindowed:
+      "{n} από αυτές είναι δωρεάν συνεδρία εγκαινίων — μπορεί να χρησιμοποιηθεί μόνο για μάθημα από {from} έως {to}.",
     expiringOn: "λήγει",
     upcomingTitle: "Επόμενα μαθήματα",
     upcomingEmpty: "Δεν έχεις κλείσει ακόμη. Το πρόγραμμα σε περιμένει.",
@@ -1510,6 +1562,8 @@ export const el: typeof en = {
     successBody: "Τα λέμε στον reformer.",
     noCredits: "Δεν έχεις άλλες συνεδρίες.",
     noCreditsCta: "Αγόρασε πακέτο συνεδριών",
+    creditsNotValidHere:
+      "Η δωρεάν συνεδρία εγκαινίων δεν ισχύει για αυτό το μάθημα — αφορά μόνο την εβδομάδα των εγκαινίων. Διάλεξε μάθημα εκείνης της εβδομάδας, ή αγόρασε πακέτο για οποιαδήποτε ημερομηνία.",
     alreadyBooked: "Έχεις ήδη κλείσει αυτό το μάθημα.",
     classFull: "Το μάθημα είναι πλήρες.",
     tooLate: "Οι κρατήσεις για αυτό το μάθημα έκλεισαν.",

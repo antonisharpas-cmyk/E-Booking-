@@ -104,11 +104,19 @@ Covered in full in [notifications.md](./notifications.md). The short version:
   them. Leave it blank and everyone gets English.
 - The history on the right filters by channel and pages five at a time.
 
-### Narrowing a campaign
+### Exclusive categories
 
-Under **Who it goes to** there is a second block, **Narrow it down**. It picks
-out who a message is *relevant* to, and it is a different question from who has
-agreed to hear from you:
+The last block in the composer, below **How it goes out**. It picks out who a
+message is *relevant* to, and that is a different question from who has agreed to
+hear from you.
+
+Last on purpose. The first two sections are the decisions every message needs —
+who, and how — while this one is optional narrowing most announcements never
+touch, and in the middle it read as a required step. The **include test
+accounts** switch lives here too, for the same reason: it is not "who may we
+write to" but "which of them is this actually for". The matching count sits at
+the very bottom, after that switch, since the switch is one of the things that
+changes it.
 
 | | Finds |
 | --- | --- |

@@ -285,20 +285,33 @@ export function Header({ user }: { user: HeaderUser }) {
           <div className="sheet-item mt-10 flex flex-col gap-3 border-t border-mocha-200 pt-8">
             {user ? (
               <>
+                {/* Their name, not "My account".
+                    A row carrying somebody's face and then a label describing
+                    the page it leads to reads like a stranger's account: the
+                    face is theirs, so the words beside it should be too. The
+                    destination is obvious from the face and the balance.
+
+                    `follow` matters here more than anywhere. Tapping this while
+                    already on /account is not a new address, so Link did
+                    nothing at all and the sheet stayed open over the page the
+                    member was asking to see. */}
                 <Link
-                  href="/account"
+                  href="/account?tab=profile"
                   tabIndex={open ? 0 : -1}
-                  className="flex items-center justify-between text-[11px] uppercase tracking-widest text-mocha-600"
+                  onClick={() => follow("/account")}
+                  className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-widest text-mocha-600"
                 >
-                  <span className="flex items-center gap-2.5">
+                  <span className="flex min-w-0 items-center gap-2.5">
                     <UserAvatar
                       hasPhoto={user.hasPhoto}
                       name={user.name}
-                      className="h-7 w-7"
+                      className="h-7 w-7 shrink-0"
                     />
-                    {t.nav.account}
+                    <span className="truncate normal-case tracking-normal text-[13px]">
+                      {user.name}
+                    </span>
                   </span>
-                  <span className="rounded-full bg-mocha-600 px-2.5 py-1 text-cream">
+                  <span className="shrink-0 rounded-full bg-mocha-600 px-2.5 py-1 text-cream">
                     {user.credits} {t.common.credits}
                   </span>
                 </Link>
@@ -449,8 +462,43 @@ function AccountMenu({
             key={id}
             role="menuitem"
             tabIndex={open ? 0 : -1}
-            href={id === "profile" ? "/account" : `/account?tab=${id}`}
-            onClick={() => setOpen(false)}
+            /* Profile carries its name like the rest.
+             *
+             * It used to link to plain `/account`, which made it indistinguishable
+             * from clicking the photograph — and the photograph is meant to land
+             * at the top of the page, on the balance, while a menu item is meant
+             * to land on the section it names. One address cannot mean both, so
+             * the member clicked Profile and arrived at the top with the right
+             * pill selected somewhere below the fold.
+             *
+             * Profile alone carries `jump=1`. It is also the default section, so
+             * `?tab=profile` is where the member's own face points too — and that
+             * is meant to land at the top, on the balance. The marker is what
+             * separates the two, and no other section needs one. */
+            href={
+              id === "profile"
+                ? "/account?tab=profile&jump=1"
+                : `/account?tab=${id}`
+            }
+            /* Next resets the scroll position to the top on navigation, which
+             * used to land on top of the jump-to-section and cancel it. Turning
+             * that off removes the race rather than racing it with a timeout. */
+            scroll={false}
+            onClick={() => {
+              setOpen(false);
+              /* Already on the account page: the section is right here, so scroll
+               * to it now. The effect in AccountBody handles arriving from
+               * another page; this handles the case that effect cannot see —
+               * clicking the same menu item twice, which is not a new address and
+               * so is not a new navigation. */
+              if (pathname === "/account") {
+                requestAnimationFrame(() =>
+                  document
+                    .getElementById("account-sections")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+                );
+              }
+            }}
             className="block rounded-2xl px-4 py-2.5 text-[11px] uppercase tracking-widest text-mocha-500 transition-colors hover:bg-cream-200 hover:text-mocha-700"
           >
             <span className="flex items-center justify-between gap-3">

@@ -1,10 +1,10 @@
 /**
- * Things that have to happen because time passed, not because somebody asked.
+ * The server's own clock.
  *
  * Next.js calls `register()` once when the server starts. It is the only hook
  * that runs without a request, which makes it the only place a clock can live.
  *
- * Why this file exists at all: the reminder sweep used to be nudged by ordinary
+ * Why the clock is needed: the reminder sweep used to be nudged by ordinary
  * traffic — any visit to the timetable pushed the queue along. That is fine as a
  * backstop and useless as a mechanism, and the evidence was thirteen reminders
  * sitting unsent in a real database, the oldest from the previous day, because
@@ -12,13 +12,25 @@
  * that depends on somebody visiting the site is not a reminder: the member it is
  * for is, by definition, not visiting the site.
  *
- * So the server now keeps its own clock. Every minute, whether or not anything
- * else is happening.
+ * ---
  *
- * This is not a replacement for the scheduled call in production — see
- * docs/notifications.md. A hosting platform that sleeps an idle server, or runs
- * several of them, needs something outside the process. But it means a single
- * running server is enough, which is what development and a small VPS both are.
+ * Why it knocks on its own front door instead of calling the function.
+ *
+ * Next compiles this file for **every** runtime, edge included, and it follows
+ * every import — including a dynamic one, and including one hidden behind a
+ * runtime check that correctly returns first. Importing the sweep from here
+ * therefore dragged `web-push` into an edge bundle, which dragged in
+ * `https-proxy-agent`, which needs Node's `http`, which edge does not have. The
+ * result was `Module not found: Can't resolve 'http'` and every page returning
+ * 500 on the dev server — while `next build` was perfectly happy, which is the
+ * worst kind of difference to have between the two.
+ *
+ * So this file imports nothing. It sends an HTTP request to the route that
+ * already exists for exactly this job, which is compiled for the node runtime
+ * like any other route. Two things fall out of that, both good: the module graph
+ * from here is empty and cannot break again, and the timer now exercises the
+ * *same* code path as the scheduled call a production host will make, rather
+ * than a second one that could quietly drift away from it.
  */
 
 /** Guards against a second timer when the dev server recompiles. */
@@ -30,27 +42,59 @@ declare global {
 const EVERY_MS = 60_000;
 
 export async function register() {
-  /* Edge runtime has no timers worth the name and no database. Node only. */
+  /* Edge has no timers worth the name and no database. Node only. */
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
   /* `next dev` re-evaluates modules on change. Without this, every edit would
      leave another timer running and a member would be reminded four times. */
   if (global.__apexSweep) return;
 
-  const { runDueReminders } = await import("@/lib/messaging/events");
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    /* Said once, loudly, rather than failing every sixty seconds in silence.
+       The route refuses an unauthenticated caller — correctly, since otherwise
+       anyone could make four hundred phones buzz — so with no secret there is
+       no sweep, and the only symptom would be reminders never arriving. */
+    console.warn(
+      "[reminders] CRON_SECRET is not set, so nothing will sweep the queue. Run: npm run push:keys",
+    );
+    return;
+  }
+
+  /* Next sets PORT to whatever the server is actually listening on, including
+     when it was chosen with -p. 127.0.0.1 rather than localhost: on a machine
+     where localhost resolves to ::1 first, the request can go to a port nothing
+     is listening on. */
+  const port = process.env.PORT ?? "3000";
+  const url = `http://127.0.0.1:${port}/api/cron/reminders`;
 
   const tick = async () => {
     try {
-      const r = await runDueReminders();
-      if (r.due > 0) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { authorization: `Bearer ${secret}` },
+      });
+      if (!res.ok) {
+        console.error(`[reminders] sweep refused: ${res.status}`);
+        return;
+      }
+      const r = (await res.json()) as {
+        due?: number;
+        pushed?: number;
+        emailed?: number;
+        texted?: number;
+        stale?: number;
+      };
+      if (r.due || r.stale) {
         console.log(
-          `[reminders] ${r.due} due · pushed ${r.pushed} · emailed ${r.emailed} · texted ${r.texted}`,
+          `[reminders] ${r.due ?? 0} due · pushed ${r.pushed ?? 0} · emailed ${r.emailed ?? 0} · texted ${r.texted ?? 0}` +
+            (r.stale ? ` · ${r.stale} too late, closed` : ""),
         );
       }
     } catch (e) {
       /* Logged rather than swallowed. The old code caught this silently, which
          is how a sweep that never worked went unnoticed for two days. */
-      console.error("[reminders] sweep failed", e);
+      console.error("[reminders] sweep failed", (e as Error).message);
     }
   };
 
@@ -58,9 +102,11 @@ export async function register() {
   /* Do not hold the process open on account of a timer. */
   global.__apexSweep.unref?.();
 
-  /* And once now, so a server that has just started catches anything that came
-     due while it was down. */
-  void tick();
+  /* And shortly after startup, so a server that has just come up catches
+     anything that fell due while it was down. Not immediately: the route it
+     calls has to be compiled first, and on a cold dev server that takes a few
+     seconds. */
+  setTimeout(() => void tick(), 5_000);
 
   console.log(`[reminders] sweeping every ${EVERY_MS / 1000}s`);
 }

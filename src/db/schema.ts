@@ -285,6 +285,21 @@ export const creditBatches = sqliteTable(
     /** PURCHASE | GRANT | COMPENSATION */
     source: text("source").notNull().default("PURCHASE"),
     expiresAt: integer("expires_at", { mode: "timestamp" }),
+
+    /**
+     * Which class dates this batch may be spent on. Null means any.
+     *
+     * Not the same as `expiresAt`, and the difference is the whole reason these
+     * exist. `expiresAt` is the last moment the session can be *spent*;
+     * these are the first and last class it can be spent *on*. A free
+     * opening-week session expiring on the 19th could otherwise be spent on the
+     * 6th to book a class in November — the offer would leak into the paid
+     * schedule and the promo week would constrain nothing.
+     *
+     * Ordinary bought sessions leave both null and behave exactly as before.
+     */
+    usableFrom: integer("usable_from", { mode: "timestamp" }),
+    usableTo: integer("usable_to", { mode: "timestamp" }),
     createdAt: now().notNull(),
   },
   (t) => [index("credit_batches_user_idx").on(t.userId, t.expiresAt)],

@@ -48,6 +48,8 @@ type Props = {
       id: string;
       creditsRemaining: number;
       creditsTotal: number;
+      usableFrom: string | null;
+      usableTo: string | null;
       expiresAt: string | null;
       source: string;
     }[];
@@ -109,6 +111,9 @@ export function AccountBody(props: Props) {
      under the face in the header links straight into each one. */
   const params = useSearchParams();
   const requested = params.get("tab");
+  /* "I asked for this section" as opposed to "I asked for my account".
+     See the jump effect below for why the tab name alone cannot say it. */
+  const jump = params.get("jump") === "1";
   const [tab, setTab] = useState<AccountTab>(
     isAccountTab(requested) ? requested : "profile",
   );
@@ -125,26 +130,56 @@ export function AccountBody(props: Props) {
     setTab(isAccountTab(requested) ? requested : "profile");
   }, [requested]);
 
-  /* Asked for a section by name, from the header: take them to it rather than
-     leaving the right pill selected somewhere below the fold. Once only, so it
-     never fights the member's own scrolling afterwards.
-     The short wait is not decoration — a navigation resets the scroll position
-     to the top of the page, and without it that reset lands on top of this and
-     the page never moves. */
-  const jumped = useRef(false);
+  /**
+   * Asked for a section by name: take them to it, rather than leaving the right
+   * pill selected somewhere below the fold.
+   *
+   * Plain `/account` — clicking the photograph — deliberately does not jump. That
+   * is somebody coming to look at their balance, and the balance is at the top.
+   * A named section is somebody who asked for that section.
+   *
+   * Profile is the one section that cannot be told apart by its name, because it
+   * is also the default: `?tab=profile` is both "take me to Profile" and "take me
+   * to my account, where Profile happens to be showing". So the header's Profile
+   * menu item carries `&jump=1` and the member's face does not, and the two land
+   * where each is asking to land. Every other section is unambiguous and needs no
+   * marker, which keeps a link somebody pastes to a friend — `?tab=payments` —
+   * arriving on the payments it names.
+   *
+   * Keyed on which section was asked for rather than a once-ever flag. It used
+   * to be a boolean, which meant the *first* menu item a member clicked took
+   * them to its section and every one after it silently did not — the right pill
+   * highlighted, hundreds of pixels below what they were looking at. Working
+   * once and then not is worse than never working, because it reads as the page
+   * being unreliable rather than as a missing feature.
+   *
+   * The header links now pass `scroll={false}`, so Next no longer resets the
+   * scroll position to the top underneath this. That removes the race the old
+   * 180ms timeout existed to lose.
+   */
+  const jumpedTo = useRef<string | null>(null);
   useEffect(() => {
-    if (jumped.current || !isAccountTab(requested)) return;
-    jumped.current = true;
-    const id = window.setTimeout(() => {
+    if (!isAccountTab(requested)) return;
+    if (requested === "profile" && !jump) return;
+    const key = `${requested}:${jump}`;
+    if (jumpedTo.current === key) return;
+    jumpedTo.current = key;
+
+    /* One frame, so the section exists and has its height before we measure. */
+    const raf = requestAnimationFrame(() => {
       document
         .getElementById("account-sections")
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 180);
-    return () => window.clearTimeout(id);
-  }, [requested]);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [requested, jump]);
 
   function chooseTab(next: AccountTab) {
     setTab(next);
+    /* Switching sections from the pills means the member is already looking at
+       them, so no jump — but the *next* request from the header menu should jump
+       again, even if it names the section that is already open. */
+    jumpedTo.current = null;
     /* Keeps the address bar honest — and the section shareable — without a
        server round trip for a click that only changes what is already here. */
     window.history.replaceState(
@@ -187,6 +222,14 @@ export function AccountBody(props: Props) {
 
   /* A document load, not a client navigation — see lib/sign-out.ts. */
   const signOut = signOutAndGoHome;
+
+  /* Sessions that may only be spent on classes in a date range — the opening
+     week offer, today. Grouped rather than listed: a member with one free
+     session does not want a table. */
+  const windowed = props.wallet.batches.filter(
+    (b) => b.usableFrom && b.usableTo && b.creditsRemaining > 0,
+  );
+  const windowedCredits = windowed.reduce((n, b) => n + b.creditsRemaining, 0);
 
   const isStaff = props.user.role === "STAFF" || props.user.role === "ADMIN";
 
@@ -249,6 +292,20 @@ export function AccountBody(props: Props) {
                     {t.common.credits}
                   </span>
                 </p>
+
+                {/* A session that may only be spent on one week is worth less
+                    than the number suggests, and a member who does not know that
+                    will try to book October, fail, and decide the site is
+                    broken. So it is named here, above the expiry, because it is
+                    the more surprising of the two facts. */}
+                {windowed.length > 0 && (
+                  <p className="mt-6 rounded-2xl bg-cream/10 px-4 py-3 text-[12px] leading-relaxed text-cream/80">
+                    {t.account.walletWindowed
+                      .replace("{n}", String(windowedCredits))
+                      .replace("{from}", fmtDayMonth(windowed[0].usableFrom!))
+                      .replace("{to}", fmtDayMonth(windowed[0].usableTo!))}
+                  </p>
+                )}
 
                 {props.wallet.nextExpiry ? (
                   <p className="mt-6 text-[12px] text-cream/60">

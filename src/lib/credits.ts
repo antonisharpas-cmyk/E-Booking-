@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { creditBatches, creditLedger } from "@/db/schema";
+import { windowAllows } from "./promo";
 
 export type CreditSummary = {
   available: number;
@@ -10,6 +11,9 @@ export type CreditSummary = {
     creditsTotal: number;
     expiresAt: Date | null;
     source: string;
+    /** Set when these sessions may only be spent on classes in a date range. */
+    usableFrom: Date | null;
+    usableTo: Date | null;
   }[];
   /** Soonest expiry among batches that still hold credits */
   nextExpiry: Date | null;
@@ -53,10 +57,36 @@ export async function getCreditSummary(
       creditsTotal: b.creditsTotal,
       expiresAt: b.expiresAt,
       source: b.source,
+      usableFrom: b.usableFrom,
+      usableTo: b.usableTo,
     })),
     nextExpiry,
     nextExpiryCredits,
   };
+}
+
+/**
+ * Does this member hold anything at all, window or no window?
+ *
+ * Used only to tell two failures apart: "you have no sessions" and "you have
+ * sessions that cannot pay for *this* class". Those need different words on
+ * screen, and a member with a visible balance of 1 being told they have none is
+ * how a site loses somebody's trust in one sentence.
+ */
+export function spendableAnywhere(userId: string, now = new Date()) {
+  return (
+    db
+      .select()
+      .from(creditBatches)
+      .where(
+        and(
+          eq(creditBatches.userId, userId),
+          gt(creditBatches.creditsRemaining, 0),
+          or(isNull(creditBatches.expiresAt), gt(creditBatches.expiresAt, now)),
+        ),
+      )
+      .all().length > 0
+  );
 }
 
 export async function getAvailableCredits(userId: string, now = new Date()) {
@@ -65,16 +95,29 @@ export async function getAvailableCredits(userId: string, now = new Date()) {
 }
 
 /**
- * Spend one credit from the batch that expires soonest.
- * Returns the batch id it came from, or null if the member has none.
- * Safe under concurrency: the UPDATE is conditional on creditsRemaining > 0.
+ * Spend one credit on one class.
+ *
+ * From the batch that expires soonest **among those allowed to pay for a class
+ * on that date**. The second half is not a detail: a free opening-week session
+ * carries a spend window, and without checking it here the member would book a
+ * class in November, silently burn the free session, and then find they had
+ * nothing left for the week the offer was for. Nobody would have seen an error;
+ * they would simply have been robbed by a sort order.
+ *
+ * `classStartsAt` is optional so that callers with nothing to do with the
+ * timetable — an adjustment at the desk, a test — keep working. Omitting it
+ * means "any batch will do", which is the old behaviour.
+ *
+ * Returns the batch id it came from, or null if the member has nothing that can
+ * pay for this class. Safe under concurrency: the UPDATE is conditional on
+ * creditsRemaining > 0.
  */
 export function spendOneCredit(
   userId: string,
-  opts: { bookingId?: string; note?: string } = {},
+  opts: { bookingId?: string; note?: string; classStartsAt?: Date } = {},
   now = new Date(),
 ): string | null {
-  const batches = db
+  const all = db
     .select()
     .from(creditBatches)
     .where(
@@ -86,6 +129,10 @@ export function spendOneCredit(
     )
     .orderBy(asc(creditBatches.expiresAt), asc(creditBatches.createdAt))
     .all();
+
+  const batches = opts.classStartsAt
+    ? all.filter((b) => windowAllows(b, opts.classStartsAt!))
+    : all;
 
   for (const batch of batches) {
     const res = db
@@ -177,6 +224,15 @@ export function grantCredits(args: {
   purchaseId?: string;
   reason?: string;
   note?: string;
+  /** An exact expiry, when it is a date rather than a number of days. */
+  expiresAt?: Date | null;
+  /**
+   * Which class dates these sessions may be spent on. Both null — the normal
+   * case — means any class. See lib/promo.ts for why this is separate from
+   * expiry.
+   */
+  usableFrom?: Date | null;
+  usableTo?: Date | null;
 }) {
   const {
     userId,
@@ -189,9 +245,11 @@ export function grantCredits(args: {
   } = args;
 
   const expiresAt =
-    validityDays && validityDays > 0
-      ? new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000)
-      : null;
+    args.expiresAt !== undefined
+      ? args.expiresAt
+      : validityDays && validityDays > 0
+        ? new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000)
+        : null;
 
   const batch = db
     .insert(creditBatches)
@@ -202,6 +260,8 @@ export function grantCredits(args: {
       creditsRemaining: credits,
       source,
       expiresAt,
+      usableFrom: args.usableFrom ?? null,
+      usableTo: args.usableTo ?? null,
     })
     .returning()
     .get();

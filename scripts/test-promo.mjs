@@ -1,0 +1,240 @@
+/**
+ * The opening-week offer, over HTTP, with the offer switched on.
+ *
+ *   npm run build
+ *   PROMO_ENABLED=true npx next start -p 3100
+ *   npm run test:promo -- http://localhost:3100
+ *
+ * Its own suite because it needs the opposite environment from every other one:
+ * the rest of the suites assert what a new account starts with and therefore run
+ * with `PROMO_ENABLED=false`. Trying to serve both from one file would mean
+ * assertions that change with the calendar, which is the kind of test that gets
+ * deleted in six months rather than fixed.
+ *
+ * What it is really checking is one thing: that a free session tied to one week
+ * cannot be spent anywhere else. Everything above that is scaffolding.
+ */
+const B = process.argv[2] ?? "http://localhost:3000";
+
+const jar = () => new Map();
+const ch = (j) => [...j].map(([k, v]) => `${k}=${v}`).join("; ");
+
+async function req(j, path, { method = "GET", body } = {}) {
+  const res = await fetch(B + path, {
+    method,
+    headers: {
+      ...(body ? { "Content-Type": "application/json" } : {}),
+      ...(j.size ? { cookie: ch(j) } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+    redirect: "manual",
+  });
+  for (const c of res.headers.getSetCookie?.() ?? []) {
+    const [pair] = c.split(";");
+    const [k, ...rest] = pair.split("=");
+    const v = rest.join("=");
+    if (v === "") j.delete(k.trim());
+    else j.set(k.trim(), v);
+  }
+  const text = await res.text();
+  let json = null;
+  try {
+    json = JSON.parse(text);
+  } catch {}
+  return { status: res.status, json, text };
+}
+
+let pass = 0,
+  fail = 0;
+const check = (l, c, x) => {
+  if (c) {
+    pass++;
+    console.log("  ✓ " + l);
+  } else {
+    fail++;
+    console.log("  ✗ " + l, x ?? "");
+  }
+};
+
+let seq = 0;
+const phone = () =>
+  `+35799${String(200000 + ((Date.now() % 700000) + seq++ * 11)).slice(0, 6)}`;
+
+async function member(tag) {
+  const j = jar();
+  const email = `promo-${tag}-${Date.now()}-${seq}@apex.test`;
+  const reg = await req(j, "/api/auth/register", {
+    method: "POST",
+    body: {
+      name: `Promo ${tag}`,
+      email,
+      phone: phone(),
+      password: "test12345",
+      serviceOptIn: true,
+    },
+  });
+  return { j, email, ok: reg.json?.ok === true, err: reg.json?.error };
+}
+
+/* ------------------------------------------------------------------ 1 */
+console.log("\n1. A new account is given the free session");
+const m = await member("joiner");
+check("registration succeeds", m.ok, m.err);
+
+const wallet = await req(m.j, "/api/bookings");
+check("the free session is in the balance", wallet.json?.credits === 1, wallet.json?.credits);
+
+if (wallet.json?.credits !== 1) {
+  console.error(
+    "\n  ! The offer looks switched off. Start the server with PROMO_ENABLED=true\n",
+  );
+  process.exit(1);
+}
+
+/* And they are told, in a way that names the week. */
+const notes = await req(m.j, "/api/notices?filter=all&page=1&locale=en");
+const promoNote = (notes.json?.rows ?? []).find((r) => /free session/i.test(r.title));
+check("they are told about it", Boolean(promoNote), (notes.json?.rows ?? []).map((r) => r.title));
+check(
+  "and the message names the week",
+  /14 September/.test(promoNote?.body ?? "") && /19 September/.test(promoNote?.body ?? ""),
+  promoNote?.body,
+);
+check(
+  "and says when the session expires",
+  /expires on 19 September/i.test(promoNote?.body ?? ""),
+  promoNote?.body,
+);
+
+const el = await req(m.j, "/api/notices?filter=all&page=1&locale=el");
+const greek = (el.json?.rows ?? []).find((r) => /συνεδρία δώρο/i.test(r.title));
+check("the Greek version exists too", Boolean(greek), (el.json?.rows ?? []).map((r) => r.title));
+check(
+  "and the Greek names the dates and the expiry",
+  /Σεπτεμβρίου/.test(greek?.body ?? "") && /λήγει/.test(greek?.body ?? ""),
+  greek?.body,
+);
+
+/* ------------------------------------------------------------------ 2 */
+console.log("\n2. It can only be spent on the opening week");
+
+/* Find a class inside the promo week, and one well outside it. */
+const sessions = await req(m.j, "/api/sessions?days=42");
+const all = sessions.json?.sessions ?? sessions.json?.days?.flatMap((d) => d.sessions) ?? [];
+check("the timetable answers", all.length > 0, all.length);
+
+const inWeek = all.filter((s) => {
+  const d = new Date(s.startsAt);
+  return d >= new Date("2026-09-14T00:00:00+03:00") && d <= new Date("2026-09-19T23:59:00+03:00");
+});
+const outside = all.filter((s) => new Date(s.startsAt) > new Date("2026-09-21T00:00:00+03:00"));
+
+check("there are classes in the opening week", inWeek.length > 0, inWeek.length);
+check("and classes after it", outside.length > 0, outside.length);
+
+if (outside.length > 0) {
+  /* The bug the whole feature turns on. */
+  const stolen = await req(m.j, "/api/bookings", {
+    method: "POST",
+    body: { sessionId: outside[0].id },
+  });
+  check(
+    "a class outside the week is refused",
+    stolen.json?.error === "CREDITS_NOT_VALID_HERE",
+    stolen.json,
+  );
+  check(
+    "and it does not say 'no sessions' when they plainly have one",
+    stolen.json?.error !== "NO_CREDITS",
+    stolen.json?.error,
+  );
+  const still = await req(m.j, "/api/bookings");
+  check("the free session is untouched", still.json?.credits === 1, still.json?.credits);
+}
+
+if (inWeek.length > 0) {
+  const booked = await req(m.j, "/api/bookings", {
+    method: "POST",
+    body: { sessionId: inWeek[0].id },
+  });
+  check("a class inside the week is booked", booked.json?.ok === true, booked.json);
+  const after = await req(m.j, "/api/bookings");
+  check("and the session is spent", after.json?.credits === 0, after.json?.credits);
+
+  /* Cancelling gives it back, still tied to the week. */
+  /* Matched on the start time: the booking rows carry that, not a session id. */
+  const mine = (after.json?.upcoming ?? []).find(
+    (b) => new Date(b.startsAt).getTime() === new Date(inWeek[0].startsAt).getTime(),
+  );
+  if (mine) {
+    const off = await req(m.j, "/api/bookings/cancel", {
+      method: "POST",
+      body: { bookingId: mine.id },
+    });
+    check("cancelling is allowed", off.json?.ok === true, off.json);
+    const back = await req(m.j, "/api/bookings");
+    check("the free session comes back", back.json?.credits === 1, back.json?.credits);
+
+    const again = await req(m.j, "/api/bookings", {
+      method: "POST",
+      body: { sessionId: outside[0].id },
+    });
+    check(
+      "and is still refused outside the week after coming back",
+      again.json?.error === "CREDITS_NOT_VALID_HERE",
+      again.json,
+    );
+  }
+}
+
+/* ------------------------------------------------------------------ 3 */
+console.log("\n3. A bought pack works for any week, free session or not");
+const buyer = await member("buyer");
+check("a second member joins", buyer.ok, buyer.err);
+
+/* Buy a pack through the test provider, so they hold both kinds. */
+const open = await req(buyer.j, "/api/checkout", {
+  method: "POST",
+  body: { packSlug: "pack-5" },
+});
+if (open.json?.purchaseId) {
+  await req(buyer.j, "/api/payments/settle", {
+    method: "POST",
+    body: { purchaseId: open.json.purchaseId },
+  });
+  const bal = await req(buyer.j, "/api/bookings");
+  check("they hold the free session plus the pack", (bal.json?.credits ?? 0) === 6, bal.json?.credits);
+
+  if (outside.length > 1) {
+    const later = await req(buyer.j, "/api/bookings", {
+      method: "POST",
+      body: { sessionId: outside[1].id },
+    });
+    check("a later class books fine on the pack", later.json?.ok === true, later.json);
+    const afterLater = await req(buyer.j, "/api/bookings");
+    check("and five sessions remain", afterLater.json?.credits === 5, afterLater.json?.credits);
+  }
+
+  if (inWeek.length > 1) {
+    const promoWeek = await req(buyer.j, "/api/bookings", {
+      method: "POST",
+      body: { sessionId: inWeek[1].id },
+    });
+    check("an opening-week class books too", promoWeek.json?.ok === true, promoWeek.json);
+    /* And it should have taken the free one — it expires soonest and is valid —
+       so the pack should still hold all five. */
+    const afterPromo = await req(buyer.j, "/api/bookings");
+    check(
+      "and it spent the free session, leaving the pack whole",
+      afterPromo.json?.credits === 4,
+      afterPromo.json?.credits,
+    );
+  }
+} else {
+  console.log("  · no payment provider configured, skipping the pack half");
+}
+
+console.log(
+  `\n${fail === 0 ? "ALL PASS" : "FAILURES"} — ${pass} passed, ${fail} failed\n`,
+);
+process.exit(fail === 0 ? 0 : 1);

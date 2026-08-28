@@ -3,7 +3,10 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { createSession, hashPassword } from "@/lib/auth";
+import { grantCredits } from "@/lib/credits";
+import { notifyPromoGranted } from "@/lib/messaging/events";
 import { toE164 } from "@/lib/messaging/sms";
+import { activePromo } from "@/lib/promo";
 import { REMINDER_DEFAULT_MINUTES } from "@/lib/profile";
 import { registerSchema } from "@/lib/validation";
 
@@ -75,6 +78,38 @@ export async function POST(req: Request) {
     })
     .returning()
     .get();
+
+  /**
+   * The opening-week offer.
+   *
+   * Granted here rather than by a job that sweeps later, for two reasons: the
+   * member sees it the moment they land on the timetable, which is when it is
+   * most likely to be used, and there is no window in which they have an account
+   * and not the thing they were promised.
+   *
+   * Never allowed to fail the registration. An account that exists without its
+   * free session is a problem the desk can fix in ten seconds; a registration
+   * that failed because a promotional grant threw is a customer lost.
+   */
+  const promo = activePromo();
+  if (promo) {
+    try {
+      grantCredits({
+        userId: user.id,
+        credits: promo.credits,
+        validityDays: null,
+        expiresAt: promo.expiresAt,
+        usableFrom: promo.spendFrom,
+        usableTo: promo.spendUntil,
+        source: "GRANT",
+        reason: "ADMIN_GRANT",
+        note: `${promo.name} — free session on joining`,
+      });
+      void notifyPromoGranted(user.id, promo).catch(() => {});
+    } catch (e) {
+      console.error("[promo] grant failed for", user.email, e);
+    }
+  }
 
   await createSession(user);
 

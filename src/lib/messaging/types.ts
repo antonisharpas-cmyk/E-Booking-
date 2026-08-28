@@ -55,6 +55,13 @@ export type ChannelReport = {
   /** Recipients this channel did not apply to: no consent, no phone, no device. */
   skipped: number;
   errors: string[];
+  /**
+   * SMS only: how many billable segments each message became, and which
+   * alphabet forced it. `sent` counts people; the invoice counts people times
+   * segments, and those are different numbers the moment Greek is involved.
+   */
+  segments?: number;
+  encoding?: "gsm7" | "unicode";
 };
 
 export const CHANNELS: Channel[] = ["push", "email", "sms"];

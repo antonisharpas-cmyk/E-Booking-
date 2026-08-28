@@ -39,6 +39,22 @@ async function req(j, path, { method = "GET", body } = {}) {
   return { status: res.status, json, text };
 }
 
+/* The opening-week offer grants a free session on registration, which changes
+   what a new account starts with — so this suite expects it off. Said here,
+   once and plainly, rather than surfacing as a dozen confusing failures about
+   balances being one too high. */
+async function assertNoPromo(reg) {
+  if (!reg) return;
+  const me = await req(reg, "/api/bookings");
+  if ((me.json?.credits ?? 0) > 0) {
+    console.error(
+      "\n  ! This suite needs the opening-week promo switched off." +
+        "\n    Start the server with:  PROMO_ENABLED=false npx next start -p <port>\n",
+    );
+    process.exit(1);
+  }
+}
+
 let pass = 0,
   fail = 0;
 const check = (l, c, x) => {
@@ -679,6 +695,12 @@ console.log("\n13. Test accounts are left out of campaigns");
 
   const before = await req(staff, "/api/admin/notices?audience=ALL");
   const beforePeople = before.json?.reach?.people ?? 0;
+  /* Test accounts this database already holds, from earlier runs of this very
+     suite — marking one is permanent, so every run leaves one behind. The
+     assertions below are about the *change* this run makes, and comparing to a
+     bare figure made them pass on a fresh database and fail on every one after
+     it. Counted, not assumed to be zero. */
+  const beforeTest = before.json?.reach?.testAccounts ?? 0;
 
   const mark = await req(staff, "/api/admin/member", {
     method: "PATCH",
@@ -702,8 +724,8 @@ console.log("\n13. Test accounts are left out of campaigns");
   const included = await req(staff, "/api/admin/notices?audience=ALL&includeTest=1");
   check(
     "asking for them puts them back",
-    (included.json?.reach?.people ?? 0) === beforePeople,
-    { asked: included.json?.reach?.people, expected: beforePeople },
+    (included.json?.reach?.people ?? 0) === beforePeople + beforeTest,
+    { asked: included.json?.reach?.people, expected: beforePeople + beforeTest },
   );
 
   /* The reach figure is a promise about delivery, so check the delivery keeps
@@ -747,7 +769,13 @@ console.log("\n13. Test accounts are left out of campaigns");
   });
   const r2 = (withThem.json?.reports ?? []).find((x) => x.channel === "email");
   const attempted2 = (r2?.sent ?? 0) + (r2?.failed ?? 0) + (r2?.skipped ?? 0);
-  check("including them reaches one more", attempted2 === attempted + 1, { attempted, attempted2 });
+  /* One more for the account just marked, plus any this database was already
+     carrying. */
+  check(
+    "including them reaches the test accounts as well",
+    attempted2 === attempted + beforeTest + 1,
+    { attempted, attempted2, beforeTest },
+  );
 
   const nowSees = await req(dummy.j, "/api/notices?filter=all&page=1");
   check(
@@ -1311,6 +1339,130 @@ console.log("\n20. Campaign filters pick out who a message is for");
     (negative.json?.reach?.people ?? -1) === nowEveryone,
     { negative: negative.json?.reach?.people, nowEveryone },
   );
+}
+
+/* ----------------------------------------------------------------- 21 */
+console.log("\n21. The SMS language, and the guard on the bill");
+{
+  /* The desk chooses the language per message rather than the member choosing
+     it once, because that is what the studio asked for. English is the default
+     and the default is the cheap one. */
+  const meta = await req(staff, "/api/admin/notices?audience=ALL");
+  check(
+    "the desk is told the segment ceiling",
+    (meta.json?.sms?.maxSegments ?? 0) >= 1,
+    meta.json?.sms,
+  );
+
+  const short = await req(staff, "/api/admin/notices", {
+    method: "POST",
+    body: {
+      titleEn: "Closed Monday",
+      bodyEn: "No classes on Monday.",
+      titleEl: "Κλειστά τη Δευτέρα",
+      bodyEl: "Δεν θα γίνουν μαθήματα τη Δευτέρα.",
+      audience: "ALL",
+      channels: ["sms"],
+    },
+  });
+  const smsReport = (short.json?.reports ?? []).find((r) => r.channel === "sms");
+  check("a short notice sends by SMS", short.json?.ok === true, short.json);
+  check(
+    "and the report says how many segments each message became",
+    smsReport?.segments === 1,
+    smsReport,
+  );
+  check(
+    "English by default, so the cheap alphabet",
+    smsReport?.encoding === "gsm7",
+    smsReport,
+  );
+
+  /* Asking for Greek costs more, and the report says so rather than leaving the
+     desk to find out from an invoice. */
+  const inGreek = await req(staff, "/api/admin/notices", {
+    method: "POST",
+    body: {
+      titleEn: "Closed Monday",
+      bodyEn: "No classes on Monday.",
+      titleEl: "Κλειστά τη Δευτέρα",
+      bodyEl: "Δεν θα γίνουν μαθήματα τη Δευτέρα.",
+      audience: "ALL",
+      channels: ["sms"],
+      smsLang: "el",
+    },
+  });
+  const greekReport = (inGreek.json?.reports ?? []).find((r) => r.channel === "sms");
+  check("Greek can be chosen", inGreek.json?.ok === true, inGreek.json);
+  check(
+    "and is reported as the expensive alphabet",
+    greekReport?.encoding === "unicode",
+    greekReport,
+  );
+
+  /* The short override: the notice can be long and the text message short. */
+  const overridden = await req(staff, "/api/admin/notices", {
+    method: "POST",
+    body: {
+      titleEn: "Timetable changes from October",
+      bodyEn: "A".repeat(900),
+      audience: "ALL",
+      channels: ["sms"],
+      smsEn: "Timetable changes from October. See your account.",
+    },
+  });
+  const overRep = (overridden.json?.reports ?? []).find((r) => r.channel === "sms");
+  check(
+    "a long notice with a short text is one segment",
+    overridden.json?.ok === true && overRep?.segments === 1,
+    { ok: overridden.json?.ok, report: overRep },
+  );
+
+  /* And the guard. A 900-character body with no short version would be six
+     messages to every member; it is refused before the notice is written, so
+     the desk shortens it and sends once rather than finding a half-sent
+     announcement in the history. */
+  const before = (await req(staff, "/api/admin/notices?channel=sms")).json?.history
+    ?.total ?? 0;
+  const tooLong = await req(staff, "/api/admin/notices", {
+    method: "POST",
+    body: {
+      titleEn: "Everything you never wanted to read",
+      bodyEn: "A".repeat(900),
+      audience: "ALL",
+      channels: ["sms"],
+    },
+  });
+  check(
+    "an over-long text is refused",
+    tooLong.status === 400 && tooLong.json?.error === "SMS_TOO_LONG",
+    tooLong.json,
+  );
+  check(
+    "and the refusal says how many it would have been",
+    (tooLong.json?.segments ?? 0) > (tooLong.json?.max ?? 0),
+    tooLong.json,
+  );
+  const after = (await req(staff, "/api/admin/notices?channel=sms")).json?.history
+    ?.total ?? 0;
+  check(
+    "nothing was written, so it can be fixed and sent once",
+    after === before,
+    { before, after },
+  );
+
+  /* The same body is fine without SMS ticked — the ceiling belongs to the
+     channel with a price on it, not to notices in general. */
+  const noSms = await req(staff, "/api/admin/notices", {
+    method: "POST",
+    body: {
+      titleEn: "Everything you never wanted to read",
+      bodyEn: "A".repeat(900),
+      audience: "ALL",
+      channels: ["push"],
+    },
+  });
+  check("the same notice sends fine without SMS", noSms.json?.ok === true, noSms.json);
 }
 
 console.log(

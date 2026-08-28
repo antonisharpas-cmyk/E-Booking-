@@ -766,6 +766,206 @@ async function main() {
     check("and is one language", !/[Α-Ωα-ω]/.test(booked.en.body), booked.en.body);
   }
 
+  /* ---------------------------------------------------------------- 11 */
+  console.log("\n11. The opening-week free session");
+  {
+    const P = await import("../src/lib/promo");
+    const { spendOneCredit, getAvailableCredits: bal } = await import(
+      "../src/lib/credits"
+    );
+
+    const promoUser = db
+      .insert(users)
+      .values({
+        email: `promo-${Date.now()}@apex.test`,
+        name: "Promo Tester",
+        passwordHash: await hashPassword("x".repeat(10)),
+      })
+      .returning()
+      .get();
+
+    /* One free session, spendable only on classes in the promo week. */
+    grantCredits({
+      userId: promoUser.id,
+      credits: 1,
+      validityDays: null,
+      expiresAt: P.PROMO.expiresAt,
+      usableFrom: P.PROMO.spendFrom,
+      usableTo: P.PROMO.spendUntil,
+      source: "GRANT",
+      reason: "ADMIN_GRANT",
+      note: "opening week",
+    });
+    check("the free session is in the balance", (await bal(promoUser.id)) === 1);
+
+    const inside = new Date(P.PROMO.spendFrom.getTime() + 36 * 3600_000);
+    const outside = new Date(P.PROMO.spendUntil.getTime() + 21 * 86_400_000);
+    const before = new Date(P.PROMO.spendFrom.getTime() - 3 * 86_400_000);
+
+    check(
+      "the window allows a class inside it",
+      P.windowAllows(
+        { usableFrom: P.PROMO.spendFrom, usableTo: P.PROMO.spendUntil },
+        inside,
+      ),
+    );
+    check(
+      "and refuses one after it",
+      !P.windowAllows(
+        { usableFrom: P.PROMO.spendFrom, usableTo: P.PROMO.spendUntil },
+        outside,
+      ),
+    );
+    check(
+      "and one before it",
+      !P.windowAllows(
+        { usableFrom: P.PROMO.spendFrom, usableTo: P.PROMO.spendUntil },
+        before,
+      ),
+    );
+    check(
+      "an ordinary bought session is allowed on any date",
+      P.windowAllows({ usableFrom: null, usableTo: null }, outside),
+    );
+
+    /* THE bug this whole feature turns on. Before the window existed, a free
+       session could be spent on any class at all — so a member would book
+       November, silently burn it, and have nothing for the week it was for. */
+    const stolen = spendOneCredit(
+      promoUser.id,
+      { note: "a class outside the promo week", classStartsAt: outside },
+      new Date(P.PROMO.spendFrom.getTime() - 86_400_000),
+    );
+    check("a free session cannot pay for a class outside the week", stolen === null, stolen);
+    check("and is still in the balance afterwards", (await bal(promoUser.id)) === 1);
+
+    /* Inside the week it spends normally. */
+    const spent = spendOneCredit(
+      promoUser.id,
+      { note: "a class in the promo week", classStartsAt: inside },
+      new Date(P.PROMO.spendFrom.getTime() - 86_400_000),
+    );
+    check("inside the week it spends", spent !== null, spent);
+    check("and the balance drops", (await bal(promoUser.id)) === 0);
+
+    /* With both a free session and a bought pack, the right one is spent for
+       each class — which is the studio's requirement, stated as two rules. */
+    const both = db
+      .insert(users)
+      .values({
+        email: `promo-both-${Date.now()}@apex.test`,
+        name: "Promo And Pack",
+        passwordHash: await hashPassword("x".repeat(10)),
+      })
+      .returning()
+      .get();
+
+    grantCredits({
+      userId: both.id,
+      credits: 1,
+      validityDays: null,
+      expiresAt: P.PROMO.expiresAt,
+      usableFrom: P.PROMO.spendFrom,
+      usableTo: P.PROMO.spendUntil,
+      source: "GRANT",
+      reason: "ADMIN_GRANT",
+    });
+    grantCredits({
+      userId: both.id,
+      credits: 5,
+      validityDays: 90,
+      source: "PURCHASE",
+      reason: "PURCHASE",
+      note: "a bought pack",
+    });
+    check("they hold six sessions", (await bal(both.id)) === 6);
+
+    const atClass = new Date(P.PROMO.spendFrom.getTime() - 86_400_000);
+
+    /* A promo-week class must take the free one first: it expires soonest and it
+       is valid, so the member gets the benefit rather than losing it. */
+    const promoBatch = spendOneCredit(
+      both.id,
+      { classStartsAt: inside },
+      atClass,
+    );
+    const promoRow = db
+      .select()
+      .from(creditBatches)
+      .where(eq(creditBatches.id, promoBatch!))
+      .get()!;
+    check(
+      "a promo-week class spends the free session, not the pack",
+      promoRow.usableFrom !== null,
+      { source: promoRow.source, usableFrom: promoRow.usableFrom },
+    );
+
+    /* And a class outside the week must take the pack, leaving the free one. */
+    const packBatch = spendOneCredit(
+      both.id,
+      { classStartsAt: outside },
+      atClass,
+    );
+    const packRow = db
+      .select()
+      .from(creditBatches)
+      .where(eq(creditBatches.id, packBatch!))
+      .get()!;
+    check(
+      "a later class spends the pack, not the free session",
+      packRow.usableFrom === null,
+      { source: packRow.source, usableFrom: packRow.usableFrom },
+    );
+
+    /* The grant window: who qualifies. */
+    check(
+      "somebody registering inside the window qualifies",
+      P.activePromo(new Date(P.PROMO.grantFrom.getTime() + 86_400_000)) !== null,
+    );
+    check(
+      "somebody registering before it does not",
+      P.activePromo(new Date(P.PROMO.grantFrom.getTime() - 86_400_000)) === null,
+    );
+    check(
+      "and neither does somebody after it",
+      P.activePromo(new Date(P.PROMO.grantUntil.getTime() + 86_400_000)) === null,
+    );
+
+    /* The dates the studio actually asked for, checked against the constants so
+       a careless edit to promo.ts is caught rather than discovered in September. */
+    const key = (d: Date) =>
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: STUDIO.timezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(d);
+    check("the week starts Monday 14 September", key(P.PROMO.spendFrom) === "2026-09-14", key(P.PROMO.spendFrom));
+    check("and ends Saturday 19 September", key(P.PROMO.spendUntil) === "2026-09-19", key(P.PROMO.spendUntil));
+    check("granting stops on 20 September", key(P.PROMO.grantUntil) === "2026-09-20", key(P.PROMO.grantUntil));
+    /* The studio is closed on Sundays, so a window ending on the 20th would
+       promise a day with no classes in it. */
+    check("the last day of the window is not a Sunday", studioDayOfWeek(P.PROMO.spendUntil) !== 0);
+
+    /* The wording has to name the window, or the offer is unusable. */
+    const W = await import("../src/lib/messaging/wording");
+    const words = W.promoWords({ credits: 1, from: P.PROMO.spendFrom, to: P.PROMO.spendUntil });
+    check("the message names both dates", /14 September/.test(words.en.body) && /19 September/.test(words.en.body), words.en.body);
+    /* The expiry date has to be in the words, or a member saves the session for
+       a week that no longer accepts it. */
+    check("and says when it expires", /expires on 19 September/.test(words.en.body), words.en.body);
+    /* No em dash: the studio reads one as machine-written. */
+    check("and is written without an em dash", !words.en.body.includes("—") && !words.el.body.includes("—"), words.en.body);
+    check("the Greek version names them too", /Σεπτεμβρίου/.test(words.el.body), words.el.body);
+
+    /* Tidy up so a repeat run starts clean. */
+    for (const u of [promoUser.id, both.id]) {
+      db.delete(creditLedger).where(eq(creditLedger.userId, u)).run();
+      db.delete(creditBatches).where(eq(creditBatches.userId, u)).run();
+      db.delete(users).where(eq(users.id, u)).run();
+    }
+  }
+
   console.log(
     `\n${fail === 0 ? "ALL PASS" : "FAILURES"} — ${pass} passed, ${fail} failed\n`,
   );

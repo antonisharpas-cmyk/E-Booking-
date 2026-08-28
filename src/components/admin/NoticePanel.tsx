@@ -4,6 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Pager } from "@/components/ui/Pager";
 import { useI18n } from "@/i18n/LanguageProvider";
+import {
+  MAX_SEGMENTS,
+  smsBodyFor,
+  smsCost,
+} from "@/lib/messaging/segments";
 import { cn } from "@/lib/utils";
 
 /**
@@ -55,6 +60,13 @@ type HistoryMeta = {
   counts: { all: number; push: number; email: number; sms: number };
 };
 type Transports = Record<string, { name: string; ready: boolean }>;
+type SmsMeta = {
+  maxSegments: number;
+  /** What appears in the recipient's inbox instead of a phone number. */
+  sender: string;
+  /** Cost of one segment, or null when nobody has configured a price. */
+  pricePerSegment: number | null;
+};
 type Channel = "push" | "email" | "sms";
 
 export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
@@ -68,6 +80,17 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
   const [textEl, setTextEl] = useState("");
   const [important, setImportant] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  /* SMS is the one channel with a price on it, so it carries one choice of its
+     own: which language goes out. English by default — one segment against three.
+
+     The wording is *not* a second thing to write. `smsEn`/`smsEl` stay empty and
+     the text follows the message above; they only fill up if somebody asks to
+     change the wording, and clearing them puts it back to following. Empty is
+     therefore a meaningful state and not a missing one. */
+  const [smsLang, setSmsLang] = useState<"en" | "el" | "both">("en");
+  const [smsEn, setSmsEn] = useState("");
+  const [smsEl, setSmsEl] = useState("");
+  const [smsEditing, setSmsEditing] = useState(false);
 
   const [audience, setAudience] = useState<"ALL" | "OFFERS">("ALL");
   /* Push starts ticked, because it is the channel the studio wants used and the
@@ -75,6 +98,9 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
   const [channels, setChannels] = useState<Channel[]>(["push"]);
   const [reach, setReach] = useState<Reach | null>(null);
   const [transports, setTransports] = useState<Transports>({});
+  /* The ceiling and the price come from the server, so a change of provider is
+     a change of configuration rather than a change of code. */
+  const [smsMeta, setSmsMeta] = useState<SmsMeta | null>(null);
 
   /* Test accounts are out unless somebody deliberately puts them in. The default
      is the one that matters: a real announcement counted as reaching 41 people
@@ -131,11 +157,13 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
         history: HistoryMeta;
         reach: Reach;
         transports: Transports;
+        sms?: SmsMeta;
       };
       setHistory(data.notices ?? []);
       setMeta(data.history ?? null);
       setReach(data.reach ?? null);
       setTransports(data.transports ?? {});
+      setSmsMeta(data.sms ?? null);
     },
     [],
   );
@@ -170,6 +198,39 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
   const toggle = (c: Channel) =>
     setChannels((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]));
 
+  /* The price, worked out from exactly the same code the server bills from —
+     imported, not reimplemented. A cost shown at the desk that disagrees with
+     the invoice is worse than showing nothing, and two copies of segment
+     arithmetic would eventually disagree. */
+  const smsNoticeEn = { subject: title, body: text };
+  const smsNoticeEl =
+    titleEl && textEl ? { subject: titleEl, body: textEl } : undefined;
+  const smsPreview = smsBodyFor(smsLang, smsNoticeEn, smsNoticeEl, {
+    en: smsEn,
+    el: smsEl,
+  });
+  /* Each language on its own, so pressing "change the wording" starts from the
+     words that were about to be sent rather than from an empty box. */
+  const smsPreviewEn = smsBodyFor("en", smsNoticeEn, smsNoticeEl);
+  /* Empty when no Greek has been typed upstairs, rather than falling back to the
+     English. Prefilling a box labelled "Greek" with English words invites
+     somebody to send exactly that. */
+  const smsPreviewEl = smsNoticeEl
+    ? smsBodyFor("el", smsNoticeEn, smsNoticeEl)
+    : "";
+  const smsPreviewCost = smsCost(smsPreview);
+  /* Read from the server rather than assumed, so the preview shows the sender
+     the member will actually see. */
+  const smsSender = smsMeta?.sender ?? "APEX pilates";
+  const smsRecipients = reach?.sms ?? 0;
+  const smsTotalSegments = smsPreviewCost.segments * smsRecipients;
+  const smsMax = smsMeta?.maxSegments ?? MAX_SEGMENTS;
+  const smsOver = smsPreviewCost.segments > smsMax;
+  const smsMoney =
+    smsMeta?.pricePerSegment == null
+      ? null
+      : smsTotalSegments * smsMeta.pricePerSegment;
+
   async function send() {
     setBusy("send");
     try {
@@ -188,6 +249,9 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
           neverPaid,
           noSessionsLeft,
           inactiveDays: awayDays,
+          smsLang,
+          smsEn,
+          smsEl,
         }),
       });
       const data = (await res.json()) as {
@@ -211,6 +275,9 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
       setText("");
       setTitleEl("");
       setTextEl("");
+      setSmsEn("");
+      setSmsEl("");
+      setSmsEditing(false);
       setImportant(false);
       await refresh(1);
     } finally {
@@ -320,8 +387,272 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
             ))}
           </div>
 
-          {/* ------------------------------------- narrow it by what they did */}
-          <p className="mt-6 text-[10px] uppercase tracking-brand text-clay">
+        </div>
+
+        {/* ------------------------------------------------ how it goes out */}
+        <div className="mt-7">
+          <p className="text-[10px] uppercase tracking-brand text-clay">
+            {d.channelsTitle}
+          </p>
+          <p className="mt-2 text-[11px] leading-relaxed text-clay">
+            {d.channelsHelp}
+          </p>
+
+          <div className="mt-4 space-y-3">
+            {(
+              [
+                ["push", d.chanPush, d.chanPushWhy, reach?.push],
+                ["email", d.chanEmail, d.chanEmailWhy, reach?.email],
+                ["sms", d.chanSms, d.chanSmsWhy, reach?.sms],
+              ] as const
+            ).map(([key, label, why, n]) => {
+              const on = channels.includes(key);
+              const ready = transports[key]?.ready ?? true;
+              return (
+                <button
+                  key={key}
+                  data-channel={key}
+                  aria-pressed={on}
+                  onClick={() => toggle(key)}
+                  className={cn(
+                    "flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition-colors duration-300",
+                    on
+                      ? "border-mocha-600 bg-mocha-600/[0.06]"
+                      : "border-mocha-200 hover:border-mocha-400",
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border text-[11px]",
+                      on
+                        ? "border-mocha-600 bg-mocha-600 text-cream"
+                        : "border-mocha-300",
+                    )}
+                  >
+                    {on ? "✓" : ""}
+                  </span>
+                  <span className="flex-1">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="text-[13px] text-mocha-700">{label}</span>
+                      {/* The count is the point of this screen: nobody should
+                          press send wondering who it reaches. */}
+                      <span className="text-[11px] text-clay lining-nums tabular-nums">
+                        {ready
+                          ? d.chanReaches.replace("{n}", String(n ?? 0))
+                          : key === "push"
+                            ? d.chanNoKeys
+                            : d.chanNotSet}
+                      </span>
+                    </span>
+                    <span className="mt-1 block text-[11px] leading-relaxed text-clay">
+                      {why}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ---------------------------------------------- the SMS bill
+              Shown only when SMS is on, because it is the only channel with a
+              price. An SMS is billed per 160-character segment — or per 70, the
+              moment one Greek letter appears — so the same announcement can cost
+              one message or five. The desk gets that number while it is still
+              typing, which is the only moment anybody can act on it. */}
+          {channels.includes("sms") && (
+            <div
+              data-sms-panel
+              className="mt-4 rounded-2xl border border-mocha-200 bg-cream-200/40 p-4"
+            >
+              <p className="text-[10px] uppercase tracking-brand text-clay">
+                {d.smsTitle}
+              </p>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(
+                  [
+                    ["en", d.smsLangEn],
+                    ["el", d.smsLangEl],
+                    ["both", d.smsLangBoth],
+                  ] as const
+                ).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    data-sms-lang={key}
+                    aria-pressed={smsLang === key}
+                    onClick={() => setSmsLang(key)}
+                    className={cn(
+                      "rounded-full border px-3.5 py-1.5 text-[11px] uppercase tracking-widest transition-colors",
+                      smsLang === key
+                        ? "border-mocha-600 bg-mocha-600 text-cream"
+                        : "border-mocha-300 text-mocha-500 hover:border-mocha-500",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* What lands on the phone — always shown, never asked for.
+                  The message is written once, above. This is a preview of it,
+                  and it stays visible while the wording is being changed so the
+                  desk can watch the thing it is editing rather than imagining
+                  it. That matters most for "both", where the interesting
+                  question is not what the two texts say but how they read
+                  stacked in one message. */}
+              <div className="mt-4">
+                <div className="rounded-2xl rounded-bl-md border border-mocha-200 bg-white/80 px-4 py-3">
+                  <p className="text-[9px] uppercase tracking-brand text-clay/70">
+                    {smsSender}
+                  </p>
+                  <p
+                    data-sms-preview
+                    className="mt-1.5 whitespace-pre-wrap text-[13px] leading-relaxed text-mocha-700"
+                  >
+                    {smsPreview || (
+                      <span className="text-clay/60">{d.smsEmpty}</span>
+                    )}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  data-sms-edit={smsEditing ? "on" : "off"}
+                  onClick={() => {
+                    if (smsEditing) {
+                      /* Back to following the notice: the override is cleared,
+                         not hidden. A stale draft sitting invisibly behind a
+                         closed panel is exactly the bug this redesign removes. */
+                      setSmsEn("");
+                      setSmsEl("");
+                      setSmsEditing(false);
+                    } else {
+                      /* Start from what would have been sent, so changing three
+                         words is changing three words. */
+                      setSmsEn(smsPreviewEn);
+                      setSmsEl(smsPreviewEl);
+                      setSmsEditing(true);
+                    }
+                  }}
+                  className="link-underline mt-2.5 text-[11px] uppercase tracking-widest text-mocha-500 transition-colors hover:text-mocha-700"
+                >
+                  {smsEditing ? d.smsFollow : d.smsEdit}
+                </button>
+
+                {/* One box per language actually going out, each named.
+                    The first version showed the English box unconditionally, so
+                    picking Greek gave two boxes — an unlabelled one and a Greek
+                    one — and picking Both gave two boxes with only the second
+                    labelled. Both readings were guesswork. A box is shown when
+                    its language is being sent, and it always says which. */}
+                {smsEditing && (
+                  <div className="mt-3 space-y-3">
+                    {smsLang !== "el" && (
+                      <div>
+                        <label className="label" htmlFor="notice-sms">
+                          {d.smsLangEn}
+                        </label>
+                        <textarea
+                          id="notice-sms"
+                          rows={3}
+                          autoFocus
+                          value={smsEn}
+                          onChange={(e) => setSmsEn(e.target.value)}
+                          className="input"
+                        />
+                      </div>
+                    )}
+                    {smsLang !== "en" && (
+                      <div>
+                        <label className="label" htmlFor="notice-sms-el">
+                          {d.smsLangEl}
+                        </label>
+                        <textarea
+                          id="notice-sms-el"
+                          rows={3}
+                          autoFocus={smsLang === "el"}
+                          value={smsEl}
+                          onChange={(e) => setSmsEl(e.target.value)}
+                          className="input"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* What it costs, in the units the invoice uses. */}
+              <p
+                data-sms-cost
+                className={cn(
+                  "mt-4 text-[11px] leading-relaxed lining-nums tabular-nums",
+                  smsOver ? "text-clay" : "text-mocha-600",
+                )}
+              >
+                {d.smsCount
+                  .replace("{chars}", String(smsPreviewCost.units))
+                  .replace(
+                    "{alphabet}",
+                    smsPreviewCost.encoding === "unicode"
+                      ? d.smsGreekAlphabet
+                      : d.smsLatinAlphabet,
+                  )}
+                {smsRecipients > 0 && (
+                  <>
+                    {" · "}
+                    {d.smsTotal
+                      .replace("{n}", String(smsTotalSegments))
+                      .replace("{people}", String(smsRecipients))}
+                    {smsMoney !== null && ` ≈ €${smsMoney.toFixed(2)}`}
+                  </>
+                )}
+              </p>
+
+              {/* The sentence that stops the question this label kept raising:
+                  a long text is not several texts on the member's phone. The
+                  network splits it and the handset puts it back together, so
+                  they see one message and the studio pays for three. Said as
+                  both facts, and as the edit that fixes it. */}
+              {smsPreviewCost.segments > 0 && (
+                <p className="mt-1.5 text-[11px] leading-relaxed text-clay">
+                  {smsPreviewCost.segments === 1
+                    ? d.smsFitsOne
+                    : d.smsSplit
+                        .replace("{segments}", String(smsPreviewCost.segments))
+                        .replace("{over}", String(smsPreviewCost.overBy))}
+                </p>
+              )}
+
+              {smsOver && (
+                <p className="mt-2 rounded-xl bg-clay/10 px-3 py-2 text-[11px] leading-relaxed text-clay">
+                  {d.smsTooLong
+                    .replace("{n}", String(smsPreviewCost.segments))
+                    .replace("{max}", String(smsMax))}
+                </p>
+              )}
+
+              {smsPreviewCost.encoding === "unicode" && !smsOver && (
+                <p className="mt-2 text-[11px] leading-relaxed text-clay">
+                  {d.smsGreekWarning}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* --------------------------------------- exclusive categories
+            Last, and deliberately so. The first two sections are the decisions
+            every message needs — who, and how. This one is optional narrowing
+            that most announcements will not touch, and it used to sit in the
+            middle where it read as a required step.
+
+            The test-account switch lives here too rather than floating on its
+            own below. It is the same kind of thing: not "who may we write to"
+            but "which of them is this actually for". */}
+        <div className="mt-8 border-t border-mocha-200/70 pt-6">
+          <p className="text-[10px] uppercase tracking-brand text-clay">
             {d.segTitle}
           </p>
           <p className="mt-2 text-[11px] leading-relaxed text-clay">
@@ -437,92 +768,9 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
             </div>
           </div>
 
-          {/* The number that matters. Filters can narrow an audience to nobody,
-              and pressing send on nobody should not be a surprise. */}
-          {reach && (
-            <p
-              data-reach-total
-              className={cn(
-                "mt-4 text-[12px] leading-relaxed",
-                reach.people === 0 ? "text-red-700" : "text-mocha-600",
-              )}
-            >
-              {reach.people === 0
-                ? d.segNobody
-                : d.segMatches.replace("{n}", String(reach.people))}
-            </p>
-          )}
-        </div>
-
-        {/* ------------------------------------------------ how it goes out */}
-        <div className="mt-7">
-          <p className="text-[10px] uppercase tracking-brand text-clay">
-            {d.channelsTitle}
-          </p>
-          <p className="mt-2 text-[11px] leading-relaxed text-clay">
-            {d.channelsHelp}
-          </p>
-
-          <div className="mt-4 space-y-3">
-            {(
-              [
-                ["push", d.chanPush, d.chanPushWhy, reach?.push],
-                ["email", d.chanEmail, d.chanEmailWhy, reach?.email],
-                ["sms", d.chanSms, d.chanSmsWhy, reach?.sms],
-              ] as const
-            ).map(([key, label, why, n]) => {
-              const on = channels.includes(key);
-              const ready = transports[key]?.ready ?? true;
-              return (
-                <button
-                  key={key}
-                  data-channel={key}
-                  aria-pressed={on}
-                  onClick={() => toggle(key)}
-                  className={cn(
-                    "flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition-colors duration-300",
-                    on
-                      ? "border-mocha-600 bg-mocha-600/[0.06]"
-                      : "border-mocha-200 hover:border-mocha-400",
-                  )}
-                >
-                  <span
-                    aria-hidden
-                    className={cn(
-                      "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border text-[11px]",
-                      on
-                        ? "border-mocha-600 bg-mocha-600 text-cream"
-                        : "border-mocha-300",
-                    )}
-                  >
-                    {on ? "✓" : ""}
-                  </span>
-                  <span className="flex-1">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="text-[13px] text-mocha-700">{label}</span>
-                      {/* The count is the point of this screen: nobody should
-                          press send wondering who it reaches. */}
-                      <span className="text-[11px] text-clay lining-nums tabular-nums">
-                        {ready
-                          ? d.chanReaches.replace("{n}", String(n ?? 0))
-                          : key === "push"
-                            ? d.chanNoKeys
-                            : d.chanNotSet}
-                      </span>
-                    </span>
-                    <span className="mt-1 block text-[11px] leading-relaxed text-clay">
-                      {why}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Only shown when there is at least one test account. A checkbox that
+          {/* Only shown when there is at least one test account. A checkbox that
             can never change anything is one more thing to read. */}
-        {reach && reach.testAccounts > 0 && (
+          {reach && reach.testAccounts > 0 && (
           <button
             type="button"
             data-include-test={includeTest ? "on" : "off"}
@@ -557,6 +805,27 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
             </span>
           </button>
         )}
+
+          {/* The number that matters, last in the section — after the test
+              switch, because that switch is one of the things that changes it.
+              It used to sit above the switch, where it read as a total that the
+              control below could then contradict. Filters can also narrow an
+              audience to nobody, and pressing send on nobody should not be a
+              surprise. */}
+          {reach && (
+            <p
+              data-reach-total
+              className={cn(
+                "mt-5 text-[12px] leading-relaxed",
+                reach.people === 0 ? "text-red-700" : "text-mocha-600",
+              )}
+            >
+              {reach.people === 0
+                ? d.segNobody
+                : d.segMatches.replace("{n}", String(reach.people))}
+            </p>
+          )}
+        </div>
 
         <Button
           className="mt-6 block"

@@ -203,6 +203,18 @@ export function ScheduleClient({
         });
         return;
       }
+
+      /* They have sessions — just not any that can pay for a class on this date.
+         Telling them "no sessions" while their balance plainly reads 1 is how a
+         site loses somebody's trust in a single sentence. */
+      if (data.error === "CREDITS_NOT_VALID_HERE") {
+        flash({
+          kind: "warn",
+          text: t.booking.creditsNotValidHere,
+          cta: { href: "/pricing", label: t.booking.noCreditsCta },
+        });
+        return;
+      }
       const messages: Record<string, string> = {
         CLASS_FULL: t.booking.classFull,
         ALREADY_BOOKED: t.booking.alreadyBooked,

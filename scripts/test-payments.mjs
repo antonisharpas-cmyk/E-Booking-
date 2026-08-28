@@ -47,6 +47,22 @@ async function req(j, path, { method = "GET", body } = {}) {
   return { status: res.status, json, text, headers: res.headers };
 }
 
+/* The opening-week offer grants a free session on registration, which changes
+   what a new account starts with — so this suite expects it off. Said here,
+   once and plainly, rather than surfacing as a dozen confusing failures about
+   balances being one too high. */
+async function assertNoPromo(reg) {
+  if (!reg) return;
+  const me = await req(reg, "/api/bookings");
+  if ((me.json?.credits ?? 0) > 0) {
+    console.error(
+      "\n  ! This suite needs the opening-week promo switched off." +
+        "\n    Start the server with:  PROMO_ENABLED=false npx next start -p <port>\n",
+    );
+    process.exit(1);
+  }
+}
+
 let pass = 0,
   fail = 0;
 const check = (l, c, x) => {

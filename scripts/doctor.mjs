@@ -176,6 +176,7 @@ console.log("\nGetting a message out");
     (email === "resend" && process.env.RESEND_API_KEY) ||
     (email === "brevo" && process.env.BREVO_API_KEY);
   const smsKeyed =
+    (sms === "smsto" && process.env.SMSTO_API_KEY && process.env.SMS_SENDER) ||
     (sms === "twilio" &&
       process.env.TWILIO_ACCOUNT_SID &&
       process.env.TWILIO_AUTH_TOKEN &&
@@ -237,8 +238,36 @@ console.log("\nGetting a message out");
   sms === "log"
     ? warn("sms: log mode — nothing is actually sent", "docs/notifications.md")
     : smsKeyed
-      ? ok(`sms: ${sms}`)
+      ? ok(`sms: ${sms} as "${process.env.SMS_SENDER ?? process.env.TWILIO_FROM}"`)
       : bad(`sms: ${sms} selected but its credentials are missing`, "docs/notifications.md");
+
+  /* The sender name is capped at 11 characters by the SMS standard itself, not
+     by any provider. Over that it is silently truncated or rejected depending on
+     the network, and the studio finds out from a member. */
+  const sender = process.env.SMS_SENDER ?? "";
+  if (sms !== "log" && sender) {
+    sender.length > 11
+      ? bad(`sms: sender "${sender}" is ${sender.length} characters, over the 11 the standard allows`)
+      : /[^A-Za-z0-9 ]/.test(sender)
+        ? warn(`sms: sender "${sender}" has characters some networks reject`, "letters and digits only")
+        : ok(`sms: sender name fits (${sender.length}/11)`);
+  }
+
+  /* Credit is the silent failure: it runs out, every send fails, and nothing on
+     the website looks any different. Asked about only when a provider is live. */
+  if (sms === "smsto" && process.env.SMSTO_API_KEY) {
+    try {
+      const { smsBalance } = await import("../src/lib/messaging/sms.ts");
+      const bal = await smsBalance();
+      bal
+        ? bal.amount <= 2
+          ? warn(`sms: only ${bal.amount} ${bal.currency} of credit left`, "top up at sms.to")
+          : ok(`sms: ${bal.amount} ${bal.currency} of credit`)
+        : warn("sms: could not read the account balance", "check the key, or the endpoint has moved");
+    } catch {
+      warn("sms: could not read the account balance");
+    }
+  }
 
   /* Members who left email on, and members who deliberately turned SMS on. The
      second number is the one that costs money. */
