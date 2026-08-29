@@ -247,11 +247,13 @@
 
   /* ---- full-screen mobile menu ---- */
   .sheet {
+    visibility: hidden;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.4s ease;
+    transition: opacity 0.4s ease, visibility 0.4s ease;
   }
   .sheet.is-open {
+    visibility: visible;
     opacity: 1;
     pointer-events: auto;
   }

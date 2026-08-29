@@ -73,16 +73,10 @@ export default async function TimetablePage() {
     };
   }
 
-  /* Sundays never appear: the studio is closed. The window is still 28 calendar
-     days wide, so it rolls forward a day at a time on its own. */
+  /* Keep Sundays and any manually closed days visible so the timetable makes the
+     studio's closure status explicit instead of silently dropping the date. */
   const closed = closedDaySet();
-  const days = studioDayKeys(from, DAYS_SHOWN, [0]).filter(
-    /* Public holidays and the summer break, set at the desk. The classes on a
-       closed day are cancelled too, so they would drop out of the list anyway —
-       but the day itself has to go, or the timetable offers an empty date and
-       makes the visitor wonder what they are missing. */
-    (d) => !closed.has(d),
-  );
+  const days = studioDayKeys(from, DAYS_SHOWN);
 
   return (
     <TimetableIntro>
@@ -92,6 +86,7 @@ export default async function TimetablePage() {
         signedIn={Boolean(session)}
         credits={credits}
         days={days}
+        closedDays={closed}
       />
     </TimetableIntro>
   );

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { useI18n } from "@/i18n/LanguageProvider";
+import { studioAddDays, studioDateKey, studioStartOfDay } from "@/lib/time";
 import { cn, FREE_CANCELLATION_HOURS } from "@/lib/utils";
 
 /**
@@ -60,12 +61,14 @@ export function ScheduleClient({
   signedIn,
   credits,
   days,
+  closedDays,
 }: {
   sessions: ScheduleSession[];
   types: Record<string, ScheduleClassType>;
   signedIn: boolean;
   credits: number;
   days: string[]; // ISO date strings, one per day shown
+  closedDays: Set<string>;
 }) {
   const { t, locale, fmtTime, fmtLongDate, fmtDayNumber, fmtWeekdayShort } =
     useI18n();
@@ -347,6 +350,14 @@ export function ScheduleClient({
               (x) => x.spotsLeft > 0 && x.bookable,
             ).length;
             const active = d === activeDay;
+            const isSunday = date.getDay() === 0;
+            const isClosedDay = closedDays.has(d);
+            const closed = isSunday || isClosedDay;
+            const todayKey = studioDateKey(studioStartOfDay(new Date()));
+            const tomorrowKey = studioDateKey(studioAddDays(studioStartOfDay(new Date()), 1));
+            const isToday = d === todayKey;
+            const isTomorrow = d === tomorrowKey;
+
             return (
               <button
                 key={d}
@@ -356,9 +367,11 @@ export function ScheduleClient({
                   "flex min-w-[84px] shrink-0 flex-col items-center rounded-2xl border px-4 py-3 transition-all duration-500 ease-silk",
                   active
                     ? "border-mocha-600 bg-mocha-600 text-cream"
-                    : count === 0
-                      ? "border-mocha-200/60 bg-white/40 text-mocha-400"
-                      : "border-mocha-200/70 bg-white/50 hover:border-mocha-400",
+                    : closed
+                      ? "border-dashed border-mocha-200/80 bg-white/40 text-mocha-400"
+                      : count === 0
+                        ? "border-mocha-200/60 bg-white/40 text-mocha-400"
+                        : "border-mocha-200/70 bg-white/50 hover:border-mocha-400",
                 )}
               >
                 <span
@@ -367,11 +380,15 @@ export function ScheduleClient({
                     active ? "text-cream/60" : "text-clay",
                   )}
                 >
-                  {i === 0
+                  {isToday
                     ? t.common.today
-                    : i === 1
+                    : isTomorrow
                       ? t.common.tomorrow
-                      : fmtWeekdayShort(date)}
+                      : isSunday
+                        ? t.home.timetable.sunday
+                        : isClosedDay
+                          ? t.home.timetable.closed
+                          : fmtWeekdayShort(date)}
                 </span>
                 <span className="mt-1 font-display text-2xl lining-nums tabular-nums">
                   {fmtDayNumber(date)}
@@ -382,7 +399,7 @@ export function ScheduleClient({
                     active ? "text-cream/60" : "text-clay/70",
                   )}
                 >
-                  {count}
+                  {closed ? t.home.timetable.closed : count}
                 </span>
               </button>
             );
@@ -430,7 +447,9 @@ export function ScheduleClient({
 
         {list.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-mocha-200 px-6 py-14 text-center text-sm text-clay">
-            {t.timetablePage.noClasses}
+            {new Date(`${activeDay}T12:00:00`).getDay() === 0 || closedDays.has(activeDay)
+              ? t.home.timetable.closed
+              : t.timetablePage.noClasses}
           </p>
         ) : (
           <>

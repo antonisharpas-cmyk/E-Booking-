@@ -81,6 +81,23 @@ export function Header({ user }: { user: HeaderUser }) {
           scrolled
             ? "border-b border-mocha-200/60 bg-cream/85 py-3 backdrop-blur-xl"
             : "border-b border-transparent py-6",
+          /* While the sheet is open the bar stops catching clicks.
+           *
+           * The bar is `z-50` and the sheet is `z-40`, so the bar lies over the
+           * top of the open menu — and an element with a transparent background
+           * still swallows every click inside its box. That box is the full width
+           * of the screen and about ninety pixels tall, which is exactly where
+           * the sheet puts its close button and its first link. Both were dead.
+           *
+           * It survived this long because a phone hides that close button and
+           * uses the burger below, which is inside the bar and so was never
+           * blocked. Anybody testing on a laptop found a menu that would not
+           * shut.
+           *
+           * Everything else in the bar is already `invisible` while the sheet is
+           * open, so nothing here loses a click that was reachable before. The
+           * burger takes it back explicitly. */
+          open && "pointer-events-none",
         )}
       >
         <div
@@ -223,7 +240,10 @@ export function Header({ user }: { user: HeaderUser }) {
               aria-label={open ? t.nav.close : t.nav.menu}
               aria-expanded={open}
               className={cn(
-                "relative z-50 flex h-10 w-10 items-center justify-center rounded-full border transition-colors",
+                /* Takes its clicks back from the bar above: on a phone this is
+                   the only way to shut the sheet, so it has to stay live while
+                   the sheet is open. */
+                "pointer-events-auto relative z-50 flex h-10 w-10 items-center justify-center rounded-full border transition-colors",
                 cover ? "md:hidden" : "lg:hidden",
                 onDark && !open ? "border-cream/30" : "border-mocha-200",
               )}
@@ -255,10 +275,19 @@ export function Header({ user }: { user: HeaderUser }) {
         className={cn("sheet fixed inset-0 z-40 bg-cream", open && "is-open")}
         aria-hidden={!open}
       >
+        {/* The close button for the widths where the burger is not there.
+            Its breakpoint has to be the burger's breakpoint, or the two appear
+            together in the same corner — which they did on every inner page
+            between 768 and 1024, two overlapping circles where the burger, being
+            on top, quietly took the clicks meant for this one. The burger hides
+            at md over the cover and at lg everywhere else, so this mirrors it. */}
         <button
           onClick={() => setOpen(false)}
           aria-label={t.nav.close}
-          className="absolute right-6 top-7 z-10 hidden h-10 w-10 items-center justify-center rounded-full border border-mocha-200 text-mocha-600 transition-colors hover:border-mocha-500 md:flex"
+          className={cn(
+            "absolute right-6 top-7 z-10 hidden h-10 w-10 items-center justify-center rounded-full border border-mocha-200 text-mocha-600 transition-colors hover:border-mocha-500",
+            cover ? "md:flex" : "lg:flex",
+          )}
         >
           <span className="relative block h-4 w-4">
             <span className="absolute left-0 top-1/2 h-px w-4 rotate-45 bg-mocha-600" />
