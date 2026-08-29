@@ -196,7 +196,7 @@ export function Technogym() {
         <Reveal delay={0.15}>
           <div className="relative rounded-3xl border border-cream/[0.12] bg-cream/[0.04] p-10 backdrop-blur-sm">
             <p className="text-[10px] uppercase tracking-brand text-cream/40">
-              Powered by
+              {t.home.technogym.poweredBy}
             </p>
 
             {/* The partner's own mark, traced to vector from the studio's
@@ -220,18 +220,18 @@ export function Technogym() {
             <dl className="mt-8 grid grid-cols-2 gap-8">
               <div>
                 <dt className="text-[10px] uppercase tracking-widest text-cream/40">
-                  Reformers
+                  {t.home.technogym.specReformers}
                 </dt>
                 <dd className="mt-2 font-display text-2xl font-light text-cream">
-                  Technogym Reform
+                  {t.home.technogym.specReformersValue}
                 </dd>
               </div>
               <div>
                 <dt className="text-[10px] uppercase tracking-widest text-cream/40">
-                  Gym floor
+                  {t.home.technogym.specGym}
                 </dt>
                 <dd className="mt-2 font-display text-2xl font-light text-cream">
-                  Fully equipped
+                  {t.home.technogym.specGymValue}
                 </dd>
               </div>
             </dl>

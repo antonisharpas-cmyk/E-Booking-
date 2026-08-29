@@ -54,9 +54,12 @@ export function StudioBody() {
                 </div>
               </div>
             </div>
+            {/* Was written straight into the page, so "per class · minutes"
+                stayed English on the Greek site. */}
             <p className="mt-6 text-center text-[10px] uppercase tracking-brand text-clay">
-              Technogym Reform · {STUDIO.capacity} per class ·{" "}
-              {STUDIO.classLengthMinutes} minutes
+              {t.studio.equipmentLine
+                .replace("{n}", String(STUDIO.capacity))
+                .replace("{minutes}", String(STUDIO.classLengthMinutes))}
             </p>
           </Reveal>
 

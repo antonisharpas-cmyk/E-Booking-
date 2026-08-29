@@ -59,7 +59,7 @@ export function ClassesPageBody({
               eyebrow={el ? "Η ομάδα" : "The team"}
               title={
                 el
-                  ? "Γνώρισε τους instructors μας."
+                  ? "Γνώρισε τους εκπαιδευτές μας."
                   : "Meet our Pilates Instructors."
               }
             />

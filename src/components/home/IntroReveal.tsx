@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useI18n } from "@/i18n/LanguageProvider";
 
 const SEEN_KEY = "apex_intro_seen";
 /** The mark finishes drawing before the clip ends; fade out on the mark, not the tail. */
@@ -16,6 +17,7 @@ const HOLD_MS = 4200;
  * loading terms and search engines never see it.
  */
 export function IntroReveal() {
+  const { t } = useI18n();
   const [phase, setPhase] = useState<"idle" | "playing" | "leaving" | "done">(
     "idle",
   );
@@ -110,7 +112,7 @@ export function IntroReveal() {
         onClick={finish}
         className="absolute bottom-10 left-1/2 -translate-x-1/2 text-[10px] uppercase tracking-brand text-clay transition-colors hover:text-mocha-600"
       >
-        Skip
+        {t.common.skip}
       </button>
     </div>
   );

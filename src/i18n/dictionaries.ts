@@ -53,6 +53,7 @@ export const en = {
     tomorrow: "Tomorrow",
     all: "All",
     somethingWrong: "Something went wrong. Please try again.",
+    skip: "Skip",
   },
   home: {
     hero: {
@@ -122,6 +123,15 @@ export const en = {
     technogym: {
       eyebrow: "Official partner",
       title: "Powered by Technogym.",
+      /* The equipment panel. These four were written straight into the
+         component, which meant they stayed in English on the Greek site — the
+         only strings on the page that did. Copy belongs here or it cannot be
+         translated. */
+      poweredBy: "Powered by",
+      specReformers: "Reformers",
+      specReformersValue: "Technogym Reform",
+      specGym: "Gym floor",
+      specGymValue: "Fully equipped",
       body: "APEX is a Technogym partner studio. Our Reformers are Technogym Reform, and the strength and cardio floors of APEX Fitness Centre are fully Technogym-equipped. That means calibrated resistance, biomechanically correct alignment, and equipment that feels the same on your first class as on your hundredth.",
       points: [
         "Technogym Reform reformers with precision spring calibration",
@@ -207,6 +217,7 @@ export const en = {
     },
   },
   studio: {
+    equipmentLine: "Technogym Reform · {n} per class · {minutes} minutes",
     hero: {
       eyebrow: "The studio",
       title: "A room built for attention.",
@@ -896,10 +907,11 @@ export const el: typeof en = {
     tomorrow: "Αύριο",
     all: "Όλα",
     somethingWrong: "Κάτι πήγε λάθος. Δοκίμασε ξανά.",
+    skip: "Παράλειψη",
   },
   home: {
     hero: {
-      eyebrow: "Powered by Technogym · Λάρνακα",
+      eyebrow: "Με εξοπλισμό Technogym · Λάρνακα",
       kicker: "Reformer",
       word: "Pilates",
       subtitle:
@@ -930,7 +942,7 @@ export const el: typeof en = {
     intro: {
       eyebrow: "Το στούντιο",
       title: "Ένα νέο επίπεδο.",
-      body: "Το APEX pilates είναι το στούντιο κίνησης μέσα στο APEX Fitness Centre. Κάθε reformer και κάθε λεπτομέρεια είναι Technogym, ο ίδιος εξοπλισμός που χρησιμοποιούν επαγγελματίες αθλητές, σε έναν ζεστό, απαλά φωτισμένο χώρο φτιαγμένο για συγκέντρωση. Τα μαθήματα έχουν περιορισμένες θέσεις, ώστε ο instructor να σε βλέπει, να σε διορθώνει και να σε εξελίσσει.",
+      body: "Το APEX pilates είναι το στούντιο κίνησης μέσα στο APEX Fitness Centre. Κάθε reformer και κάθε λεπτομέρεια είναι Technogym, ο ίδιος εξοπλισμός που χρησιμοποιούν επαγγελματίες αθλητές, σε έναν ζεστό, απαλά φωτισμένο χώρο φτιαγμένο για συγκέντρωση. Τα μαθήματα έχουν περιορισμένες θέσεις, ώστε ο εκπαιδευτής να σε βλέπει, να σε διορθώνει και να σε εξελίσσει.",
       cta: "Μέσα στο στούντιο",
       daysLabel: "Ημέρες την εβδομάδα",
     },
@@ -951,7 +963,7 @@ export const el: typeof en = {
         {
           k: "03",
           t: "Έλεγχος",
-          d: "Αργά, με αντίσταση, με πρόθεση. Δεν σε κινεί το ελατήριο· εσύ οδηγείς το carriage.",
+          d: "Αργά, με αντίσταση, με πρόθεση. Δεν σε κινεί το ελατήριο· εσύ οδηγείς την πλατφόρμα.",
         },
         {
           k: "04",
@@ -962,7 +974,15 @@ export const el: typeof en = {
     },
     technogym: {
       eyebrow: "Επίσημος συνεργάτης",
-      title: "Powered by Technogym.",
+      title: "Με εξοπλισμό Technogym.",
+      poweredBy: "Με εξοπλισμό",
+      /* "Reformer" is not translated anywhere, here or in the class names: it
+         is what the apparatus is called, in Greek as in English, and a Greek
+         reader looking for Reformer Pilates is looking for that word. */
+      specReformers: "Reformers",
+      specReformersValue: "Technogym Reform",
+      specGym: "Χώρος γυμναστηρίου",
+      specGymValue: "Πλήρως εξοπλισμένος",
       body: "Το APEX είναι συνεργαζόμενο στούντιο Technogym. Οι reformers μας είναι Technogym Reform, και οι χώροι δύναμης και cardio του APEX Fitness Centre είναι πλήρως εξοπλισμένοι με Technogym. Αυτό σημαίνει βαθμονομημένη αντίσταση, σωστή εμβιομηχανική ευθυγράμμιση και εξοπλισμό που αισθάνεσαι ίδιο στο πρώτο και στο εκατοστό μάθημα.",
       points: [
         "Reformers Technogym Reform με ακριβή βαθμονόμηση ελατηρίων",
@@ -1016,7 +1036,7 @@ export const el: typeof en = {
       items: [
         {
           q: "Δεν έχω κάνει ποτέ Reformer Pilates. Από πού ξεκινώ;",
-          a: "Κλείσε ένα μάθημα Foundations και άφησε τα υπόλοιπα σε εμάς. Ο instructor ρυθμίζει ελατήρια, footbar και λουριά, μένει δίπλα σου όλη την ώρα και σου εξηγεί κάθε θέση πριν προστεθεί φορτίο. Δεν χρειάζεται να ξέρεις κάτι στην πρώτη σου επίσκεψη, μόνο να έρθεις.",
+          a: "Κλείσε ένα μάθημα Reformer Foundations και άφησε τα υπόλοιπα σε εμάς. Ο εκπαιδευτής ρυθμίζει ελατήρια, μπάρα ποδιών και λουριά, μένει δίπλα σου όλη την ώρα και σου εξηγεί κάθε θέση πριν προστεθεί φορτίο. Δεν χρειάζεται να ξέρεις κάτι στην πρώτη σου επίσκεψη, μόνο να έρθεις.",
         },
         {
           q: "Πώς λειτουργούν οι συνεδρίες;",
@@ -1032,7 +1052,7 @@ export const el: typeof en = {
         },
         {
           q: "Τι να φέρω;",
-          a: "Πετσέτα και νερό είναι απαραίτητα, μην τα ξεχάσεις. Φέρε άνετα ρούχα με τα οποία μπορείς να κινηθείς και να φαίνεσαι όταν κινείσαι. Grip socks υπάρχουν στη ρεσεψιόν, και όλα τα άλλα είναι εδώ.",
+          a: "Πετσέτα και νερό είναι απαραίτητα, μην τα ξεχάσεις. Φέρε άνετα ρούχα με τα οποία μπορείς να κινηθείς και να φαίνεσαι όταν κινείσαι. Αντιολισθητικές κάλτσες υπάρχουν στη ρεσεψιόν, και όλα τα άλλα είναι εδώ.",
         },
         {
           q: "Ανήκετε στο γυμναστήριο;",
@@ -1048,15 +1068,16 @@ export const el: typeof en = {
     },
   },
   studio: {
+    equipmentLine: "Technogym Reform · {n} ανά μάθημα · {minutes} λεπτά",
     hero: {
       eyebrow: "Το στούντιο",
       title: "Ένας χώρος φτιαγμένος για προσοχή.",
-      body: "Απαλός φωτισμός, ζεστά υλικά, χωρίς καθρέφτες για επίδειξη. Πέντε reformers, ένας instructor, εξήντα λεπτά που ανήκουν αποκλειστικά στο πώς κινείσαι.",
+      body: "Απαλός φωτισμός, ζεστά υλικά, χωρίς καθρέφτες για επίδειξη. Πέντε reformers, ένας εκπαιδευτής, εξήντα λεπτά που ανήκουν αποκλειστικά στο πώς κινείσαι.",
     },
     sections: [
       {
         t: "Περιορισμένες θέσεις",
-        d: "Πέντε reformers στην αίθουσα, άρα το πολύ πέντε άτομα. Αυτό σημαίνει πραγματική διόρθωση αντί για ένα πλήθος που ακολουθεί μια ρουτίνα. Ο instructor ξέρει τα ελατήριά σου, τους περιορισμούς σου και τον στόχο σου.",
+        d: "Πέντε reformers στην αίθουσα, άρα το πολύ πέντε άτομα. Αυτό σημαίνει πραγματική διόρθωση αντί για ένα πλήθος που ακολουθεί μια ρουτίνα. Ο εκπαιδευτής ξέρει τα ελατήριά σου, τους περιορισμούς σου και τον στόχο σου.",
       },
       {
         t: "Technogym σε όλα",
@@ -1426,7 +1447,7 @@ export const el: typeof en = {
     consentTitle: "Τι σου στέλνουμε",
     consentService: "Ενημερώσεις στούντιο και προγράμματος",
     consentServiceWhy:
-      "Αλλαγή μαθήματος, αλλαγή instructor, κλειστό στούντιο. Απαραίτητο όσο έχεις λογαριασμό, γιατί μια κράτηση που δεν ξέρεις είναι χειρότερη από ένα μήνυμα.",
+      "Αλλαγή μαθήματος, αλλαγή εκπαιδευτή, κλειστό στούντιο. Απαραίτητο όσο έχεις λογαριασμό, γιατί μια κράτηση που δεν ξέρεις είναι χειρότερη από ένα μήνυμα.",
     consentMarketing: "Προσφορές, νέα και νέα μαθήματα",
     consentOptional: "Προαιρετικό. Απενεργοποίησέ το όποτε θέλεις.",
     reminderTitle: "Υπενθύμιση κράτησης",
@@ -1509,7 +1530,7 @@ export const el: typeof en = {
       "Προαιρετικό. Μπορείς να το απενεργοποιήσεις όποτε θέλεις.",
     serviceOptIn: "Ενημερώσεις στούντιο και προγράμματος",
     serviceOptInWhy:
-      "Αλλαγή μαθήματος, αλλαγή instructor, κλειστό στούντιο. Απαραίτητο για να έχεις λογαριασμό.",
+      "Αλλαγή μαθήματος, αλλαγή εκπαιδευτή, κλειστό στούντιο. Απαραίτητο για να έχεις λογαριασμό.",
     phoneWhy:
       "Για να μπορεί το στούντιο να σε βρει αν αλλάξει ένα μάθημα, και για υπενθυμίσεις SMS αν τις θέλεις.",
     errName: "Γράψε το όνομά σου.",
@@ -1572,7 +1593,7 @@ export const el: typeof en = {
     cancelTooLate:
       "Η ακύρωση έκλεισε 24 ώρες πριν το μάθημα, οπότε η κράτηση δεν μπορεί να ακυρωθεί τώρα.",
     cancelled: "Η κράτηση ακυρώθηκε.",
-    instructor: "Instructor",
+    instructor: "Εκπαιδευτής",
     spots: "Θέσεις",
   },
   checkout: {
@@ -1638,7 +1659,7 @@ export const el: typeof en = {
     markNoShow: "Απουσία",
     upcomingClasses: "προγραμματισμένα μαθήματα",
     generate: "Δημιουργία προγράμματος",
-    generateBody: "Δημιούργησε μαθήματα από τα εβδομαδιαία templates.",
+    generateBody: "Δημιούργησε μαθήματα από τα εβδομαδιαία πρότυπα.",
     weeks: "εβδομάδες μπροστά",
     members: "Μέλη",
     grantCredits: "Χορήγηση συνεδριών",

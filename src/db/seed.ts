@@ -84,7 +84,7 @@ const CLASS_TYPES = [
     descEn:
       "Your entry point. A full 60-minute class at an introductory pace: spring settings, footbar, straps and the six core positions explained before you load them. Leave knowing exactly what your body is doing.",
     descEl:
-      "Το σημείο εκκίνησης. Πλήρες μάθημα 60 λεπτών σε εισαγωγικό ρυθμό: ρυθμίσεις ελατηρίων, footbar, λουριά και οι έξι βασικές θέσεις, εξηγημένες πριν προστεθεί φορτίο. Φεύγεις γνωρίζοντας τι κάνει το σώμα σου.",
+      "Το σημείο εκκίνησης. Πλήρες μάθημα 60 λεπτών σε εισαγωγικό ρυθμό: ρυθμίσεις ελατηρίων, μπάρα ποδιών, λουριά και οι έξι βασικές θέσεις, εξηγημένες πριν προστεθεί φορτίο. Φεύγεις γνωρίζοντας τι κάνει το σώμα σου.",
     level: "BEGINNER",
     intensity: 1,
     focusEn: "Technique · Alignment · Confidence",
@@ -112,7 +112,7 @@ const CLASS_TYPES = [
     descEn:
       "Higher spring load, longer holds, more repetitions. Built around glutes, back and arms for muscular endurance and shape without impact.",
     descEl:
-      "Μεγαλύτερο φορτίο, πιο μακριά holds, περισσότερες επαναλήψεις. Δουλεύει γλουτούς, πλάτη και χέρια για μυϊκή αντοχή χωρίς επιβάρυνση.",
+      "Μεγαλύτερο φορτίο, πιο μεγάλες παύσεις, περισσότερες επαναλήψεις. Δουλεύει γλουτούς, πλάτη και χέρια για μυϊκή αντοχή χωρίς επιβάρυνση.",
     level: "INTERMEDIATE",
     intensity: 3,
     focusEn: "Strength · Endurance · Glutes",
@@ -126,7 +126,7 @@ const CLASS_TYPES = [
     descEn:
       "Cardio without the pounding. Horizontal jumping on the jumpboard raises your heart rate while your spine stays supported. Intervals, music, sweat.",
     descEl:
-      "Cardio χωρίς κραδασμούς. Οριζόντια άλματα στο jumpboard ανεβάζουν τους σφυγμούς με τη σπονδυλική στήλη υποστηριγμένη. Intervals, μουσική, ιδρώτας.",
+      "Cardio χωρίς κραδασμούς. Οριζόντια άλματα στο jumpboard ανεβάζουν τους σφυγμούς με τη σπονδυλική στήλη υποστηριγμένη. Ιντερβάλ, μουσική, ιδρώτας.",
     level: "INTERMEDIATE",
     intensity: 3,
     focusEn: "Cardio · Power · Legs",
@@ -182,7 +182,7 @@ const INSTRUCTORS = [
     bioEn:
       "Strength coach turned Pilates instructor. Teaches the athletic classes and works with the gym's PT clients.",
     bioEl:
-      "Από προπονητής δύναμης σε instructor Pilates. Διδάσκει τα athletic μαθήματα και συνεργάζεται με τους personal trainers του γυμναστηρίου.",
+      "Από προπονητής δύναμης σε εκπαιδευτή Pilates. Διδάσκει τα μαθήματα Athletic Reformer και συνεργάζεται με τους γυμναστές του γυμναστηρίου.",
     photoUrl: "/team/andreas-p.jpg",
     sortOrder: 2,
   },
