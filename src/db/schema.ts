@@ -83,6 +83,35 @@ export const users = sqliteTable(
      */
     isTest: integer("is_test", { mode: "boolean" }).notNull().default(false),
 
+    /**
+     * When this address was proved to belong to whoever registered it.
+     *
+     * Null means the account exists and cannot yet be used: a code was emailed
+     * and has not come back. Stored as the moment rather than a flag so the
+     * studio can answer "when did they confirm" — which is the question that
+     * matters if somebody later disputes that they ever signed up.
+     *
+     * The studio's own accounts are stamped when they are created, because the
+     * person creating them is standing at the machine.
+     */
+    emailVerifiedAt: integer("email_verified_at", { mode: "timestamp" }),
+
+    /**
+     * When this member's personal details were erased, and by whom.
+     *
+     * A right-to-erasure request does not delete the row: the payments attached
+     * to it are accounting records Cyprus requires kept for six years, and
+     * cascading them away would rewrite the studio's own takings. So the person
+     * is removed from the row and everything financial stays — see
+     * lib/erasure.ts for exactly which columns are overwritten.
+     *
+     * Kept as a pair of columns rather than a log table because this is the only
+     * audited action on a member, and one row explaining itself beats a table
+     * nobody remembers to read.
+     */
+    erasedAt: integer("erased_at", { mode: "timestamp" }),
+    erasedBy: text("erased_by"),
+
     /* ---- optional profile ----
        Date of birth rather than an age: an age written down is wrong within a
        year, and the studio needs it for screening, not for a birthday card. */
@@ -94,7 +123,59 @@ export const users = sqliteTable(
     notes: text("notes"),
     createdAt: now().notNull(),
   },
-  (t) => [uniqueIndex("users_email_idx").on(t.email)],
+  (t) => [
+    uniqueIndex("users_email_idx").on(t.email),
+    /**
+     * One number, one member — enforced here as well as in the two code paths
+     * that check it.
+     *
+     * Registration and the desk's contact edit both compare numbers in
+     * normalised form, which catches "+357 99 123456" against "99123456" the way
+     * a database never could. What they cannot catch is two registrations in the
+     * same instant: both read an empty table, both insert, and neither is wrong
+     * until it is too late. This is the backstop for that, and the code above it
+     * is what makes the rule mean what a person means by it.
+     *
+     * SQLite treats NULLs as distinct, so accounts with no number on record do
+     * not collide with each other.
+     */
+    uniqueIndex("users_phone_idx").on(t.phone),
+  ],
+);
+
+/**
+ * A code emailed to prove an address belongs to whoever typed it.
+ *
+ * One live challenge per account, replaced rather than added to: a member who
+ * presses "send it again" four times should be typing the newest code, and a
+ * mailbox holding four codes that all still work is four chances for the wrong
+ * one to be lifted out of the wrong email.
+ *
+ * The code itself is never stored. Only a keyed hash of it is, for the same
+ * reason a password is not stored: this is a credential, and a credential in
+ * plain text in a file that gets backed up is a credential you have given away.
+ * Six digits is a small space, so the real defence is the attempt counter and
+ * the expiry rather than the hash — see lib/verify.ts.
+ */
+export const emailVerifications = sqliteTable(
+  "email_verifications",
+  {
+    id: id(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** HMAC of the code, keyed with AUTH_SECRET. Never the code. */
+    codeHash: text("code_hash").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    /** Wrong codes typed against the current code. Locks it at the limit. */
+    attempts: integer("attempts").notNull().default(0),
+    /** Codes sent inside the current window, for the resend limit. */
+    sends: integer("sends").notNull().default(1),
+    windowStartedAt: integer("window_started_at", { mode: "timestamp" }).notNull(),
+    sentAt: integer("sent_at", { mode: "timestamp" }).notNull(),
+    createdAt: now().notNull(),
+  },
+  (t) => [uniqueIndex("email_verifications_user_idx").on(t.userId)],
 );
 
 /**
@@ -639,3 +720,4 @@ export type Notice = typeof notices.$inferSelect;
 export type PricingRule = typeof pricingRules.$inferSelect;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type NoticeDelivery = typeof noticeDeliveries.$inferSelect;
+export type EmailVerification = typeof emailVerifications.$inferSelect;

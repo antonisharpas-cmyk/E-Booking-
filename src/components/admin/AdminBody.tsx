@@ -31,6 +31,7 @@ export function AdminBody({
   staffName,
   owner,
   scheduled,
+  initialTab,
 }: {
   /** Null for reception: the figures were never fetched for them. */
   stats: {
@@ -48,16 +49,25 @@ export function AdminBody({
     id: string;
     slug: string;
     nameEn: string;
+    nameEl: string;
     credits: number;
     priceCents: number;
     listPriceCents: number | null;
     discountLabelEn: string | null;
+    discountLabelEl: string | null;
   }[];
   staffName: string;
   /** The studio's own account: everything, including the numbers. */
   owner: boolean;
   /** Classes on the books, which reception is allowed to know. */
   scheduled: number;
+  /**
+   * The `?tab=` from the address, read on the server.
+   *
+   * Passed in rather than read from `window` so the first client render matches
+   * the HTML that came down the wire — see the note in app/admin/page.tsx.
+   */
+  initialTab: string | null;
 }) {
   const { t, fmtLongDate } = useI18n();
   const router = useRouter();
@@ -80,14 +90,17 @@ export function AdminBody({
    * `replaceState` rather than a route push: the tab is not a page, and pressing
    * back should leave the desk rather than shuffle through the tabs somebody
    * happened to look at.
+   *
+   * Read from `initialTab`, which the server put there. Reading it from
+   * `window.location` here was a hydration mismatch — the server rendered
+   * Bookings and the browser rendered Members, and React threw the tree away
+   * and said so in a runtime error.
    */
-  const [tab, setTabState] = useState<DeskTab>(() => {
-    if (typeof window === "undefined") return "today";
-    const asked = new URLSearchParams(window.location.search).get("tab");
-    return (tabs as readonly string[]).includes(asked ?? "")
-      ? (asked as DeskTab)
-      : "today";
-  });
+  const [tab, setTabState] = useState<DeskTab>(() =>
+    (tabs as readonly string[]).includes(initialTab ?? "")
+      ? (initialTab as DeskTab)
+      : "today",
+  );
 
   const setTab = useCallback((next: DeskTab) => {
     setTabState(next);
@@ -150,7 +163,9 @@ export function AdminBody({
           )}
 
           {tab === "today" && <BookingsPanel onNotice={setNotice} />}
-          {tab === "members" && <MemberDesk onNotice={setNotice} />}
+          {tab === "members" && (
+            <MemberDesk onNotice={setNotice} owner={owner} />
+          )}
           {tab === "timetable" && (
             <ClosurePanel onNotice={setNotice} scheduled={scheduled} />
           )}

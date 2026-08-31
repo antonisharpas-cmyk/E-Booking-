@@ -25,7 +25,12 @@ export const dynamic = "force-dynamic";
  * A visitor who is signed in as a member sees the same sign-in form as a
  * stranger, so the page never confirms who does or does not work here.
  */
-export default async function AdminPage() {
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab } = await searchParams;
   const user = await currentUser();
   const staff = user && isStaff(user);
 
@@ -46,15 +51,34 @@ export default async function AdminPage() {
       staffName={user.name}
       owner={owner}
       scheduled={upcomingClassCount()}
+      /**
+       * Which tab to open, decided here rather than in the browser.
+       *
+       * It used to be read from `window.location` inside a `useState`
+       * initialiser, which cannot work: the server has no window, so it rendered
+       * Bookings, the browser then read `?tab=members` and rendered Members, and
+       * React reported the two as a hydration mismatch and threw the whole tree
+       * away. Landing on /admin?tab=members is not an edge case either — it is
+       * what saving a member does.
+       *
+       * The server knows the address. Passing it down means both renders agree.
+       */
+      initialTab={tab ?? null}
       stats={stats}
+      /* Both names, because the desk reads in Greek too. Sending only the
+         English one left every other word on the Pricing tab translated and
+         the pack names in English — the one place the Greek console broke
+         character. */
       packs={packs.map((p) => ({
         id: p.id,
         slug: p.slug,
         nameEn: p.nameEn,
+        nameEl: p.nameEl,
         credits: p.credits,
         priceCents: p.priceCents,
         listPriceCents: p.listPriceCents,
         discountLabelEn: p.discountLabelEn,
+        discountLabelEl: p.discountLabelEl,
       }))}
     />
   );

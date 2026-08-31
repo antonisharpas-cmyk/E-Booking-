@@ -21,6 +21,8 @@ export type PackageCard = {
   discountLabelEl?: string | null;
   validityDays: number;
   badge: string | null;
+  /** Which commitment it belongs to, so the page can group the cards. */
+  group?: "single" | "month" | "quarter" | null;
 };
 
 export function PricingGrid({
@@ -49,17 +51,35 @@ export function PricingGrid({
     );
   }
 
+  /* Grouped by commitment rather than shown as one wall of nine cards.
+     "Monthly · 3 a week" and "3 months · 1 a week" are both twelve classes; side
+     by side in a plain grid nobody can tell what separates them. Under a heading
+     that says how long you are committing and how long you have to use them, the
+     choice reads as two questions — how often, and for how long. */
+  const GROUPS = ["single", "month", "quarter"] as const;
+  const grouped = GROUPS.map((g) => ({
+    key: g,
+    heading: t.pricingPage.groups[g],
+    packs: packages.filter((p) => (p.group ?? "month") === g),
+  })).filter((g) => g.packs.length > 0);
+
   return (
-    <div>
-      {/* The widest row follows the number of packs on sale, so withdrawing one
-          does not leave a single card orphaned on a row of its own. */}
+    <div className="space-y-14">
+      {grouped.map((section) => (
+      <section key={section.key}>
+        <div className="mb-6 flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-mocha-200/70 pb-4">
+          <h3 className="h-display text-[1.6rem] text-mocha-600">
+            {section.heading.title}
+          </h3>
+          <p className="text-[13px] text-clay">{section.heading.note}</p>
+        </div>
       <RevealGroup
         className={cn(
           "grid gap-6 sm:grid-cols-2",
-          packages.length % 4 === 0 ? "xl:grid-cols-4" : "xl:grid-cols-3",
+          section.packs.length % 4 === 0 ? "xl:grid-cols-4" : "xl:grid-cols-3",
         )}
       >
-        {packages.map((p) => {
+        {section.packs.map((p) => {
           const perClass = Math.round(p.priceCents / p.credits);
           const highlight = p.badge === "POPULAR";
           return (
@@ -188,6 +208,8 @@ export function PricingGrid({
           );
         })}
       </RevealGroup>
+      </section>
+      ))}
 
       {showIncludes && (
         <div className="mt-16 grid gap-10 rounded-3xl border border-mocha-200/70 bg-cream-200/60 p-8 md:grid-cols-[1fr_1.2fr] md:p-10">

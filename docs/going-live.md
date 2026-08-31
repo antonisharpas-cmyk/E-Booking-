@@ -255,9 +255,8 @@ we will do it properly; it is not a checkbox.
    Until then that button does not appear for anybody.
 6. **Payouts** — Settings → Payouts: check the IBAN and the schedule. The first
    payout takes several days; later ones follow the schedule.
-7. **Reset the database.** Every test purchase is sitting in the revenue figure,
-   and opening day with €340 of imaginary takings in Analytics is a number
-   somebody will eventually try to reconcile.
+7. **Start on an empty database.** Not "delete the rows" — a new file. See
+   *Part 6* below, which is the whole of it.
 8. **Replace the dev desk passwords** — `npm run staff -- password <email>`.
    `ownerdev123` on a public site is not a password.
 9. **SMS, when the studio has the account.** The code is finished and sitting on
@@ -301,3 +300,50 @@ screen, or reset the database, which you are doing at step 7 anyway.
 Do not test with a card you have not got, and do not test the decline path with a
 real card — a genuine decline on your own card can attract your bank's attention.
 Declines are what `4000 0000 0000 9995` is for, in sandbox.
+
+---
+
+## Part 6 — The database, on opening day
+
+### Why not just delete the test data
+
+Because a database that has been developed against for two months holds more
+than the rows you can see. Dead push subscriptions. Half-finished bookings.
+Notice delivery counters. Two desk accounts on passwords that are in a git
+repository. Any mistake in the order you delete things leaves orphans, and two of
+the columns that point between these tables have no foreign key to catch it.
+
+A new file has none of that, and nothing to remember.
+
+### What is thrown away, and what is kept
+
+Thrown away: every account, every booking, every purchase, every credit batch and
+ledger line, every notice, every registered device. All of it is test data —
+those €110 payments are Stripe test mode and represent nothing.
+
+Kept, because it is the studio's actual setup rather than test data: the class
+types, the session packs, the instructors, the weekly timetable templates.
+
+### The order
+
+On the server, once, before the first real customer:
+
+1. `DATABASE_URL` points at a path that does not exist yet.
+2. `npm run db:push` — builds the schema from `src/db/schema.ts`.
+3. `npm run db:seed` — writes in the catalogue and the timetable. It also creates
+   the two development desk accounts, which is why step 4 is not optional.
+4. `npm run staff -- password owner@apexpilates.cy` and the same for reception,
+   with real passwords typed on the studio's own machine. Nobody sends a password
+   through a chat window.
+5. `npm run doctor`. It should report no problems. If it reports
+   *"email: log mode — nothing is sent, so NOBODY CAN COMPLETE REGISTRATION"*,
+   stop: registration now emails a six-digit code, and without a working email
+   provider no member can finish signing up. That check exists because this is
+   the one misconfiguration that looks fine and lets nobody in.
+
+### And then stop testing on it
+
+The moment there is one real payment, this can never be done again. So after the
+wipe, test on a development copy. If you must poke at the live site, use an
+account marked **Test account** in the desk — those are left out of every figure
+in Analytics and out of everything the studio sends.

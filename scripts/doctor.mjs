@@ -144,6 +144,49 @@ if (tables.has("users")) {
       bcrypt.compareSync(p, u.password_hash),
     ),
   );
+  /* Accounts that registered and never typed the code. A handful is normal —
+     people abandon signups. A lot of them, or any at all when email is in log
+     mode, is the studio quietly turning people away at the door. */
+  const unverified = conn
+    .prepare(
+      `select count(*) as n from users
+        where role = 'MEMBER' and is_test = 0 and erased_at is null
+          and email_verified_at is null`,
+    )
+    .get().n;
+  unverified === 0
+    ? ok("every member has confirmed their email address")
+    : warn(
+        `${unverified} account${unverified === 1 ? "" : "s"} registered but never confirmed the emailed code, ` +
+          `so they cannot book or pay yet`,
+        "check the email provider is really sending; the desk shows the flag on each member",
+      );
+
+  /* Should be impossible now: an unconfirmed account cannot book, cannot pay, and
+     cannot be sold to at the desk. For one version it could, and any row left over
+     from then is a real customer the studio cannot email. Reported rather than
+     swept, because the sweep must never delete a record of money. */
+  const stuck = conn
+    .prepare(
+      `select u.email from users u
+        where u.role = 'MEMBER' and u.email_verified_at is null
+          and u.erased_at is null
+          and u.created_at < unixepoch() - 7 * 86400
+          and ((select count(*) from purchases p where p.user_id = u.id) > 0
+            or (select count(*) from credit_batches b where b.user_id = u.id) > 0
+            or (select count(*) from bookings k where k.user_id = u.id) > 0)`,
+    )
+    .all()
+    .map((r) => r.email);
+  if (stuck.length > 0) {
+    warn(
+      `${stuck.length} unconfirmed account${stuck.length === 1 ? " has" : "s have"} sessions or payments on it, ` +
+        `which should no longer be possible: ` +
+        stuck.join(", "),
+      "correct the email on the member's page, then ask them to sign in and request a new code",
+    );
+  }
+
   stillDefault.length === 0
     ? ok("no desk account is still on its development password")
     : warn(
@@ -183,8 +226,19 @@ console.log("\nGetting a message out");
       process.env.TWILIO_FROM) ||
     (sms === "brevo" && process.env.BREVO_API_KEY && process.env.SMS_SENDER);
 
+  /**
+   * Email stopped being optional the day registration started needing it.
+   *
+   * In log mode nothing leaves the building, which used to mean "no receipts" —
+   * a shame, not a fault. It now means the confirmation code never arrives, and
+   * an account that cannot be confirmed cannot book, pay, or reach its own
+   * profile. So nobody can join the studio at all. That is a `bad`, not a `!`.
+   */
   email === "log"
-    ? warn("email: log mode — nothing is actually sent", "docs/notifications.md")
+    ? bad(
+        "email: log mode — nothing is sent, so NOBODY CAN COMPLETE REGISTRATION",
+        "set EMAIL_PROVIDER in .env — see docs/notifications.md",
+      )
     : emailKeyed
       ? ok(
           email === "smtp"
@@ -308,7 +362,11 @@ if (tables.has("credit_packages")) {
     .prepare("select slug from credit_packages where active = 1 order by sort_order")
     .all()
     .map((p) => p.slug);
-  const expected = ["single", "pack-5", "pack-10", "pack-20"];
+  const expected = [
+    "single",
+    "month-1", "month-2", "month-3", "month-4",
+    "quarter-1", "quarter-2", "quarter-3", "quarter-4",
+  ];
   const same = active.length === expected.length && active.every((s, i) => s === expected[i]);
   same
     ? ok(`packs on sale: ${active.join(", ")}`)

@@ -1,4 +1,14 @@
-# The desk — what each control actually does
+# The desk: what each control actually does
+
+> There is a printable version of all of this: **`docs/APEX-pilates-desk-manual.pdf`**,
+> 50 pages, English then Greek, with a screenshot of every screen. Give that to
+> whoever is on the desk. This file is the same ground covered for whoever is
+> working on the code, and it goes into more detail on the why.
+>
+> To rebuild the PDF after a change to the console: start the app, then
+> `npm run manual -- http://localhost:3100`. It recaptures every screenshot from
+> the running console, numbers the chapters, builds the contents page and prints
+> the PDF. The source is `docs/manual/manual.html`.
 
 For the person at the counter. Written because a few of these do more than their
 label suggests, and one of them looks alarming and is not.
@@ -90,7 +100,99 @@ reload after a save used to do.
 **One phone number, one account.** Correcting a phone to one another member
 already has is refused, the same way registration refuses it. Numbers are
 compared in normalised form, so `+357 99 123456`, `99123456` and `0035799123456`
-all count as the same number rather than three different ones.
+all count as the same number rather than three different ones. The database now
+enforces it as well, so two people cannot slip through by registering in the same
+second.
+
+Errors here are said in words rather than in codes. `PHONE_TAKEN` in capitals
+told a receptionist neither what had gone wrong nor whose fault it was.
+
+### "Email not confirmed"
+
+An amber panel on the member's card. It means they registered but never typed the
+six-digit code the site emailed them, and until they do the account can do
+nothing — no booking, no payment, not even its own profile page.
+
+There is nothing for the desk to press. The member can ask for a new code from
+the site at any time, from the box they were left on. What the desk can usefully
+do is check the address on the account is the one they meant to type, correct it
+if not, and tell them to look in their spam folder.
+
+If **every** new member is showing this, the problem is not the members: the
+studio's email provider has stopped sending. `npm run doctor` says so in one line.
+
+**The desk cannot sell to them either, and that is the point.** Nothing lands on
+an account until its address is proved, and that has to include the counter or it
+is not a rule. So *Sessions at the desk* refuses to add sessions to an
+unconfirmed member: no cash sale, no card at the desk, no comped session.
+
+The reason is worth knowing, because at the counter it will feel like an
+obstruction. If reception takes €110 against an account whose email is a typo,
+the studio now has a paying customer it cannot send a receipt to, cannot remind
+about a class, and cannot reach when one moves. The member thinks they are a
+member; the studio thinks it has told them things.
+
+**The fix takes half a minute and reception is the only person who can do it.**
+The member is standing there with their phone:
+
+1. Correct the email on their page if it is wrong, and save.
+2. Ask them to sign in on their phone. They land on the code box.
+3. They press "send the code again", read it, type it.
+4. Sell them the pack.
+
+That is the only moment anybody will ever have both the member and the right
+address in the same room.
+
+**Taking sessions back still works**, whatever state the account is in, and so
+does cancelling their classes. The asymmetry is deliberate: an unconfirmed
+account can never be *given* anything, and the studio can always correct itself.
+
+**They clear themselves after a week.** An account that never confirmed its
+address can do nothing at all, so leaving the row there for ever means holding an
+email address and a phone number belonging to somebody the studio has no
+relationship with. A sweep runs alongside the reminder job and removes any
+unconfirmed registration older than seven days.
+
+The sweep will not delete a row that has a payment or a session against it. That
+should now be impossible, because of the rule above. For one version it was not,
+and any row left over from then is reported by `npm run doctor` rather than swept,
+because a sweep must never delete a record of money.
+
+**And they are left out of anything the Notices tab sends** — all four channels,
+including the in-app copy, which they could not reach anyway. The reach line says
+how many were excluded, so the number never drops without an explanation.
+
+### Erasing a member's personal data
+
+**Owner only.** Reception does not see this panel and the route refuses them.
+
+For a member who has asked to be forgotten — which in the EU they are entitled to
+do, and the studio has a month to answer. What it does:
+
+- **Overwritten or deleted:** name, email, phone, date of birth, height, weight,
+  the instructor's notes, their photograph, every registered device, and the
+  password — which is replaced with one nobody holds, so the account cannot be
+  signed in to. Anyone already signed in on it is signed out.
+- **Kept, deliberately:** every payment, every booking, every session in the
+  ledger. Cyprus requires accounting records for six years, and that obligation
+  outranks the erasure request for the *invoice* while the *person* still goes.
+  It also means the studio's takings do not change — a button that quietly
+  rewrote last March would be worse than no button.
+
+Afterwards the row reads **Erased member**, with a grey panel saying who erased
+it and when.
+
+Two things to know before pressing it:
+
+- **You have to type their email address.** There is no undo, and "are you sure?"
+  is a button people press without reading. Typing the address means looking at
+  which member is selected.
+- **It does not cancel their upcoming classes.** If they have any, the panel says
+  so before you start. Somebody may want their data gone and their Thursday class
+  kept — so that is a conversation, not a keystroke. Cancel them first if that is
+  what they want, otherwise the roster will show "Erased member".
+
+The studio's own accounts cannot be erased here. Use `npm run staff` for those.
 
 ---
 

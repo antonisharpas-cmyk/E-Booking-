@@ -23,10 +23,12 @@ type Pack = {
   id: string;
   slug: string;
   nameEn: string;
+  nameEl: string;
   credits: number;
   priceCents: number;
   listPriceCents: number | null;
   discountLabelEn: string | null;
+  discountLabelEl: string | null;
 };
 
 type Rule = {
@@ -44,9 +46,11 @@ export function PricingPanel({
   packs: Pack[];
   onNotice: (s: string) => void;
 }) {
-  const { t, fmtMoney } = useI18n();
+  const { t, locale, fmtMoney } = useI18n();
   const d = t.desk;
   const router = useRouter();
+  /* Pack names in the language the desk is reading. */
+  const name = (p: Pack) => (locale === "el" ? p.nameEl : p.nameEn);
 
   const [rules, setRules] = useState<Rule[]>([]);
   const [scope, setScope] = useState<string>("");
@@ -138,7 +142,7 @@ export function PricingPanel({
               <option value="">{d.priceAll}</option>
               {packs.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.nameEn}
+                  {name(p)}
                 </option>
               ))}
             </select>
@@ -223,7 +227,7 @@ export function PricingPanel({
                 className="flex flex-wrap items-center justify-between gap-3 py-3"
               >
                 <span className="text-[14px] text-mocha-600">
-                  {p.nameEn}
+                  {name(p)}
                   <span className="ml-3 text-[12px] text-clay">
                     {p.credits} {t.common.credits}
                   </span>

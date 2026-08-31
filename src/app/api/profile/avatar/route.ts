@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { notVerified } from "@/lib/api-guard";
 import { db } from "@/db";
 import { userAvatars } from "@/db/schema";
 import { currentUser, isStaff } from "@/lib/auth";
@@ -71,6 +72,8 @@ export async function POST(req: Request) {
   const user = await currentUser();
   if (!user)
     return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  const stop = notVerified(user);
+  if (stop) return stop;
 
   const form = await req.formData().catch(() => null);
   const file = form?.get("photo");
@@ -125,6 +128,8 @@ export async function DELETE() {
   const user = await currentUser();
   if (!user)
     return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  const stop = notVerified(user);
+  if (stop) return stop;
 
   const removed = db
     .delete(userAvatars)

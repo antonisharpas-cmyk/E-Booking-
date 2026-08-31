@@ -1,0 +1,1191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>APEX pilates Desk Manual</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm 22mm 18mm; }
+
+  :root {
+    --ink:     #3a2f2b;
+    --ink-2:   #5d4d47;
+    --quiet:   #8b7a72;
+    --line:    #ddd2cb;
+    --cream:   #faf6f2;
+    --sand:    #f3ece5;
+    --gold:    #b08d4f;
+    --warn:    #8c4a3f;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: "DejaVu Sans", "Carlito", "Liberation Sans", sans-serif;
+    font-size: 9.6pt;
+    line-height: 1.62;
+    color: var(--ink);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  h1, h2, h3, h4 { font-weight: 600; color: var(--ink); margin: 0; }
+
+  h2 {                       /* chapter */
+    font-size: 17pt;
+    line-height: 1.2;
+    margin: 0 0 2mm;
+    padding-bottom: 2.5mm;
+    border-bottom: 1.6pt solid var(--ink);
+  }
+  h3 {                       /* section */
+    font-size: 11.5pt;
+    margin: 7mm 0 2mm;
+    color: var(--ink);
+  }
+  h4 {
+    font-size: 9.8pt;
+    margin: 5mm 0 1.5mm;
+    color: var(--ink-2);
+  }
+  p { margin: 0 0 2.6mm; }
+  ul, ol { margin: 0 0 3mm; padding-left: 5mm; }
+  li { margin-bottom: 1.2mm; }
+  strong { font-weight: 600; }
+  code {
+    font-family: "DejaVu Sans Mono", monospace;
+    font-size: 8.4pt;
+    background: var(--sand);
+    padding: 0.3mm 1.1mm;
+    border-radius: 1mm;
+  }
+
+  .chapter { page-break-before: always; }
+  .keep    { page-break-inside: avoid; }
+
+  /* ---------------------------------------------------------- cover */
+  .cover {
+    height: 250mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    page-break-after: always;
+  }
+  .cover .mark {
+    font-size: 30pt; font-weight: 300; letter-spacing: 0.5pt;
+    color: var(--ink); margin-bottom: 1mm;
+  }
+  .cover .mark b { font-weight: 600; }
+  .cover .rule { width: 30mm; height: 2pt; background: var(--gold); margin: 6mm 0; }
+  .cover h1 { font-size: 26pt; font-weight: 300; line-height: 1.15; }
+  .cover .sub { font-size: 11pt; color: var(--quiet); margin-top: 4mm; }
+  .cover .foot {
+    margin-top: 22mm; font-size: 8.6pt; color: var(--quiet);
+    border-top: 0.6pt solid var(--line); padding-top: 3mm;
+  }
+
+  /* ---------------------------------------------------------- contents */
+  .toc { page-break-after: always; }
+  .toc h2 { margin-bottom: 5mm; }
+  .toc ol { list-style: none; padding: 0; margin: 0; counter-reset: c; }
+  .toc li {
+    display: flex; justify-content: space-between; gap: 4mm;
+    /* Tight enough that twenty-two entries fit on one page. They did not at
+       1.7mm, and two orphaned lines on a page of their own is the worst-looking
+       page in a document. */
+    padding: 1.15mm 0; border-bottom: 0.5pt dotted var(--line);
+    font-size: 9.4pt; line-height: 1.4;
+  }
+  .toc li .n { color: var(--gold); width: 7mm; flex: none; font-weight: 600; }
+  .toc li .t { flex: 1; }
+  .toc .part {
+    margin-top: 5.5mm; margin-bottom: 1.5mm; font-size: 8.4pt;
+    letter-spacing: 1.6pt; text-transform: uppercase; color: var(--quiet);
+    border: none; padding: 0;
+  }
+
+  /* ---------------------------------------------------------- figures */
+  figure { margin: 4mm 0 5mm; page-break-inside: avoid; }
+  figure img {
+    /* Bound on both axes, not just the width.
+       A console tab is wide and hits the width bound; the code screen is a tall
+       narrow card and, at width:100%, came out 318mm high, which is taller than
+       the page. Chromium then pushed it to the next sheet and left the chapter
+       opening with two lines on it. */
+    max-width: 100%;
+    max-height: 142mm;
+    width: auto;
+    display: block; margin: 0 auto;
+    border: 0.6pt solid var(--line); border-radius: 1.6mm;
+  }
+  figcaption {
+    font-size: 8.2pt; color: var(--quiet); margin-top: 1.8mm;
+    padding-left: 1mm; border-left: 1.6pt solid var(--gold);
+  }
+
+  /* ---------------------------------------------------------- tables */
+  table {
+    width: 100%; border-collapse: collapse;
+    margin: 3mm 0 5mm; font-size: 8.8pt;
+    page-break-inside: avoid;
+  }
+  th {
+    text-align: left; font-weight: 600; font-size: 7.8pt;
+    letter-spacing: 0.7pt; text-transform: uppercase; color: var(--quiet);
+    border-bottom: 1pt solid var(--ink); padding: 1.8mm 2mm;
+  }
+  td { padding: 1.8mm 2mm; border-bottom: 0.5pt solid var(--line); vertical-align: top; }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+  table.wide td:first-child { white-space: normal; }
+
+  /* ---------------------------------------------------------- callouts */
+  .note, .warn, .money {
+    padding: 3mm 4mm; margin: 4mm 0; border-radius: 1.6mm;
+    page-break-inside: avoid; font-size: 9pt;
+  }
+  .note  { background: var(--sand); border-left: 2.2pt solid var(--quiet); }
+  .warn  { background: #f7ecea;     border-left: 2.2pt solid var(--warn); }
+  .money { background: #f8f2e6;     border-left: 2.2pt solid var(--gold); }
+  .note p:last-child, .warn p:last-child, .money p:last-child { margin-bottom: 0; }
+  .label {
+    display: block; font-size: 7.6pt; letter-spacing: 1.2pt;
+    text-transform: uppercase; font-weight: 600; margin-bottom: 1.4mm;
+  }
+  .warn  .label { color: var(--warn); }
+  .money .label { color: var(--gold); }
+  .note  .label { color: var(--quiet); }
+
+  /* a control name as it appears on screen */
+  .btn {
+    font-size: 7.8pt; letter-spacing: 0.6pt; text-transform: uppercase;
+    font-weight: 600; background: var(--ink); color: var(--cream);
+    padding: 0.5mm 1.6mm; border-radius: 3mm; white-space: nowrap;
+  }
+
+  .lead { font-size: 10.4pt; color: var(--ink-2); margin-bottom: 4mm; }
+  .partpage {
+    page-break-before: always; height: 230mm;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .partpage .kicker {
+    font-size: 8.4pt; letter-spacing: 2pt; text-transform: uppercase;
+    color: var(--gold); margin-bottom: 3mm;
+  }
+  .partpage h1 { font-size: 30pt; font-weight: 300; }
+  .partpage p { margin-top: 5mm; color: var(--quiet); font-size: 11pt; max-width: 120mm; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ COVER -->
+<section class="cover">
+  <div class="mark"><b>APEX</b> pilates</div>
+  <div style="font-size:8.4pt;letter-spacing:1.6pt;text-transform:uppercase;color:#8b7a72">by APEX Fitness Centre · Larnaca</div>
+  <div class="rule"></div>
+  <h1>The Reception Desk<br>Manual</h1>
+  <p class="sub">Everything the desk console does, and what each control<br>actually changes: in English and Greek.</p>
+  <p class="sub" style="margin-top:3mm">Το εγχειρίδιο της υποδοχής: στα αγγλικά και στα ελληνικά.</p>
+  <div class="foot">
+    Covers the console at <code>/admin</code> · Owner and Reception roles<br>
+    Prepared for APEX pilates · August 2026
+  </div>
+</section>
+
+<!-- ============================================================ CONTENTS -->
+<section class="toc">
+  <h2>Contents · Περιεχόμενα</h2>
+  <p class="part">Part one: English</p>
+  <ol>
+    <li><span class="n">1</span><span class="t">Opening the desk</span></li>
+    <li><span class="n">2</span><span class="t">Bookings: the day in front of you</span></li>
+    <li><span class="n">3</span><span class="t">Members</span></li>
+    <li><span class="n">4</span><span class="t">Closures and the rota</span></li>
+    <li><span class="n">5</span><span class="t">Notices: writing to members</span></li>
+    <li><span class="n">6</span><span class="t">Pricing and offers</span></li>
+    <li><span class="n">7</span><span class="t">Analytics: the owner only</span></li>
+    <li><span class="n">8</span><span class="t">What costs money, what cannot be undone</span></li>
+    <li><span class="n">9</span><span class="t">If something looks wrong</span></li>
+  </ol>
+  <p class="part">Μέρος δεύτερο: Ελληνικά</p>
+  <ol>
+    <li><span class="n">1</span><span class="t">Άνοιγμα της υποδοχής</span></li>
+    <li><span class="n">2</span><span class="t">Κρατήσεις: η ημέρα μπροστά σου</span></li>
+    <li><span class="n">3</span><span class="t">Μέλη</span></li>
+    <li><span class="n">4</span><span class="t">Κλειστές ημέρες και το πρόγραμμα</span></li>
+    <li><span class="n">5</span><span class="t">Ανακοινώσεις: μηνύματα στα μέλη</span></li>
+    <li><span class="n">6</span><span class="t">Τιμές και προσφορές</span></li>
+    <li><span class="n">7</span><span class="t">Στατιστικά: μόνο ο ιδιοκτήτης</span></li>
+    <li><span class="n">8</span><span class="t">Τι κοστίζει και τι δεν αναιρείται</span></li>
+    <li><span class="n">9</span><span class="t">Αν κάτι δεν πάει καλά</span></li>
+  </ol>
+</section>
+
+<!-- ============================================================ PART ONE -->
+<section class="partpage">
+  <div class="kicker">Part one</div>
+  <h1>English</h1>
+  <p>Written for whoever is standing at the counter. Every screen in the console, in the order you are likely to meet them.</p>
+</section>
+
+<section class="chapter">
+  <h2>Opening the desk</h2>
+  <p class="lead">The console lives at <code>/admin</code>. It is a separate door from the member site: signing in as a member does not open it, and it never says whether an email belongs to staff or not.</p>
+
+  <figure>
+    <img src="fig-owner-en-signin.png" alt="The desk sign-in screen">
+    <figcaption>The door. One form signs you in and unlocks the desk in a single step.</figcaption>
+  </figure>
+
+  <h3>The two accounts</h3>
+  <p>There are two kinds of desk account, and the difference is not cosmetic: it is enforced on the server, so a hidden tab is genuinely unreachable rather than merely out of sight.</p>
+  <table>
+    <tr><th>Account</th><th>Can do</th><th>Cannot do</th></tr>
+    <tr>
+      <td>Owner</td>
+      <td>Everything: bookings, members, closures, notices, pricing, <strong>and Analytics</strong></td>
+      <td>Nothing is hidden from this account</td>
+    </tr>
+    <tr>
+      <td>Reception</td>
+      <td>Bookings, members, closures, notices, pricing</td>
+      <td><strong>Analytics.</strong> Member numbers and takings are the owner's business, and the reception computer sits in a public room</td>
+    </tr>
+  </table>
+
+  <h3>The 45-minute lock</h3>
+  <p>The desk asks for the password again after 45 minutes of the console being open, even though you are still signed in. That is deliberate: this console can change balances, cancel classes and reset passwords, so an unattended counter should not stay open all afternoon.</p>
+  <p>When it lapses you are asked for the <strong>password only</strong>, so you do not have to type the email again.</p>
+
+  <h3>Signing out</h3>
+  <p><span class="btn">Log out</span> sits at the top right. Use it at the end of a shift. Closing the browser tab is not the same thing.</p>
+
+  <div class="warn">
+    <span class="label">Before the studio opens</span>
+    <p>The two development passwords must be replaced. On the studio's own computer, run <code>npm run staff -- password owner@apexpilates.cy</code>. It prints a new password once, on that screen only, so put it straight into the studio's password manager. The same for the reception account.</p>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Bookings: the day in front of you</h2>
+  <p class="lead">The screen the desk lives on. Every class on a chosen day, who is booked into each one, and the two things you do about it: mark who turned up, and cancel a booking when somebody asks.</p>
+
+  <figure>
+    <img src="fig-owner-en-today.png" alt="The Bookings tab">
+    <figcaption>One day's classes. The count on the right of each class is booked against capacity: five is full.</figcaption>
+  </figure>
+
+  <h3>Choosing the day</h3>
+  <table>
+    <tr><th>Control</th><th>What it does</th></tr>
+    <tr><td>‹ &nbsp; ›</td><td>One day back, one day forward</td></tr>
+    <tr><td>The date</td><td>Opens a calendar. Sundays are dimmed: the studio is closed</td></tr>
+    <tr><td><span class="btn">Today</span></td><td>Appears only when you are looking at another day. Jumps back</td></tr>
+    <tr><td><em>n</em> booked</td><td>Everyone booked across the whole day, top right</td></tr>
+  </table>
+
+  <h3>Marking attendance</h3>
+  <p>Each person shows their name and phone number, with two buttons.</p>
+  <table>
+    <tr><th>Button</th><th>Means</th></tr>
+    <tr><td><span class="btn">Came</span></td><td>They attended. The class counts towards their history</td></tr>
+    <tr><td><span class="btn">No show</span></td><td>They booked and did not arrive. The session is <strong>not</strong> given back</td></tr>
+  </table>
+  <p>Neither button changes anybody's balance. The session was already spent when they booked. Marking attendance is a record, not a transaction.</p>
+
+  <h3>Cancelling somebody's booking</h3>
+  <p>Open the member from the <strong>Members</strong> tab and use their booked classes list, where each booking offers two ways out:</p>
+  <table class="wide">
+    <tr><th>Choice</th><th>When to use it</th></tr>
+    <tr>
+      <td><span class="btn">Cancel and refund</span></td>
+      <td>The normal one. The class is cancelled and the session goes back into their balance</td>
+    </tr>
+    <tr>
+      <td><span class="btn">Cancel, keep the session</span></td>
+      <td>They cancelled far too late, or did not come and asked afterwards. The class is freed for somebody else but the session is spent</td>
+    </tr>
+  </table>
+  <div class="note">
+    <span class="label">Why the seat matters</span>
+    <p>Classes hold five people. Cancelling a booking, either way, frees the place immediately for another member to take on the website, so cancel as soon as you know, even when the session is not being refunded.</p>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Members</h2>
+  <p class="lead">Everything about one person: their balance, how to sell them sessions at the counter, their contact details, and their history.</p>
+
+  <figure>
+    <img src="fig-owner-en-members.png" alt="The Members tab">
+    <figcaption>Search by name, email or phone, or browse ten at a time when you are not sure who you want.</figcaption>
+  </figure>
+
+  <h3>Finding somebody</h3>
+  <ul>
+    <li><strong>Search</strong> takes a name, an email or a phone number. Part of it is enough, and the phone match ignores spaces, so <code>99123</code> finds <code>+357 99 123 456</code>.</li>
+    <li><strong>Browse</strong> shows ten at a time, newest account first, with <em>newer</em> and <em>older</em> underneath.</li>
+    <li>The pills <span class="btn">All</span> <span class="btn">Members</span> <span class="btn">Test</span> appear only once at least one test account exists.</li>
+  </ul>
+
+  <figure>
+    <img src="fig-owner-en-member.png" alt="One member's page">
+    <figcaption>A member's own page. Balance and join date at the top, then everything you can do for them.</figcaption>
+  </figure>
+
+  <h3>Selling sessions at the counter</h3>
+  <p>Under <strong>Sessions at the desk</strong>. This is how somebody pays you in cash or on the card machine rather than on the website.</p>
+  <table class="wide">
+    <tr><th>Field</th><th>What to put in it</th></tr>
+    <tr><td>How many</td><td>A positive number adds sessions. A <strong>negative</strong> number takes them away: that is how you correct a mistake</td></tr>
+    <tr><td>Amount taken</td><td>What you actually took, in euro. Leave it at zero for a free adjustment</td></tr>
+    <tr><td>Valid for (days)</td><td>How long before the sessions expire</td></tr>
+    <tr><td>Paid by</td><td><strong>Cash</strong> · <strong>Card at the desk</strong> · <strong>Adjustment, no payment</strong></td></tr>
+    <tr><td>Note for the ledger</td><td>Why. Write something: a year later it is the only explanation that exists</td></tr>
+  </table>
+  <p>Then <span class="btn">Record it</span>.</p>
+
+  <div class="money">
+    <span class="label">Cash and card at the desk count as revenue</span>
+    <p><strong>Adjustment, no payment</strong> does not. Choose it for a free session, an apology, or a correction: the sessions arrive in their balance but no money is added to the takings. Choosing Cash for a gift would put money into Analytics that never entered the till.</p>
+  </div>
+
+  <div class="warn">
+    <span class="label">One member you cannot sell to</span>
+    <p>If the member has never confirmed their email address, <span class="btn">Record it</span> is greyed out and the panel says so. It is not a fault. The next chapter explains why, and how to fix it in half a minute while they are standing in front of you. <strong>Taking sessions back still works</strong>, whatever state the account is in.</p>
+  </div>
+
+  <h3>The rest of a member's page</h3>
+  <table class="wide">
+    <tr><th>Section</th><th>What it is for</th></tr>
+    <tr><td>Contact details</td><td>Their name, email and phone. Members cannot change these themselves: their email is how they sign in</td></tr>
+    <tr><td>Reachable by</td><td>Email, SMS, Push, and <strong>Offers and news</strong>. These are the member's own consents. Turning one on for somebody who declined it is not a favour</td></tr>
+    <tr><td>Set a new password</td><td>Type one and read it out to them. They can change it afterwards from their own account</td></tr>
+    <tr><td>Booked classes</td><td>What they have coming, with the two cancel options</td></tr>
+    <tr><td>Session history</td><td>Every session added, spent or returned, and why</td></tr>
+    <tr><td>Payments</td><td>What they have paid, on the website and at the desk</td></tr>
+  </table>
+
+  <h3>Test accounts</h3>
+  <p>A <strong>Test account</strong> switch on each member's page marks a dummy account the studio keeps for trying things out. It does two things: the account is left out of everything the Notices tab sends, and it stops being counted as a member in the reach figures.</p>
+  <p>It is <strong>not</strong> a role. A test account still books classes and holds a balance, because that is what it is for.</p>
+
+  <div class="note">
+    <span class="label">One phone number, one account</span>
+    <p>Correcting a phone to one another member already holds is refused. Numbers are compared in normalised form, so <code>+357 99 123456</code>, <code>99123456</code> and <code>0035799123456</code> all count as the same number.</p>
+  </div>
+
+  <p>After a save the page reloads and lands back on the member list. That is on purpose: what you edited here changes nothing visible, so a reload is the only honest proof that it was written down.</p>
+</section>
+
+<section class="chapter">
+  <h2>Email confirmation</h2>
+  <p class="lead">A new member cannot use their account until they have typed a six-digit code the site emailed them. That is the rule, it applies at the counter as well as on the website, and this chapter is what to do when it gets in your way.</p>
+
+  <figure>
+    <img src="fig-en-verify.png" alt="The confirmation code screen a new member sees">
+    <figcaption>What a new member sees the moment they register. Until the code is typed, every other page on the site sends them back to this one.</figcaption>
+  </figure>
+
+  <h3>Why the studio does this</h3>
+  <p>Every promise the site makes goes by email or to a phone: the receipt, the reminder two hours before class, and the message that says a class has moved. If the address is wrong, the studio believes it has told somebody and that somebody has heard nothing. They then miss a class they paid for and blame the studio, which is fair, because from where they are sitting nothing arrived.</p>
+  <p>Asking for a code once, at the start, is the only point where that is cheap to catch.</p>
+
+  <h3>What it looks like on the member's page</h3>
+  <figure>
+    <img src="fig-en-unverified.png" alt="A member whose email has not been confirmed">
+    <figcaption>An amber panel on their card, and the reason underneath. This is the whole of the diagnosis.</figcaption>
+  </figure>
+  <p>An unconfirmed account can do <strong>nothing at all</strong>: no booking, no paying, not even opening its own account page. It is also left out of everything the Notices tab sends, on all four channels.</p>
+
+  <h3>Fixing it at the counter</h3>
+  <p>This takes half a minute, and reception is the only person who will ever have both the member and their phone in the same room.</p>
+  <table class="wide">
+    <tr><th>Step</th><th>What you do</th></tr>
+    <tr><td>1</td><td>Read their email address back to them off <strong>Contact details</strong>. A typo is the usual answer</td></tr>
+    <tr><td>2</td><td>If it is wrong, correct it and press <span class="btn">Save</span></td></tr>
+    <tr><td>3</td><td>Ask them to sign in on their phone. They will land straight on the code screen</td></tr>
+    <tr><td>4</td><td>They press <em>Send the code again</em>, read it, and type it in</td></tr>
+    <tr><td>5</td><td>Now sell them their pack</td></tr>
+  </table>
+  <p>If the code has not arrived, ask them to look in spam before doing anything else. It is the answer nine times out of ten.</p>
+
+  <h3>The numbers behind the code</h3>
+  <table>
+    <tr><th>Rule</th><th>Value</th></tr>
+    <tr><td>Length</td><td>Six digits</td></tr>
+    <tr><td>Expires after</td><td>15 minutes</td></tr>
+    <tr><td>Wrong tries allowed</td><td>5, then that code is dead and they need a new one</td></tr>
+    <tr><td>Wait between sends</td><td>60 seconds</td></tr>
+    <tr><td>Sends allowed per hour</td><td>5</td></tr>
+  </table>
+  <p>Every code is new. Asking for another one always produces different digits, and the previous code stops working the moment it does.</p>
+
+  <div class="note">
+    <span class="label">If they closed the browser and came back a week later</span>
+    <p>Nothing is lost. The account is still there, the same password still works, and signing in puts them back on the code screen. If the original code has expired they press <em>Send the code again</em>. They never have to register a second time.</p>
+  </div>
+
+  <div class="note">
+    <span class="label">Unfinished registrations clear themselves after a week</span>
+    <p>An account that never confirmed its address is deleted seven days after it was created. There is nothing on it to lose, and keeping somebody's email and phone number when the studio has no relationship with them is data it should not be holding. If they come back after that, they simply register again.</p>
+  </div>
+
+  <div class="warn">
+    <span class="label">If every new member is showing this</span>
+    <p>Then the problem is not the members: the studio's email provider has stopped sending, and nobody can finish signing up at all. Run <code>npm run doctor</code> on the studio's computer. It says so in one line.</p>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Closures and the rota</h2>
+  <p class="lead">Two separate jobs share this tab: putting classes onto the timetable weeks ahead, and shutting a day when the studio will not open.</p>
+
+  <figure>
+    <img src="fig-owner-en-timetable.png" alt="The Closures tab">
+    <figcaption>The rota at the top, closed days underneath.</figcaption>
+  </figure>
+
+  <h3>The rota: putting classes on the timetable</h3>
+  <p>The weekly timetable is a set of <em>templates</em>: "Reformer Flow, Mondays at 06:00" and so on. A member cannot book a template: they book a class on a date. Set <strong>Weeks ahead</strong> and press the button, and every template is written out as real, bookable classes for that many weeks.</p>
+  <p>Straight afterwards you get <em>"42 classes added, 301 were already there."</em> The figure above it is the running total on the books.</p>
+
+  <div class="note">
+    <span class="label">Pressed it by mistake? Almost certainly nothing happened</span>
+    <p>Running it twice over the same weeks creates nothing at all and reports everything as "already there". It is safe to press when you are not sure whether somebody already did.</p>
+    <p>The case worth undoing is a run that went <strong>further ahead than you meant</strong>: 26 weeks instead of 6. So after a run that added anything there is an <span class="btn">Undo this</span> beside the result. It removes only what that run added, and only classes <strong>nobody has booked</strong>; a class with a member on it is kept and reported as kept. The undo lasts until you leave the page.</p>
+  </div>
+
+  <h3>Closing a day</h3>
+  <p>Pick the <strong>Day</strong>, write a <strong>Reason</strong>, it is shown to members, so write it for them, and press <span class="btn">Close this day</span>.</p>
+  <p>Everything happens at once: every class that day is cancelled, every booked member gets their session back, and they are told. You then see <em>"7 classes cancelled, 23 sessions refunded"</em> and a list of who was in them, which is your call-round list if the closure is sudden.</p>
+  <p><span class="btn">Open it again</span> reverses the closure for future classes. It does <strong>not</strong> restore the bookings that were cancelled: those members have their sessions back and must book again.</p>
+
+  <div class="warn">
+    <span class="label">This one is not reversible</span>
+    <p>Closing a day cancels real bookings and notifies real people. Check the date before pressing it. Reopening the day afterwards does not put anybody's booking back.</p>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Notices: writing to members</h2>
+  <p class="lead">One message, up to four places: their account on the website, a phone notification, an email, and a text message. The first is not optional; the other three are your choice, and one of them costs money.</p>
+
+  <figure>
+    <img src="fig-owner-en-notices.png" alt="The Notices tab">
+    <figcaption>Write it, choose who it goes to, choose how it travels. Each channel says how many people it reaches before you send.</figcaption>
+  </figure>
+
+  <h3>Writing it</h3>
+  <ul>
+    <li><strong>Subject</strong> and <strong>Message</strong>, in English.</li>
+    <li><strong>Greek version, optional</strong>: open it and type the Greek too. Members reading the site in Greek see the Greek in their account, and the email carries both languages. Leave it blank and everyone gets English.</li>
+    <li><strong>Mark as important</strong> for something that must not be scrolled past.</li>
+  </ul>
+
+  <h3>Who it goes to</h3>
+  <table class="wide">
+    <tr><th>Audience</th><th>Reaches</th></tr>
+    <tr><td>Everyone</td><td>Every member with an account. Studio and timetable notices: a cancelled class is not something to opt out of</td></tr>
+    <tr><td>Offers only</td><td>Only members who ticked <em>Offers and news</em>. Never anybody else, whatever else is selected</td></tr>
+  </table>
+  <p>Two kinds of account are always left out, whichever audience you pick, and the reach line says how many so the number never drops without an explanation:</p>
+  <ul>
+    <li><strong>Test accounts</strong>, unless you tick <em>Include test accounts</em>.</li>
+    <li><strong>Accounts that never confirmed their email address.</strong> These cannot be included at all. The address may not exist, and a message bouncing off a dozen invented mailboxes makes it harder for the studio to reach the real ones. See the chapter on email confirmation.</li>
+  </ul>
+
+  <h3>How it goes out</h3>
+  <table class="wide">
+    <tr><th>Channel</th><th>Cost</th><th>Reaches</th></tr>
+    <tr><td>In their account</td><td>Free</td><td>Everyone in the audience, always. Not a choice</td></tr>
+    <tr><td>Push notification</td><td>Free</td><td>Members whose phone or browser allowed notifications</td></tr>
+    <tr><td>Email</td><td>Free</td><td>Members who left email switched on</td></tr>
+    <tr><td>SMS</td><td><strong>About €0.02 each</strong></td><td>Members who deliberately turned SMS on</td></tr>
+  </table>
+  <p>Each button says <em>"reaches 38"</em> before you send. A channel with no provider connected says <em>"not connected yet"</em> rather than silently doing nothing.</p>
+
+  <h3>The text message panel</h3>
+  <p>Ticking SMS opens a panel showing the message <strong>exactly as it will arrive on a phone</strong>, with the cost underneath. There is nothing to type: the text follows the message you already wrote.</p>
+  <ul>
+    <li><strong>English · Greek · Both</strong>: which language the text carries. English is the default because it is the cheapest.</li>
+    <li><strong>Change the wording</strong> opens a box per language, pre-filled with what was about to be sent, if you want the text to read differently from the notice. <strong>Use the message above</strong> puts it back.</li>
+  </ul>
+
+  <div class="money">
+    <span class="label">Why Greek costs more</span>
+    <p>A text message holds <strong>160</strong> Latin characters. The moment one Greek letter appears the whole message re-encodes and the limit drops to <strong>70</strong>: the English half included. So the same announcement is one message in English, three in Greek, and five with both in one text.</p>
+    <p>The member always receives <strong>one</strong> text however long it is; the network splits it and the phone puts it back together. The invoice counts the pieces. That is what <em>"billed as 2 messages each"</em> means, and the panel tells you how many characters to drop to get back to one.</p>
+  </div>
+
+  <h3>Exclusive categories</h3>
+  <p>The last block, and optional. It picks out who a message is <em>relevant</em> to: a different question from who agreed to hear from you.</p>
+  <table class="wide">
+    <tr><th>Filter</th><th>Finds</th></tr>
+    <tr><td>Never bought a pack</td><td>No payment yet, by card or at the desk. Free sessions given as an adjustment do not count as buying</td></tr>
+    <tr><td>No sessions left</td><td>Nothing in the balance, or everything they had has expired</td></tr>
+    <tr><td>Not been for <em>n</em></td><td>Last class that long ago or longer, <strong>and members who have never come at all</strong></td></tr>
+    <tr><td>Include test accounts</td><td>Off by default, so the reach figures count real members only</td></tr>
+  </table>
+  <p>They combine, so <em>never bought</em> plus <em>not been for 3 months</em> is the cold-lead list. The count at the bottom updates as you change them, and <strong>Send is disabled when nothing matches</strong>.</p>
+
+  <div class="note">
+    <span class="label">Consent always wins</span>
+    <p>A filter can only ever narrow. Choosing <em>never bought</em> with the <strong>Offers only</strong> audience reaches members who never bought <em>and</em> accepted offers. Somebody who declined offers is never in it, whatever is selected on screen.</p>
+  </div>
+
+  <h3>What was sent already</h3>
+  <p>The list on the right, filtered by channel and paged five at a time. Each notice records the date, how many read it, and <strong>who it went to</strong>: "offers audience · never bought · away 30d+". That cannot be worked out later: the audience for "not been for three months" is different today, because people came back.</p>
+</section>
+
+<section class="chapter">
+  <h2>Pricing and offers</h2>
+  <p class="lead">The packs on sale, and a way to run a discount across them without editing each one.</p>
+
+  <figure>
+    <img src="fig-owner-en-pricing.png" alt="The Pricing tab">
+    <figcaption>Every pack with its price, and the offer controls above them.</figcaption>
+  </figure>
+
+  <h3>Running an offer</h3>
+  <table class="wide">
+    <tr><th>Field</th><th>Meaning</th></tr>
+    <tr><td>Applies to</td><td>The whole list, or one pack</td></tr>
+    <tr><td>Discount</td><td><strong>Percent off</strong> or <strong>Euro off</strong></td></tr>
+    <tr><td>Amount</td><td>The number: 15 for 15% off, or 15 for €15 off</td></tr>
+    <tr><td>Label on the card</td><td>What members see on the price card, e.g. <em>Opening week</em></td></tr>
+  </table>
+  <p><span class="btn">Apply</span> changes the price list everywhere at once: the website, the checkout and the desk. The old price is shown struck through beside the new one, so members can see what they are saving.</p>
+  <p><span class="btn">Back to normal prices</span> ends the offer. Nothing already bought is affected: a member who bought at the offer price keeps their sessions.</p>
+
+  <div class="warn">
+    <span class="label">It is live the moment you press Apply</span>
+    <p>There is no draft and no schedule. Anybody on the website sees the new price immediately, so set it when you mean it to start.</p>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Analytics: the owner only</h2>
+  <p class="lead">Six figures about the business. This tab does not exist for a reception account: the queries do not even run, so there is nothing on that computer to find.</p>
+
+  <figure>
+    <img src="fig-owner-en-analytics.png" alt="The Analytics tab">
+    <figcaption>Choose a period at the top; every figure follows it.</figcaption>
+  </figure>
+
+  <table class="wide">
+    <tr><th>Figure</th><th>What it counts</th></tr>
+    <tr><td>Members</td><td>Accounts, with how many are new in the period</td></tr>
+    <tr><td>Members with sessions</td><td>Holding at least one right now: the people who can walk in tomorrow</td></tr>
+    <tr><td>Bookings</td><td>Classes booked in the period, and how many were cancelled</td></tr>
+    <tr><td>Sessions outstanding</td><td>Bought and not yet used. Money already taken for classes still owed</td></tr>
+    <tr><td>Sessions booked</td><td>Committed to classes still to come</td></tr>
+    <tr><td>Revenue (paid)</td><td>Money actually received: website payments plus cash and card at the desk</td></tr>
+  </table>
+
+  <h3>Choosing a period</h3>
+  <p><strong>From</strong> and <strong>To</strong> for any range you like, plus shortcuts for <strong>This month</strong>, <strong>Last month</strong> and <strong>All time</strong>. If the end is before the start it says so rather than showing zero.</p>
+
+  <div class="note">
+    <span class="label">Revenue excludes adjustments</span>
+    <p>Sessions given as <em>Adjustment, no payment</em> never appear in Revenue. That is what keeps the figure honest: it is money that entered the business, not sessions that left it.</p>
+  </div>
+
+  <div class="note">
+    <span class="label">Test accounts are in none of these figures</span>
+    <p>Every number on this tab counts real members only. A test purchase of €110 is not €110 the studio took, and this is the screen somebody uses to decide whether the month went well. The same applies to bookings, cancellations and the member count.</p>
+    <p>Members whose data has been erased keep their payments in Revenue, because that money did enter the business, but they are no longer counted in Members. They have left.</p>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>Erasing a member's data</h2>
+  <p class="lead">The owner only, and the one thing in this console that cannot be undone. It exists because in the EU a member can require the studio to erase their personal data, and the studio has a month to answer.</p>
+
+  <figure>
+    <img src="fig-en-erase.png" alt="The erase panel at the bottom of a member's page">
+    <figcaption>At the bottom of the member's page, on the owner's console only. Reception does not see this panel and cannot reach it.</figcaption>
+  </figure>
+
+  <h3>What it does, and what it deliberately does not</h3>
+  <table class="wide">
+    <tr><th></th><th>What happens</th></tr>
+    <tr>
+      <td>Removed</td>
+      <td>Name, email, phone, date of birth, height, weight, the instructor's notes, their photograph, and every device they had allowed notifications on. The password is replaced with one nobody holds, so the account cannot be signed in to. Anybody signed in on it at the time is signed out</td>
+    </tr>
+    <tr>
+      <td>Kept</td>
+      <td>Every payment, every booking, every session in the history. Cyprus requires accounting records to be kept for six years, and that obligation outranks the erasure request for the invoice while the person still goes</td>
+    </tr>
+  </table>
+  <p>Afterwards the row reads <strong>Erased member</strong>, with a grey panel saying who erased it and when. The studio's takings do not change by a cent: a button that quietly rewrote last March would be far worse than no button.</p>
+
+  <h3>Before you press it</h3>
+  <ul>
+    <li><strong>You have to type their email address.</strong> There is no undo, and "are you sure?" is a box people click through without reading. Typing the address means looking at which member is selected.</li>
+    <li><strong>It does not cancel their booked classes.</strong> If they have any, the panel tells you how many before you start. Somebody may want their data gone and their Thursday class kept, so that is a conversation rather than a keystroke. Cancel them first if that is what they asked for, otherwise the class list will show "Erased member".</li>
+    <li><strong>Staff accounts cannot be erased here.</strong> Use <code>npm run staff</code> for those.</li>
+  </ul>
+
+  <div class="warn">
+    <span class="label">This is not the button for a member who has left</span>
+    <p>Somebody who stops coming is simply a member who stops coming. Their history is worth keeping, and they may be back in March. Use this only when a person has actually asked to be forgotten, or when the studio's own records policy says the data should go.</p>
+  </div>
+
+  <div class="note">
+    <span class="label">What to tell a member who asks</span>
+    <p>That their name and contact details will be removed within a few days, that the record of what they paid has to stay for six years because Cypriot tax law requires it, and that nobody will be able to tell from the record who they were. That is an accurate description of what this does.</p>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>What costs money, what cannot be undone</h2>
+  <p class="lead">A short list worth reading once. Everything else in the console is either free or reversible.</p>
+
+  <h3>The things that cost money</h3>
+  <table class="wide">
+    <tr><th>Action</th><th>Cost</th></tr>
+    <tr><td>Sending an SMS</td><td>About €0.02 per message per person, and Greek is roughly three times English. The panel shows the total in euro before you send</td></tr>
+    <tr><td>Card payments on the website</td><td>Stripe takes about 1.5% + €0.25 on a European card, more on a foreign one. Taken automatically; nothing to do at the desk</td></tr>
+    <tr><td>Push, email, in-app notices</td><td>Free, however many you send</td></tr>
+  </table>
+
+  <h3>The things that cannot be taken back</h3>
+  <ul>
+    <li><strong>Closing a day.</strong> Bookings are cancelled and members are told. Reopening the day does not restore anybody's booking.</li>
+    <li><strong>Sending a notice.</strong> There is no recall. Read it once more before pressing send, especially the audience.</li>
+    <li><strong>Refunding a card payment.</strong> Stripe keeps its fee, so a refunded €110 pack still costs the studio about €1.90. Returning the session to the member's balance is almost always the better answer.</li>
+    <li><strong>Erasing a member's data.</strong> The one action with no recovery of any kind: the name and contact details are overwritten, not hidden, and no backup holds them. See the previous chapter.</li>
+  </ul>
+
+  <div class="note">
+    <span class="label">Things that look alarming and are not</span>
+    <p><strong>Generating the schedule twice</strong> creates nothing the second time. <strong>Marking somebody as a no-show</strong> changes no balance. <strong>Editing a member's details</strong> reloads the page: that is proof it saved, not an error.</p>
+  </div>
+</section>
+
+<section class="chapter">
+  <h2>If something looks wrong</h2>
+
+  <table class="wide">
+    <tr><th>What you see</th><th>What it usually means</th></tr>
+    <tr>
+      <td>"Those details do not open the desk"</td>
+      <td>The door gives the same answer for a wrong password, an account that does not exist, and a member's correct password: on purpose, so it tells a stranger nothing. Check the email is the staff one, not a member's</td>
+    </tr>
+    <tr>
+      <td>Asked for the password again</td>
+      <td>The 45-minute lock lapsed. Normal. Only the password is needed</td>
+    </tr>
+    <tr>
+      <td>A channel says "not connected yet"</td>
+      <td>That provider is not configured on the server. Nothing was sent by it, and it says so rather than pretending</td>
+    </tr>
+    <tr>
+      <td>SMS sent but nobody received it</td>
+      <td>Most likely the SMS credit ran out. It fails silently at the provider's end. Top up the account</td>
+    </tr>
+    <tr>
+      <td>No Analytics tab</td>
+      <td>You are signed in as reception. Correct behaviour</td>
+    </tr>
+    <tr>
+      <td>A member says they got no reminder</td>
+      <td>Check <em>Reachable by</em> on their page, and whether they ever allowed notifications on that phone. Push has to be enabled by them, on each device</td>
+    </tr>
+    <tr>
+      <td>"Nobody matches these filters"</td>
+      <td>The categories are too narrow. Send is disabled until at least one member matches, which is the system stopping an empty campaign</td>
+    </tr>
+  </table>
+
+  <div class="note">
+    <span class="label">A rule that never bends</span>
+    <p>If the screen and this manual disagree, the screen is right: it was built to say what it does. If something the screen says does not make sense, write down exactly what it said before doing anything else. That sentence is usually the whole answer.</p>
+  </div>
+</section>
+
+<!-- ============================================================ PART TWO -->
+<section class="partpage" lang="el">
+  <div class="kicker">Μέρος δεύτερο</div>
+  <h1>Ελληνικά</h1>
+  <p>Γραμμένο για όποιον στέκεται στην υποδοχή. Κάθε οθόνη της κονσόλας, με τη σειρά που θα τη συναντήσεις.</p>
+</section>
+
+<section class="chapter" lang="el">
+  <h2>Άνοιγμα της υποδοχής</h2>
+  <p class="lead">Η κονσόλα βρίσκεται στο <code>/admin</code>. Είναι ξεχωριστή πόρτα από τον ιστότοπο των μελών: η σύνδεση ως μέλος δεν την ανοίγει, και ποτέ δεν αποκαλύπτει αν ένα email ανήκει στο προσωπικό.</p>
+
+  <figure>
+    <img src="fig-owner-el-signin.png" alt="Η οθόνη σύνδεσης">
+    <figcaption>Η πόρτα. Μία φόρμα σε συνδέει και ξεκλειδώνει την υποδοχή μαζί.</figcaption>
+  </figure>
+
+  <h3>Οι δύο λογαριασμοί</h3>
+  <p>Υπάρχουν δύο είδη λογαριασμού και η διαφορά δεν είναι απλώς οπτική: επιβάλλεται στον διακομιστή, οπότε μια κρυμμένη καρτέλα είναι πραγματικά απρόσιτη.</p>
+  <table>
+    <tr><th>Λογαριασμός</th><th>Μπορεί</th><th>Δεν μπορεί</th></tr>
+    <tr>
+      <td>Ιδιοκτήτης</td>
+      <td>Τα πάντα: κρατήσεις, μέλη, κλειστές ημέρες, ανακοινώσεις, τιμές <strong>και Στατιστικά</strong></td>
+      <td>Τίποτα δεν κρύβεται από αυτόν τον λογαριασμό</td>
+    </tr>
+    <tr>
+      <td>Υποδοχή</td>
+      <td>Κρατήσεις, μέλη, κλειστές ημέρες, ανακοινώσεις, τιμές</td>
+      <td><strong>Στατιστικά.</strong> Τα μέλη και τα έσοδα αφορούν τον ιδιοκτήτη, και ο υπολογιστής της υποδοχής βρίσκεται σε κοινόχρηστο χώρο</td>
+    </tr>
+  </table>
+
+  <h3>Το κλείδωμα των 45 λεπτών</h3>
+  <p>Η υποδοχή ζητά ξανά τον κωδικό μετά από 45 λεπτά, ακόμη κι αν είσαι ήδη συνδεδεμένος. Είναι σκόπιμο: από εδώ αλλάζουν υπόλοιπα, ακυρώνονται μαθήματα και μηδενίζονται κωδικοί, οπότε ένας αφύλακτος πάγκος δεν πρέπει να μένει ανοιχτός όλο το απόγευμα.</p>
+  <p>Όταν λήξει, ζητείται <strong>μόνο ο κωδικός</strong>, οπότε δεν χρειάζεται να ξαναγράψεις το email.</p>
+
+  <h3>Αποσύνδεση</h3>
+  <p>Η <span class="btn">Αποσύνδεση</span> βρίσκεται πάνω δεξιά. Χρησιμοποίησέ την στο τέλος της βάρδιας. Το κλείσιμο της καρτέλας δεν είναι το ίδιο.</p>
+
+  <div class="warn">
+    <span class="label">Πριν ανοίξει το στούντιο</span>
+    <p>Οι δύο κωδικοί ανάπτυξης πρέπει να αντικατασταθούν. Στον υπολογιστή του στούντιο: <code>npm run staff -- password owner@apexpilates.cy</code>. Τυπώνει έναν νέο κωδικό μία φορά, μόνο σε εκείνη την οθόνη, οπότε φύλαξέ τον αμέσως. Το ίδιο και για τον λογαριασμό της υποδοχής.</p>
+  </div>
+</section>
+
+<section class="chapter" lang="el">
+  <h2>Κρατήσεις: η ημέρα μπροστά σου</h2>
+  <p class="lead">Η οθόνη στην οποία ζει η υποδοχή. Όλα τα μαθήματα μιας ημέρας, ποιοι έχουν κράτηση, και τα δύο πράγματα που κάνεις: σημειώνεις ποιος ήρθε και ακυρώνεις κρατήσεις.</p>
+
+  <figure>
+    <img src="fig-owner-el-today.png" alt="Η καρτέλα Κρατήσεις">
+    <figcaption>Τα μαθήματα μιας ημέρας. Ο αριθμός δεξιά είναι κρατήσεις προς χωρητικότητα: το πέντε σημαίνει γεμάτο.</figcaption>
+  </figure>
+
+  <h3>Επιλογή ημέρας</h3>
+  <table>
+    <tr><th>Στοιχείο</th><th>Τι κάνει</th></tr>
+    <tr><td>‹ &nbsp; ›</td><td>Μία ημέρα πίσω, μία μπροστά</td></tr>
+    <tr><td>Η ημερομηνία</td><td>Ανοίγει ημερολόγιο. Οι Κυριακές είναι σβησμένες: το στούντιο είναι κλειστό</td></tr>
+    <tr><td><span class="btn">Σήμερα</span></td><td>Εμφανίζεται μόνο όταν βλέπεις άλλη ημέρα. Επιστρέφει</td></tr>
+    <tr><td><em>n</em> κρατήσεις</td><td>Όλες οι κρατήσεις της ημέρας, πάνω δεξιά</td></tr>
+  </table>
+
+  <h3>Σημείωση παρουσίας</h3>
+  <p>Κάθε άτομο εμφανίζεται με όνομα και τηλέφωνο, και δύο κουμπιά.</p>
+  <table>
+    <tr><th>Κουμπί</th><th>Σημαίνει</th></tr>
+    <tr><td><span class="btn">Ήρθε</span></td><td>Παρευρέθηκε. Το μάθημα μετρά στο ιστορικό του</td></tr>
+    <tr><td><span class="btn">Δεν ήρθε</span></td><td>Έκανε κράτηση και δεν εμφανίστηκε. Η συνεδρία <strong>δεν</strong> επιστρέφεται</td></tr>
+  </table>
+  <p>Κανένα από τα δύο δεν αλλάζει υπόλοιπο. Η συνεδρία ξοδεύτηκε τη στιγμή της κράτησης. Η παρουσία είναι καταγραφή, όχι συναλλαγή.</p>
+
+  <h3>Ακύρωση κράτησης</h3>
+  <p>Άνοιξε το μέλος από την καρτέλα <strong>Μέλη</strong> και δες τις κρατήσεις του. Κάθε κράτηση προσφέρει δύο τρόπους:</p>
+  <table class="wide">
+    <tr><th>Επιλογή</th><th>Πότε</th></tr>
+    <tr>
+      <td><span class="btn">Ακύρωση με επιστροφή</span></td>
+      <td>Η συνηθισμένη. Το μάθημα ακυρώνεται και η συνεδρία επιστρέφει στο υπόλοιπό του</td>
+    </tr>
+    <tr>
+      <td><span class="btn">Ακύρωση χωρίς επιστροφή</span></td>
+      <td>Ακύρωσε πολύ αργά, ή δεν ήρθε και ζήτησε εκ των υστέρων. Η θέση ελευθερώνεται αλλά η συνεδρία χάνεται</td>
+    </tr>
+  </table>
+  <div class="note">
+    <span class="label">Γιατί μετράει η θέση</span>
+    <p>Τα μαθήματα χωρούν πέντε άτομα. Η ακύρωση, με οποιονδήποτε τρόπο, ελευθερώνει αμέσως τη θέση για άλλο μέλος στον ιστότοπο, οπότε ακύρωνε μόλις το μάθεις, ακόμη κι όταν δεν επιστρέφεται η συνεδρία.</p>
+  </div>
+</section>
+
+<section class="chapter" lang="el">
+  <h2>Μέλη</h2>
+  <p class="lead">Ό,τι αφορά ένα άτομο: υπόλοιπο, πώληση συνεδριών στον πάγκο, στοιχεία επικοινωνίας και ιστορικό.</p>
+
+  <figure>
+    <img src="fig-owner-el-members.png" alt="Η καρτέλα Μέλη">
+    <figcaption>Αναζήτηση με όνομα, email ή τηλέφωνο, ή περιήγηση δέκα-δέκα.</figcaption>
+  </figure>
+
+  <h3>Εύρεση</h3>
+  <ul>
+    <li><strong>Αναζήτηση</strong> με όνομα, email ή τηλέφωνο. Αρκεί ένα μέρος, και το τηλέφωνο αγνοεί τα κενά, οπότε το <code>99123</code> βρίσκει το <code>+357 99 123 456</code>.</li>
+    <li><strong>Περιήγηση</strong> δέκα κάθε φορά, με τους νεότερους λογαριασμούς πρώτους.</li>
+    <li>Τα κουμπιά <span class="btn">Όλοι</span> <span class="btn">Μέλη</span> <span class="btn">Δοκιμαστικοί</span> εμφανίζονται μόνο αν υπάρχει δοκιμαστικός λογαριασμός.</li>
+  </ul>
+
+  <figure>
+    <img src="fig-owner-el-member.png" alt="Η σελίδα ενός μέλους">
+    <figcaption>Η σελίδα του μέλους. Υπόλοιπο και ημερομηνία εγγραφής πάνω, και από κάτω ό,τι μπορείς να κάνεις.</figcaption>
+  </figure>
+
+  <h3>Πώληση συνεδριών στον πάγκο</h3>
+  <p>Στο <strong>Συνεδρίες στην υποδοχή</strong>. Έτσι πληρώνει κάποιος με μετρητά ή στο POS αντί για τον ιστότοπο.</p>
+  <table class="wide">
+    <tr><th>Πεδίο</th><th>Τι βάζεις</th></tr>
+    <tr><td>Πόσες</td><td>Θετικός αριθμός προσθέτει. <strong>Αρνητικός</strong> αφαιρεί: έτσι διορθώνεις λάθος</td></tr>
+    <tr><td>Ποσό που εισπράχθηκε</td><td>Ό,τι πραγματικά πήρες, σε ευρώ. Μηδέν για δωρεάν διόρθωση</td></tr>
+    <tr><td>Ισχύς (ημέρες)</td><td>Σε πόσες ημέρες λήγουν οι συνεδρίες</td></tr>
+    <tr><td>Τρόπος πληρωμής</td><td><strong>Μετρητά</strong> · <strong>Κάρτα στην υποδοχή</strong> · <strong>Διόρθωση, χωρίς πληρωμή</strong></td></tr>
+    <tr><td>Σημείωση</td><td>Ο λόγος. Γράψε κάτι: σε έναν χρόνο θα είναι η μόνη εξήγηση που υπάρχει</td></tr>
+  </table>
+  <p>Και μετά <span class="btn">Καταγραφή</span>.</p>
+
+  <div class="warn">
+    <span class="label">Ένα μέλος στο οποίο δεν μπορείς να πουλήσεις</span>
+    <p>Αν το μέλος δεν έχει επιβεβαιώσει ποτέ τη διεύθυνση email του, το <span class="btn">Καταχώρηση</span> είναι απενεργοποιημένο και το πλαίσιο το εξηγεί. Δεν είναι σφάλμα. Το επόμενο κεφάλαιο εξηγεί γιατί και πώς διορθώνεται σε μισό λεπτό, όσο εκείνο στέκεται μπροστά σου. <strong>Η αφαίρεση συνεδριών λειτουργεί κανονικά</strong>, σε οποιαδήποτε κατάσταση.</p>
+  </div>
+
+  <div class="money">
+    <span class="label">Μετρητά και κάρτα μετρούν ως έσοδα</span>
+    <p>Η <strong>Διόρθωση, χωρίς πληρωμή</strong> δεν μετρά. Διάλεξέ την για δωρεάν συνεδρία ή αποζημίωση: οι συνεδρίες μπαίνουν στο υπόλοιπο αλλά δεν προστίθενται χρήματα στα έσοδα. Επιλέγοντας Μετρητά για ένα δώρο, θα έμπαιναν στα Στατιστικά χρήματα που ποτέ δεν μπήκαν στο ταμείο.</p>
+  </div>
+
+  <h3>Τα υπόλοιπα της σελίδας</h3>
+  <table class="wide">
+    <tr><th>Ενότητα</th><th>Σε τι χρησιμεύει</th></tr>
+    <tr><td>Στοιχεία επικοινωνίας</td><td>Όνομα, email, τηλέφωνο. Το μέλος δεν μπορεί να τα αλλάξει μόνο του: το email είναι ο τρόπος σύνδεσής του</td></tr>
+    <tr><td>Επικοινωνία μέσω</td><td>Email, SMS, Push και <strong>Προσφορές και νέα</strong>. Είναι οι συγκαταθέσεις του μέλους. Το να ενεργοποιήσεις κάτι που αρνήθηκε δεν είναι εξυπηρέτηση</td></tr>
+    <tr><td>Νέος κωδικός</td><td>Γράψε έναν και πες τον. Μπορεί να τον αλλάξει μετά από τον λογαριασμό του</td></tr>
+    <tr><td>Κρατήσεις</td><td>Τι έχει μπροστά του, με τις δύο επιλογές ακύρωσης</td></tr>
+    <tr><td>Κίνηση συνεδριών</td><td>Κάθε συνεδρία που προστέθηκε, ξοδεύτηκε ή επιστράφηκε, και γιατί</td></tr>
+    <tr><td>Πληρωμές</td><td>Τι έχει πληρώσει, στον ιστότοπο και στην υποδοχή</td></tr>
+  </table>
+
+  <h3>Δοκιμαστικοί λογαριασμοί</h3>
+  <p>Ο διακόπτης <strong>Δοκιμαστικός λογαριασμός</strong> σημειώνει έναν ψεύτικο λογαριασμό για δοκιμές. Κάνει δύο πράγματα: εξαιρείται από ό,τι στέλνουν οι Ανακοινώσεις, και παύει να μετριέται ως μέλος στους αριθμούς.</p>
+  <p><strong>Δεν</strong> είναι ρόλος. Ένας δοκιμαστικός λογαριασμός εξακολουθεί να κλείνει μαθήματα και να έχει υπόλοιπο, γι' αυτό υπάρχει.</p>
+
+  <div class="note">
+    <span class="label">Ένα τηλέφωνο, ένας λογαριασμός</span>
+    <p>Η αλλαγή τηλεφώνου σε έναν αριθμό που έχει ήδη άλλο μέλος απορρίπτεται. Οι αριθμοί συγκρίνονται κανονικοποιημένοι, οπότε τα <code>+357 99 123456</code>, <code>99123456</code> και <code>0035799123456</code> μετρούν ως ο ίδιος αριθμός.</p>
+  </div>
+
+  <p>Μετά την αποθήκευση η σελίδα ανανεώνεται και επιστρέφει στη λίστα μελών. Είναι σκόπιμο: αυτά που άλλαξες δεν φαίνονται πουθενά, οπότε η ανανέωση είναι η μόνη τίμια απόδειξη ότι καταγράφηκαν.</p>
+</section>
+
+<section class="chapter" lang="el">
+  <h2>Επιβεβαίωση email</h2>
+  <p class="lead">Ένα νέο μέλος δεν μπορεί να χρησιμοποιήσει τον λογαριασμό του πριν καταχωρήσει έναν εξαψήφιο κωδικό που του στέλνει η ιστοσελίδα με email. Αυτός είναι ο κανόνας, ισχύει και στην υποδοχή όπως και στον ιστότοπο, και αυτό το κεφάλαιο είναι τι κάνεις όταν σου σταθεί εμπόδιο.</p>
+
+  <figure>
+    <img src="fig-el-verify.png" alt="Η οθόνη του κωδικού επιβεβαίωσης">
+    <figcaption>Τι βλέπει ένα νέο μέλος μόλις κάνει εγγραφή. Μέχρι να καταχωρηθεί ο κωδικός, κάθε άλλη σελίδα του ιστότοπου το επιστρέφει εδώ.</figcaption>
+  </figure>
+
+  <h3>Γιατί το κάνει το στούντιο</h3>
+  <p>Κάθε υπόσχεση της ιστοσελίδας ταξιδεύει με email ή στο κινητό: η απόδειξη, η υπενθύμιση δύο ώρες πριν το μάθημα, και το μήνυμα που λέει ότι ένα μάθημα άλλαξε. Αν η διεύθυνση είναι λάθος, το στούντιο πιστεύει ότι ενημέρωσε κάποιον και εκείνος δεν έχει λάβει τίποτα. Χάνει μάθημα που πλήρωσε και κατηγορεί το στούντιο, δίκαια, γιατί από τη θέση του δεν έφτασε ποτέ τίποτα.</p>
+  <p>Ένας κωδικός στην αρχή είναι το μόνο σημείο όπου αυτό πιάνεται φθηνά.</p>
+
+  <h3>Πώς φαίνεται στη σελίδα του μέλους</h3>
+  <figure>
+    <img src="fig-el-unverified.png" alt="Μέλος που δεν επιβεβαίωσε το email του">
+    <figcaption>Κεχριμπαρένιο πλαίσιο στην κάρτα του, με την εξήγηση από κάτω. Αυτή είναι όλη η διάγνωση.</figcaption>
+  </figure>
+  <p>Ένας μη επιβεβαιωμένος λογαριασμός δεν μπορεί να κάνει <strong>απολύτως τίποτα</strong>: ούτε κράτηση, ούτε πληρωμή, ούτε καν να ανοίξει τη σελίδα του λογαριασμού του. Εξαιρείται επίσης από ό,τι στέλνει η καρτέλα Ανακοινώσεις, σε όλα τα κανάλια.</p>
+
+  <h3>Η διόρθωση στον πάγκο</h3>
+  <p>Μισό λεπτό, και η υποδοχή είναι ο μόνος άνθρωπος που θα έχει ποτέ και το μέλος και το κινητό του στον ίδιο χώρο.</p>
+  <table class="wide">
+    <tr><th>Βήμα</th><th>Τι κάνεις</th></tr>
+    <tr><td>1</td><td>Διάβασέ του τη διεύθυνση email από τα <strong>Στοιχεία επικοινωνίας</strong>. Ένα τυπογραφικό λάθος είναι η συνηθισμένη απάντηση</td></tr>
+    <tr><td>2</td><td>Αν είναι λάθος, διόρθωσέ τη και πάτησε <span class="btn">Αποθήκευση</span></td></tr>
+    <tr><td>3</td><td>Ζήτησέ του να συνδεθεί από το κινητό. Θα βρεθεί κατευθείαν στην οθόνη του κωδικού</td></tr>
+    <tr><td>4</td><td>Πατά <em>Στείλε ξανά τον κωδικό</em>, τον διαβάζει και τον καταχωρεί</td></tr>
+    <tr><td>5</td><td>Τώρα πούλα του το πακέτο</td></tr>
+  </table>
+  <p>Αν ο κωδικός δεν έφτασε, ζήτησέ του να κοιτάξει στα ανεπιθύμητα πρώτα. Είναι η απάντηση εννέα στις δέκα φορές.</p>
+
+  <h3>Οι αριθμοί πίσω από τον κωδικό</h3>
+  <table>
+    <tr><th>Κανόνας</th><th>Τιμή</th></tr>
+    <tr><td>Μήκος</td><td>Έξι ψηφία</td></tr>
+    <tr><td>Λήγει σε</td><td>15 λεπτά</td></tr>
+    <tr><td>Λάθος προσπάθειες</td><td>5, μετά ο κωδικός είναι άκυρος και χρειάζεται νέος</td></tr>
+    <tr><td>Αναμονή μεταξύ αποστολών</td><td>60 δευτερόλεπτα</td></tr>
+    <tr><td>Αποστολές ανά ώρα</td><td>5</td></tr>
+  </table>
+  <p>Κάθε κωδικός είναι νέος. Μια δεύτερη αποστολή δίνει πάντα διαφορετικά ψηφία, και ο προηγούμενος παύει να ισχύει την ίδια στιγμή.</p>
+
+  <div class="note">
+    <span class="label">Αν έκλεισε τον browser και επέστρεψε μια βδομάδα μετά</span>
+    <p>Δεν χάνεται τίποτα. Ο λογαριασμός υπάρχει, ο ίδιος κωδικός πρόσβασης δουλεύει, και η σύνδεση το φέρνει πίσω στην οθόνη του κωδικού. Αν ο αρχικός κωδικός έχει λήξει, πατά <em>Στείλε ξανά τον κωδικό</em>. Δεν χρειάζεται να κάνει εγγραφή δεύτερη φορά.</p>
+  </div>
+
+  <div class="note">
+    <span class="label">Οι ημιτελείς εγγραφές καθαρίζονται μετά από μια βδομάδα</span>
+    <p>Λογαριασμός που δεν επιβεβαίωσε ποτέ τη διεύθυνσή του διαγράφεται επτά ημέρες μετά τη δημιουργία του. Δεν υπάρχει τίποτα πάνω του να χαθεί, και η διατήρηση email και τηλεφώνου κάποιου με τον οποίο το στούντιο δεν έχει σχέση είναι δεδομένα που δεν πρέπει να κρατά. Αν επιστρέψει αργότερα, κάνει απλώς εγγραφή ξανά.</p>
+  </div>
+
+  <div class="warn">
+    <span class="label">Αν το δείχνει σε κάθε νέο μέλος</span>
+    <p>Τότε το πρόβλημα δεν είναι τα μέλη: ο πάροχος email του στούντιο σταμάτησε να στέλνει και κανείς δεν μπορεί να ολοκληρώσει την εγγραφή. Τρέξε <code>npm run doctor</code> στον υπολογιστή του στούντιο. Το λέει σε μία γραμμή.</p>
+  </div>
+</section>
+
+<section class="chapter" lang="el">
+  <h2>Κλειστές ημέρες και το πρόγραμμα</h2>
+  <p class="lead">Δύο ξεχωριστές δουλειές στην ίδια καρτέλα: η δημιουργία μαθημάτων εβδομάδες μπροστά, και το κλείσιμο μιας ημέρας.</p>
+
+  <figure>
+    <img src="fig-owner-el-timetable.png" alt="Η καρτέλα Κλειστά">
+    <figcaption>Το πρόγραμμα πάνω, οι κλειστές ημέρες από κάτω.</figcaption>
+  </figure>
+
+  <h3>Το πρόγραμμα</h3>
+  <p>Το εβδομαδιαίο πρόγραμμα είναι ένα σύνολο <em>προτύπων</em>: «Reformer Flow, Δευτέρες στις 06:00». Ένα μέλος δεν κλείνει πρότυπο: κλείνει μάθημα σε ημερομηνία. Όρισε <strong>Εβδομάδες μπροστά</strong> και πάτησε το κουμπί: κάθε πρότυπο γράφεται ως πραγματικά μαθήματα για τόσες εβδομάδες.</p>
+  <p>Αμέσως μετά βλέπεις <em>«Προστέθηκαν 42 μαθήματα, 301 υπήρχαν ήδη.»</em></p>
+
+  <div class="note">
+    <span class="label">Το πάτησες κατά λάθος; Σχεδόν σίγουρα δεν έγινε τίποτα</span>
+    <p>Δεύτερη εκτέλεση για τις ίδιες εβδομάδες δεν δημιουργεί τίποτα και τα αναφέρει όλα ως «υπήρχαν ήδη». Είναι ασφαλές να το πατήσεις όταν δεν ξέρεις αν το έκανε ήδη κάποιος.</p>
+    <p>Η περίπτωση που αξίζει αναίρεση είναι μια εκτέλεση που πήγε <strong>πιο μπροστά απ' όσο ήθελες</strong>: 26 εβδομάδες αντί για 6. Γι' αυτό υπάρχει η <span class="btn">Αναίρεση</span> δίπλα στο αποτέλεσμα. Αφαιρεί μόνο όσα πρόσθεσε εκείνη η εκτέλεση, και μόνο μαθήματα <strong>χωρίς κρατήσεις</strong>. Διαρκεί μέχρι να φύγεις από τη σελίδα.</p>
+  </div>
+
+  <h3>Κλείσιμο ημέρας</h3>
+  <p>Διάλεξε την <strong>Ημέρα</strong>, γράψε την <strong>Αιτία</strong>, τη βλέπουν τα μέλη, οπότε γράψ' την γι' αυτά, και πάτησε <span class="btn">Κλείσε την ημέρα</span>.</p>
+  <p>Όλα γίνονται μαζί: κάθε μάθημα ακυρώνεται, κάθε μέλος παίρνει πίσω τη συνεδρία του, και ενημερώνεται. Μετά βλέπεις <em>«7 μαθήματα ακυρώθηκαν, 23 συνεδρίες επιστράφηκαν»</em> και τη λίστα με το ποιοι ήταν μέσα: η λίστα τηλεφωνημάτων σου αν το κλείσιμο είναι ξαφνικό.</p>
+  <p>Το <span class="btn">Άνοιξέ την ξανά</span> αναιρεί το κλείσιμο για τα επόμενα μαθήματα. <strong>Δεν</strong> επαναφέρει τις ακυρωμένες κρατήσεις: τα μέλη έχουν πίσω τις συνεδρίες τους και πρέπει να ξανακλείσουν.</p>
+
+  <div class="warn">
+    <span class="label">Αυτό δεν αναιρείται</span>
+    <p>Το κλείσιμο ημέρας ακυρώνει πραγματικές κρατήσεις και ειδοποιεί πραγματικούς ανθρώπους. Έλεγξε την ημερομηνία πριν το πατήσεις.</p>
+  </div>
+</section>
+
+<section class="chapter" lang="el">
+  <h2>Ανακοινώσεις: μηνύματα στα μέλη</h2>
+  <p class="lead">Ένα μήνυμα, έως τέσσερα σημεία: ο λογαριασμός τους, ειδοποίηση στο κινητό, email και γραπτό μήνυμα. Το πρώτο δεν είναι επιλογή· τα άλλα τρία είναι, και το ένα κοστίζει.</p>
+
+  <figure>
+    <img src="fig-owner-el-notices.png" alt="Η καρτέλα Ανακοινώσεις">
+    <figcaption>Γράψε το, διάλεξε σε ποιους πάει, διάλεξε πώς ταξιδεύει. Κάθε κανάλι λέει σε πόσους φτάνει πριν στείλεις.</figcaption>
+  </figure>
+
+  <h3>Η σύνταξη</h3>
+  <ul>
+    <li><strong>Θέμα</strong> και <strong>Μήνυμα</strong>, στα αγγλικά.</li>
+    <li><strong>Ελληνική εκδοχή, προαιρετικά</strong>: άνοιξέ την και γράψε και τα ελληνικά. Όσοι διαβάζουν τον ιστότοπο στα ελληνικά βλέπουν τα ελληνικά, και το email έχει και τις δύο γλώσσες. Αν το αφήσεις κενό, όλοι παίρνουν αγγλικά.</li>
+    <li><strong>Σήμανση ως σημαντικό</strong> για κάτι που δεν πρέπει να προσπεραστεί.</li>
+  </ul>
+
+  <h3>Σε ποιους πάει</h3>
+  <table class="wide">
+    <tr><th>Κοινό</th><th>Φτάνει</th></tr>
+    <tr><td>Σε όλους</td><td>Σε κάθε μέλος. Ενημερώσεις στούντιο και προγράμματος: η ακύρωση μαθήματος δεν είναι κάτι που απορρίπτεις</td></tr>
+    <tr><td>Μόνο προσφορές</td><td>Μόνο σε όσους έχουν επιλέξει <em>Προσφορές και νέα</em>. Ποτέ σε κανέναν άλλον</td></tr>
+  </table>
+  <p>Δύο είδη λογαριασμού εξαιρούνται πάντα, όποιο κοινό και να διαλέξεις, και η γραμμή εμβέλειας λέει πόσα, ώστε ο αριθμός να μην πέφτει χωρίς εξήγηση:</p>
+  <ul>
+    <li><strong>Οι δοκιμαστικοί λογαριασμοί</strong>, εκτός αν επιλέξεις <em>Να συμπεριληφθούν οι δοκιμαστικοί λογαριασμοί</em>.</li>
+    <li><strong>Οι λογαριασμοί που δεν επιβεβαίωσαν ποτέ το email τους.</strong> Αυτοί δεν μπορούν να συμπεριληφθούν καθόλου. Η διεύθυνση μπορεί να μην υπάρχει, και ένα μήνυμα που επιστρέφει από δώδεκα ανύπαρκτα γραμματοκιβώτια δυσκολεύει το στούντιο να φτάσει στα αληθινά. Δες το κεφάλαιο για την επιβεβαίωση email.</li>
+  </ul>
+
+  <h3>Πώς αποστέλλεται</h3>
+  <table class="wide">
+    <tr><th>Κανάλι</th><th>Κόστος</th><th>Φτάνει</th></tr>
+    <tr><td>Στον λογαριασμό τους</td><td>Δωρεάν</td><td>Σε όλο το κοινό, πάντα. Δεν είναι επιλογή</td></tr>
+    <tr><td>Push ειδοποίηση</td><td>Δωρεάν</td><td>Σε όσους επέτρεψαν ειδοποιήσεις</td></tr>
+    <tr><td>Email</td><td>Δωρεάν</td><td>Σε όσους έχουν ενεργό το email</td></tr>
+    <tr><td>SMS</td><td><strong>Περίπου €0,02 το καθένα</strong></td><td>Μόνο σε όσους ενεργοποίησαν SMS</td></tr>
+  </table>
+
+  <h3>Το γραπτό μήνυμα</h3>
+  <p>Επιλέγοντας SMS ανοίγει ένα πλαίσιο που δείχνει το μήνυμα <strong>ακριβώς όπως θα φτάσει στο κινητό</strong>, με το κόστος από κάτω. Δεν έχει τίποτα να συμπληρώσεις: το κείμενο ακολουθεί αυτό που ήδη έγραψες.</p>
+  <ul>
+    <li><strong>Αγγλικά · Ελληνικά · Και τα δύο</strong>: σε ποια γλώσσα φεύγει. Προεπιλογή τα αγγλικά, γιατί είναι τα φθηνότερα.</li>
+    <li>Η <strong>Αλλαγή κειμένου</strong> ανοίγει ένα πλαίσιο ανά γλώσσα, ήδη συμπληρωμένο. Η <strong>Χρήση του μηνύματος πιο πάνω</strong> το επαναφέρει.</li>
+  </ul>
+
+  <div class="money">
+    <span class="label">Γιατί τα ελληνικά κοστίζουν περισσότερο</span>
+    <p>Ένα SMS χωρά <strong>160</strong> λατινικούς χαρακτήρες. Μόλις εμφανιστεί ένα ελληνικό γράμμα, όλο το μήνυμα αλλάζει κωδικοποίηση και το όριο πέφτει στους <strong>70</strong>: μαζί και το αγγλικό μισό. Έτσι η ίδια ανακοίνωση είναι ένα μήνυμα στα αγγλικά, τρία στα ελληνικά και πέντε με τις δύο γλώσσες μαζί.</p>
+    <p>Το μέλος λαμβάνει πάντα <strong>ένα</strong> μήνυμα όσο μεγάλο κι αν είναι· το δίκτυο το κόβει και το κινητό το ξανασυνθέτει. Το τιμολόγιο μετρά τα κομμάτια.</p>
+  </div>
+
+  <h3>Αποκλειστικές κατηγορίες</h3>
+  <p>Το τελευταίο τμήμα, και προαιρετικό. Επιλέγει σε ποιους έχει <em>νόημα</em> το μήνυμα: άλλο ερώτημα από το ποιος συμφώνησε να λαμβάνει.</p>
+  <table class="wide">
+    <tr><th>Φίλτρο</th><th>Βρίσκει</th></tr>
+    <tr><td>Δεν αγόρασαν ποτέ πακέτο</td><td>Καμία πληρωμή ακόμη. Οι δωρεάν συνεδρίες ως διόρθωση δεν μετρούν ως αγορά</td></tr>
+    <tr><td>Χωρίς υπόλοιπο</td><td>Δεν έχουν υπόλοιπο, ή έχει λήξει</td></tr>
+    <tr><td>Δεν έχουν έρθει για <em>n</em></td><td>Τελευταίο μάθημα τόσο πριν ή περισσότερο, <strong>και όσοι δεν ήρθαν ποτέ</strong></td></tr>
+    <tr><td>Δοκιμαστικοί λογαριασμοί</td><td>Εξαιρούνται από προεπιλογή, ώστε οι αριθμοί να μετρούν πραγματικά μέλη</td></tr>
+  </table>
+  <p>Συνδυάζονται. Ο αριθμός στο τέλος ενημερώνεται καθώς αλλάζεις τα φίλτρα, και η <strong>Αποστολή απενεργοποιείται όταν δεν ταιριάζει κανείς</strong>.</p>
+
+  <div class="note">
+    <span class="label">Η συγκατάθεση υπερισχύει πάντα</span>
+    <p>Ένα φίλτρο μόνο περιορίζει. Επιλέγοντας <em>δεν αγόρασαν ποτέ</em> με κοινό <strong>Μόνο προσφορές</strong>, φτάνει σε όσους δεν αγόρασαν <em>και</em> δέχτηκαν προσφορές. Όποιος αρνήθηκε δεν περιλαμβάνεται ποτέ.</p>
+  </div>
+
+  <h3>Τι έχει σταλεί</h3>
+  <p>Η λίστα δεξιά, με φίλτρο ανά κανάλι και ανά πέντε. Κάθε ανακοίνωση καταγράφει την ημερομηνία, πόσοι τη διάβασαν και <strong>σε ποιους πήγε</strong>. Αυτό δεν υπολογίζεται εκ των υστέρων: το κοινό για το «δεν ήρθαν εδώ και τρεις μήνες» είναι διαφορετικό σήμερα.</p>
+</section>
+
+<section class="chapter" lang="el">
+  <h2>Τιμές και προσφορές</h2>
+  <p class="lead">Τα πακέτα που πωλούνται, και ένας τρόπος να τρέξεις έκπτωση χωρίς να αλλάξεις το καθένα ξεχωριστά.</p>
+
+  <figure>
+    <img src="fig-owner-el-pricing.png" alt="Η καρτέλα Τιμές">
+    <figcaption>Κάθε πακέτο με την τιμή του, και τα στοιχεία της προσφοράς από πάνω.</figcaption>
+  </figure>
+
+  <table class="wide">
+    <tr><th>Πεδίο</th><th>Σημασία</th></tr>
+    <tr><td>Ισχύει για</td><td>Όλη τη λίστα, ή ένα πακέτο</td></tr>
+    <tr><td>Έκπτωση</td><td><strong>Ποσοστό</strong> ή <strong>Ευρώ</strong></td></tr>
+    <tr><td>Ποσό</td><td>Ο αριθμός: 15 για 15%, ή 15 για €15 έκπτωση</td></tr>
+    <tr><td>Ετικέτα στην κάρτα</td><td>Τι βλέπουν τα μέλη, π.χ. <em>Εβδομάδα εγκαινίων</em></td></tr>
+  </table>
+  <p>Η <span class="btn">Εφαρμογή</span> αλλάζει τη λίστα τιμών παντού ταυτόχρονα: ιστότοπο, ταμείο και υποδοχή. Η παλιά τιμή φαίνεται διαγραμμένη δίπλα στη νέα.</p>
+  <p>Η <span class="btn">Επιστροφή στις κανονικές τιμές</span> τερματίζει την προσφορά. Ό,τι έχει ήδη αγοραστεί δεν επηρεάζεται.</p>
+
+  <div class="warn">
+    <span class="label">Ισχύει τη στιγμή που πατάς Εφαρμογή</span>
+    <p>Δεν υπάρχει πρόχειρο ούτε προγραμματισμός. Όποιος βρίσκεται στον ιστότοπο βλέπει αμέσως τη νέα τιμή.</p>
+  </div>
+</section>
+
+<section class="chapter" lang="el">
+  <h2>Στατιστικά: μόνο ο ιδιοκτήτης</h2>
+  <p class="lead">Έξι αριθμοί για την επιχείρηση. Η καρτέλα δεν υπάρχει για λογαριασμό υποδοχής: τα ερωτήματα ούτε καν εκτελούνται.</p>
+
+  <figure>
+    <img src="fig-owner-el-analytics.png" alt="Η καρτέλα Στατιστικά">
+    <figcaption>Διάλεξε περίοδο πάνω· κάθε αριθμός την ακολουθεί.</figcaption>
+  </figure>
+
+  <table class="wide">
+    <tr><th>Μέγεθος</th><th>Τι μετρά</th></tr>
+    <tr><td>Μέλη</td><td>Λογαριασμοί, και πόσοι είναι νέοι στην περίοδο</td></tr>
+    <tr><td>Μέλη με συνεδρίες</td><td>Έχουν τουλάχιστον μία τώρα: όσοι μπορούν να έρθουν αύριο</td></tr>
+    <tr><td>Κρατήσεις</td><td>Κρατήσεις στην περίοδο, και πόσες ακυρώθηκαν</td></tr>
+    <tr><td>Συνεδρίες σε εκκρεμότητα</td><td>Αγορασμένες και αχρησιμοποίητες. Χρήματα που πήρες για μαθήματα που χρωστάς</td></tr>
+    <tr><td>Συνεδρίες σε κρατήσεις</td><td>Δεσμευμένες σε επόμενα μαθήματα</td></tr>
+    <tr><td>Έσοδα (πληρωμένα)</td><td>Χρήματα που εισπράχθηκαν: ιστότοπος, μετρητά και κάρτα στην υποδοχή</td></tr>
+  </table>
+
+  <p>Υπάρχουν <strong>Από</strong> και <strong>Έως</strong> για οποιοδήποτε διάστημα, και συντομεύσεις για <strong>Τρέχων μήνας</strong>, <strong>Προηγούμενος μήνας</strong> και <strong>Συνολικά</strong>.</p>
+
+  <div class="note">
+    <span class="label">Τα έσοδα δεν περιλαμβάνουν διορθώσεις</span>
+    <p>Οι συνεδρίες που δόθηκαν ως <em>Διόρθωση, χωρίς πληρωμή</em> δεν εμφανίζονται ποτέ στα Έσοδα. Αυτό κρατά τον αριθμό τίμιο.</p>
+  </div>
+
+  <div class="note">
+    <span class="label">Οι δοκιμαστικοί λογαριασμοί δεν μετρούν σε κανέναν από αυτούς τους αριθμούς</span>
+    <p>Κάθε αριθμός σε αυτή την καρτέλα μετρά μόνο πραγματικά μέλη. Μια δοκιμαστική πληρωμή €110 δεν είναι €110 που εισέπραξε το στούντιο, και αυτή είναι η οθόνη με την οποία κρίνει κανείς αν πήγε καλά ο μήνας. Το ίδιο ισχύει για κρατήσεις, ακυρώσεις και την καταμέτρηση μελών.</p>
+    <p>Τα μέλη των οποίων τα δεδομένα διαγράφηκαν κρατούν τις πληρωμές τους στα Έσοδα, γιατί εκείνα τα χρήματα μπήκαν πραγματικά στην επιχείρηση, αλλά δεν μετρούν πλέον στα Μέλη. Έχουν φύγει.</p>
+  </div>
+</section>
+
+<section class="chapter" lang="el">
+  <h2>Διαγραφή δεδομένων μέλους</h2>
+  <p class="lead">Μόνο ο ιδιοκτήτης, και το μόνο πράγμα σε αυτή την κονσόλα που δεν αναιρείται. Υπάρχει επειδή στην ΕΕ ένα μέλος μπορεί να απαιτήσει τη διαγραφή των προσωπικών του δεδομένων, και το στούντιο έχει έναν μήνα να απαντήσει.</p>
+
+  <figure>
+    <img src="fig-el-erase.png" alt="Το πλαίσιο διαγραφής στο κάτω μέρος της σελίδας του μέλους">
+    <figcaption>Στο κάτω μέρος της σελίδας του μέλους, μόνο στην κονσόλα του ιδιοκτήτη. Η υποδοχή δεν βλέπει αυτό το πλαίσιο και δεν μπορεί να το φτάσει.</figcaption>
+  </figure>
+
+  <h3>Τι κάνει, και τι σκόπιμα δεν κάνει</h3>
+  <table class="wide">
+    <tr><th></th><th>Τι συμβαίνει</th></tr>
+    <tr>
+      <td>Αφαιρούνται</td>
+      <td>Όνομα, email, τηλέφωνο, ημερομηνία γέννησης, ύψος, βάρος, οι σημειώσεις του εκπαιδευτή, η φωτογραφία, και κάθε συσκευή στην οποία είχε επιτρέψει ειδοποιήσεις. Ο κωδικός πρόσβασης αντικαθίσταται με έναν που δεν γνωρίζει κανείς, οπότε δεν είναι δυνατή η σύνδεση. Όποιος είναι συνδεδεμένος εκείνη τη στιγμή αποσυνδέεται</td>
+    </tr>
+    <tr>
+      <td>Διατηρούνται</td>
+      <td>Κάθε πληρωμή, κάθε κράτηση, κάθε συνεδρία στο ιστορικό. Η Κύπρος απαιτεί τη διατήρηση λογιστικών αρχείων για έξι χρόνια, και αυτή η υποχρέωση υπερισχύει του αιτήματος διαγραφής για το τιμολόγιο, ενώ το πρόσωπο φεύγει</td>
+    </tr>
+  </table>
+  <p>Μετά, η γραμμή γράφει <strong>Erased member</strong>, με γκρι πλαίσιο που λέει ποιος τη διέγραψε και πότε. Τα έσοδα του στούντιο δεν αλλάζουν ούτε ένα σεντ: ένα κουμπί που θα ξέγραφε αθόρυβα τον περασμένο Μάρτιο θα ήταν πολύ χειρότερο από κανένα κουμπί.</p>
+
+  <h3>Πριν το πατήσεις</h3>
+  <ul>
+    <li><strong>Πρέπει να γράψεις τη διεύθυνση email του.</strong> Δεν υπάρχει επαναφορά, και το «είσαι σίγουρος;» είναι κουτί που όλοι προσπερνούν χωρίς να το διαβάσουν. Η καταχώρηση της διεύθυνσης σημαίνει ότι κοιτάς ποιο μέλος είναι επιλεγμένο.</li>
+    <li><strong>Δεν ακυρώνει τα κλεισμένα μαθήματά του.</strong> Αν έχει, το πλαίσιο σου λέει πόσα πριν ξεκινήσεις. Κάποιος μπορεί να θέλει τα δεδομένα του να φύγουν και το μάθημα της Πέμπτης να μείνει, οπότε αυτό είναι συζήτηση και όχι πάτημα κουμπιού. Ακύρωσέ τα πρώτα αν αυτό ζήτησε, αλλιώς η λίστα του μαθήματος θα δείχνει «Erased member».</li>
+    <li><strong>Οι λογαριασμοί προσωπικού δεν διαγράφονται από εδώ.</strong> Χρησιμοποίησε <code>npm run staff</code> για αυτούς.</li>
+  </ul>
+
+  <div class="warn">
+    <span class="label">Δεν είναι το κουμπί για μέλος που έφυγε</span>
+    <p>Κάποιος που σταματά να έρχεται είναι απλώς μέλος που σταματά να έρχεται. Το ιστορικό του αξίζει να κρατηθεί και μπορεί να επιστρέψει τον Μάρτιο. Χρησιμοποίησέ το μόνο όταν κάποιος έχει πραγματικά ζητήσει να διαγραφεί, ή όταν η πολιτική αρχείων του στούντιο λέει ότι τα δεδομένα πρέπει να φύγουν.</p>
+  </div>
+
+  <div class="note">
+    <span class="label">Τι να πεις σε μέλος που ρωτά</span>
+    <p>Ότι το όνομα και τα στοιχεία επικοινωνίας του θα αφαιρεθούν μέσα σε λίγες ημέρες, ότι το αρχείο των πληρωμών πρέπει να μείνει για έξι χρόνια επειδή το απαιτεί η κυπριακή φορολογική νομοθεσία, και ότι κανείς δεν θα μπορεί να καταλάβει από το αρχείο ποιος ήταν. Αυτή είναι ακριβής περιγραφή του τι κάνει.</p>
+  </div>
+</section>
+
+<section class="chapter" lang="el">
+  <h2>Τι κοστίζει και τι δεν αναιρείται</h2>
+  <p class="lead">Μια σύντομη λίστα που αξίζει να διαβαστεί μία φορά. Όλα τα υπόλοιπα είναι είτε δωρεάν είτε αναστρέψιμα.</p>
+
+  <h3>Όσα κοστίζουν</h3>
+  <table class="wide">
+    <tr><th>Ενέργεια</th><th>Κόστος</th></tr>
+    <tr><td>Αποστολή SMS</td><td>Περίπου €0,02 ανά μήνυμα ανά άτομο, και τα ελληνικά περίπου τριπλάσια. Το πλαίσιο δείχνει το σύνολο σε ευρώ πριν στείλεις</td></tr>
+    <tr><td>Πληρωμές με κάρτα</td><td>Η Stripe κρατά περίπου 1,5% + €0,25 σε ευρωπαϊκή κάρτα, περισσότερα σε ξένη. Αυτόματα· τίποτα να κάνεις</td></tr>
+    <tr><td>Push, email, ανακοινώσεις</td><td>Δωρεάν, όσες κι αν στείλεις</td></tr>
+  </table>
+
+  <h3>Όσα δεν παίρνονται πίσω</h3>
+  <ul>
+    <li><strong>Κλείσιμο ημέρας.</strong> Οι κρατήσεις ακυρώνονται και τα μέλη ενημερώνονται. Το ξανάνοιγμα δεν επαναφέρει καμία κράτηση.</li>
+    <li><strong>Αποστολή ανακοίνωσης.</strong> Δεν ανακαλείται. Διάβασέ τη άλλη μια φορά, ιδίως το κοινό.</li>
+    <li><strong>Επιστροφή χρημάτων σε κάρτα.</strong> Η Stripe κρατά την προμήθειά της, οπότε ένα επιστρεφόμενο πακέτο €110 κοστίζει στο στούντιο περίπου €1,90. Η επιστροφή της συνεδρίας στο υπόλοιπο είναι σχεδόν πάντα καλύτερη λύση.</li>
+    <li><strong>Διαγραφή δεδομένων μέλους.</strong> Η μόνη ενέργεια χωρίς καμία ανάκτηση: το όνομα και τα στοιχεία επικοινωνίας αντικαθίστανται, δεν κρύβονται, και κανένα αντίγραφο ασφαλείας δεν τα κρατά. Δες το προηγούμενο κεφάλαιο.</li>
+  </ul>
+
+  <div class="note">
+    <span class="label">Όσα φαίνονται τρομακτικά αλλά δεν είναι</span>
+    <p><strong>Η διπλή δημιουργία προγράμματος</strong> δεν δημιουργεί τίποτα τη δεύτερη φορά. <strong>Το «Δεν ήρθε»</strong> δεν αλλάζει υπόλοιπο. <strong>Η επεξεργασία μέλους</strong> ανανεώνει τη σελίδα: αυτό είναι απόδειξη ότι αποθηκεύτηκε, όχι σφάλμα.</p>
+  </div>
+</section>
+
+<section class="chapter" lang="el">
+  <h2>Αν κάτι δεν πάει καλά</h2>
+
+  <table class="wide">
+    <tr><th>Τι βλέπεις</th><th>Τι σημαίνει συνήθως</th></tr>
+    <tr>
+      <td>«Αυτά τα στοιχεία δεν ανοίγουν την υποδοχή»</td>
+      <td>Η πόρτα δίνει την ίδια απάντηση για λάθος κωδικό, ανύπαρκτο λογαριασμό και σωστό κωδικό μέλους: σκόπιμα. Έλεγξε ότι το email είναι του προσωπικού</td>
+    </tr>
+    <tr>
+      <td>Ζητά ξανά κωδικό</td>
+      <td>Έληξε το κλείδωμα των 45 λεπτών. Φυσιολογικό. Χρειάζεται μόνο ο κωδικός</td>
+    </tr>
+    <tr>
+      <td>Ένα κανάλι λέει «δεν έχει συνδεθεί»</td>
+      <td>Ο πάροχος δεν έχει ρυθμιστεί. Δεν στάλθηκε τίποτα από εκεί, και το λέει αντί να προσποιείται</td>
+    </tr>
+    <tr>
+      <td>Στάλθηκε SMS αλλά δεν το έλαβε κανείς</td>
+      <td>Πιθανότατα τελείωσε το υπόλοιπο SMS. Αποτυγχάνει σιωπηλά στον πάροχο. Κάνε ανανέωση</td>
+    </tr>
+    <tr>
+      <td>Δεν υπάρχει καρτέλα Στατιστικά</td>
+      <td>Είσαι συνδεδεμένος ως υποδοχή. Σωστή συμπεριφορά</td>
+    </tr>
+    <tr>
+      <td>Μέλος λέει ότι δεν πήρε υπενθύμιση</td>
+      <td>Έλεγξε το <em>Επικοινωνία μέσω</em> στη σελίδα του, και αν επέτρεψε ποτέ ειδοποιήσεις σε εκείνο το κινητό. Το push το ενεργοποιεί το ίδιο το μέλος, σε κάθε συσκευή</td>
+    </tr>
+    <tr>
+      <td>«Κανένα μέλος δεν ταιριάζει»</td>
+      <td>Τα φίλτρα είναι πολύ στενά. Η αποστολή είναι κλειδωμένη μέχρι να ταιριάξει τουλάχιστον ένα μέλος</td>
+    </tr>
+  </table>
+
+  <div class="note">
+    <span class="label">Ένας κανόνας που δεν αλλάζει</span>
+    <p>Αν η οθόνη και το εγχειρίδιο διαφωνούν, η οθόνη έχει δίκιο. Αν κάτι που λέει η οθόνη δεν βγάζει νόημα, σημείωσε ακριβώς τι έλεγε πριν κάνεις οτιδήποτε άλλο. Αυτή η πρόταση είναι συνήθως όλη η απάντηση.</p>
+  </div>
+</section>
+
+</body>
+</html>

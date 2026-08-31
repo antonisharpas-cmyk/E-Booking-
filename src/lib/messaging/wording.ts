@@ -94,12 +94,12 @@ export function bookedWords(a: {
   return {
     en: {
       subject: "Booking confirmed",
-      body: `${a.classEn} — ${whenWords(a.startsAt)}. See you at the studio.`,
+      body: `${a.classEn}, ${whenWords(a.startsAt)}. See you at the studio.`,
       url: "/account?tab=notifications",
     },
     el: {
       subject: "Η κράτηση επιβεβαιώθηκε",
-      body: `${a.classEl} — ${whenWords(a.startsAt, "el")}. Σας περιμένουμε στο στούντιο.`,
+      body: `${a.classEl}, ${whenWords(a.startsAt, "el")}. Σας περιμένουμε στο στούντιο.`,
       url: "/account?tab=notifications",
     },
   };
@@ -115,19 +115,19 @@ export function cancelledWords(a: {
     en: {
       subject: "Booking cancelled",
       body:
-        `${a.classEn} — ${whenWords(a.startsAt)} is cancelled. ` +
+        `${a.classEn}, ${whenWords(a.startsAt)}, is cancelled. ` +
         (a.refunded
           ? "The session is back in your balance."
-          : "This was inside the 24-hour window, so the session was used."),
+          : "This was inside the 12-hour window, so the session was used."),
       url: "/account?tab=notifications",
     },
     el: {
       subject: "Η κράτηση ακυρώθηκε",
       body:
-        `${a.classEl} — ${whenWords(a.startsAt, "el")} ακυρώθηκε. ` +
+        `${a.classEl}, ${whenWords(a.startsAt, "el")}, ακυρώθηκε. ` +
         (a.refunded
           ? "Η συνεδρία επέστρεψε στο υπόλοιπό σας."
-          : "Η ακύρωση έγινε εντός 24 ωρών, γι' αυτό η συνεδρία χρησιμοποιήθηκε."),
+          : "Η ακύρωση έγινε εντός 12 ωρών, γι' αυτό η συνεδρία χρησιμοποιήθηκε."),
       url: "/account?tab=notifications",
     },
   };
@@ -150,14 +150,14 @@ export function purchasedWords(a: {
     en: {
       subject: "Payment received",
       body:
-        `${sessionWords(a.credits)} added to your balance — ` +
+        `${sessionWords(a.credits)} added to your balance for ` +
         `${moneyWords(a.amountCents, a.currency)}.${expiryEn}`,
       url: "/account?tab=payments",
     },
     el: {
       subject: "Η πληρωμή ελήφθη",
       body:
-        `${sessionWords(a.credits, "el")} προστέθηκαν στο υπόλοιπό σας — ` +
+        `${sessionWords(a.credits, "el")} προστέθηκαν στο υπόλοιπό σας για ` +
         `${moneyWords(a.amountCents, a.currency, "el")}.${expiryEl}`,
       url: "/account?tab=payments",
     },
@@ -171,12 +171,12 @@ export function reminderWords(a: {
   return {
     en: {
       subject: "Your class is coming up",
-      body: `Your class starts in ${leadWords(a.minutes)} — ${whenWords(a.startsAt)}.`,
+      body: `Your class starts in ${leadWords(a.minutes)}, at ${whenWords(a.startsAt)}.`,
       url: "/account",
     },
     el: {
       subject: "Το μάθημά σας πλησιάζει",
-      body: `Το μάθημά σας ξεκινά σε ${leadWords(a.minutes, "el")} — ${whenWords(a.startsAt, "el")}.`,
+      body: `Το μάθημά σας ξεκινά σε ${leadWords(a.minutes, "el")}, ${whenWords(a.startsAt, "el")}.`,
       url: "/account",
     },
   };
@@ -241,6 +241,53 @@ export function promoWords(a: {
         `${one ? "Η συνεδρία λήγει" : "Οι συνεδρίες λήγουν"} στις ` +
         `${dayEl(expires)}, γι' αυτό κλείστε θέση πριν από τότε.`,
       url: "/timetable",
+    },
+  };
+}
+
+/**
+ * The confirmation code, on its way to a mailbox.
+ *
+ * The code is in the subject line as well as the body, deliberately. It is the
+ * one email in this system whose whole job is to be read off a lock screen
+ * without opening anything: the member is sitting in front of the site with the
+ * box waiting, and making them open a mail app, find the message and scroll is
+ * three steps of friction on the last screen of signing up. Every large service
+ * puts it in the subject for exactly this reason, and what it guards here is an
+ * email address rather than money.
+ *
+ * The last paragraph matters as much as the code. Somebody may receive this
+ * because a stranger mistyped an address, and they are owed a sentence telling
+ * them that ignoring it is enough — an account nobody confirms is an account
+ * nobody can use.
+ */
+export function verifyWords(a: { code: string; minutes: number }): Bilingual {
+  return {
+    en: {
+      subject: `${a.code} is your APEX pilates code`,
+      body:
+        `Somebody has just created an APEX pilates account with this email ` +
+        `address. We hope it was you.\n\n` +
+        `Your confirmation code is ${a.code}\n\n` +
+        `Type it into the site to finish signing up. The code expires in ` +
+        `${a.minutes} minutes, and you can ask for a new one at any time.\n\n` +
+        `If this was not you, ignore this email. The account cannot be used ` +
+        `until the code is typed, so nothing else will happen.`,
+      url: "/verify",
+    },
+    el: {
+      subject: `${a.code} είναι ο κωδικός σας για το APEX pilates`,
+      body:
+        `Κάποιος μόλις δημιούργησε λογαριασμό στο APEX pilates με αυτή τη ` +
+        `διεύθυνση email. Ελπίζουμε να είστε εσείς.\n\n` +
+        `Ο κωδικός επιβεβαίωσης είναι ${a.code}\n\n` +
+        `Πληκτρολογήστε τον στην ιστοσελίδα για να ολοκληρώσετε την εγγραφή. ` +
+        `Ο κωδικός λήγει σε ${a.minutes} λεπτά και μπορείτε να ζητήσετε νέο ` +
+        `όποτε θέλετε.\n\n` +
+        `Αν δεν ήσασταν εσείς, αγνοήστε αυτό το email. Ο λογαριασμός δεν ` +
+        `μπορεί να χρησιμοποιηθεί χωρίς τον κωδικό, οπότε δεν θα συμβεί τίποτε ` +
+        `άλλο.`,
+      url: "/verify",
     },
   };
 }

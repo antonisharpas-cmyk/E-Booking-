@@ -89,10 +89,14 @@ export function LanguageProvider({
 
     const clean = (s: string) => s.replace(/[.,]$/, "");
 
+    /* Two decimals, then the whole ones are trimmed back off below.
+       Asking Intl for a minimum of zero instead gave "€12.5" for a
+       per-class price of twelve fifty — one decimal, which reads as an
+       unfinished number on a price list. */
     const money = new Intl.NumberFormat(intlLocale, {
       style: "currency",
       currency: "EUR",
-      minimumFractionDigits: 0,
+      minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
 
@@ -110,8 +114,12 @@ export function LanguageProvider({
       fmtMonthYear: (d) => `${clean(monthShort(d))} ${year(d)}`,
       fmtDayNumber: (d) => dayNumber(d),
       fmtWeekdayShort: (d) => clean(weekdayShort(d)),
+      /* "€15.00" becomes "€15", "€12.50" stays. Not anchored to the end of the
+         string, because Greek puts the symbol last — "15,00 €" — and an
+         anchored strip left the zeros on in Greek only. The lookahead keeps it
+         off the thousands separator in "€1,000.00". */
       fmtMoney: (cents) =>
-        money.format(cents / 100).replace(/,00$|\.00$/, ""),
+        money.format(cents / 100).replace(/([.,])00(?!\d)/, ""),
     };
   }, [locale, setLocale]);
 

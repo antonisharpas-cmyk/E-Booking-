@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { bookClass, listMyBookings } from "@/lib/booking";
+import { notVerified } from "@/lib/api-guard";
 import { currentUser } from "@/lib/auth";
 import { getAvailableCredits } from "@/lib/credits";
 import { notifyBooked, nudgeReminders } from "@/lib/messaging/events";
@@ -22,6 +23,11 @@ export async function GET() {
 export async function POST(req: Request) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  /* An account whose email has never been confirmed cannot take a place in a
+     class. The seat is real and finite, and the studio has no way to tell the
+     holder it has moved. */
+  const stop = notVerified(user);
+  if (stop) return stop;
 
   const parsed = bookSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

@@ -48,6 +48,28 @@ export type StudioStats = {
 /** A period the desk asked for, as two day keys. Either end may be open. */
 export type StatsRange = { from?: string | null; to?: string | null };
 
+/**
+ * The studio's dummy accounts, kept out of every figure on this screen.
+ *
+ * They exist so the desk can try a campaign, walk a booking through, or take a
+ * test payment without touching a real member — which is the whole point of them
+ * and also exactly why they must not appear here. A test purchase of €110 is not
+ * €110 the studio took, and a dashboard that says it is will be believed: it is
+ * the screen the owner uses to decide whether the month went well.
+ *
+ * Written as a subquery rather than a join so it can be dropped into a `where`
+ * on any table that has a `user_id`, and so adding a figure to this screen
+ * cannot accidentally leave the filter off — every count below reads the same
+ * clause.
+ *
+ * Erased members are *not* excluded here. Their payments were real money and
+ * still belong in the takings; it is only the headcount that should not include
+ * them, and that is filtered separately where the headcount is taken.
+ */
+function realMember(col: SQLiteColumn) {
+  return sql`exists (select 1 from users u where u.id = ${col} and u.is_test = 0)`;
+}
+
 /** YYYY-MM-DD, or nothing. Anything else is treated as no bound at all. */
 function bound(key: string | null | undefined) {
   if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return null;
@@ -87,17 +109,24 @@ export async function studioStats(
   };
   const bounded = Boolean(since || until);
 
+  /* The membership, as a person would count it: real accounts, still attached
+     to a person. Test accounts are the studio's own props, and an erased member
+     has left — their payments stay in the takings below, but they are no longer
+     somebody the studio has. */
+  const isRealMember = and(eq(users.isTest, false), isNull(users.erasedAt));
+
   const memberCount =
     db
       .select({ n: sql<number>`count(*)` })
       .from(users)
+      .where(isRealMember)
       .get()?.n ?? 0;
 
   const newMembers = bounded
     ? (db
         .select({ n: sql<number>`count(*)` })
         .from(users)
-        .where(within(users.createdAt))
+        .where(and(isRealMember, within(users.createdAt)))
         .get()?.n ?? 0)
     : Number(memberCount);
 
@@ -108,6 +137,7 @@ export async function studioStats(
       .from(creditBatches)
       .where(
         and(
+          realMember(creditBatches.userId),
           gt(creditBatches.creditsRemaining, 0),
           or(
             isNull(creditBatches.expiresAt),
@@ -121,7 +151,13 @@ export async function studioStats(
     db
       .select({ n: sql<number>`count(*)` })
       .from(bookings)
-      .where(and(ne(bookings.status, "CANCELLED"), within(bookings.createdAt)))
+      .where(
+        and(
+          realMember(bookings.userId),
+          ne(bookings.status, "CANCELLED"),
+          within(bookings.createdAt),
+        ),
+      )
       .get()?.n ?? 0;
 
   /* Counted separately rather than folded into the number above. A desk
@@ -131,7 +167,13 @@ export async function studioStats(
     db
       .select({ n: sql<number>`count(*)` })
       .from(bookings)
-      .where(and(eq(bookings.status, "CANCELLED"), within(bookings.createdAt)))
+      .where(
+        and(
+          realMember(bookings.userId),
+          eq(bookings.status, "CANCELLED"),
+          within(bookings.createdAt),
+        ),
+      )
       .get()?.n ?? 0;
 
   /* Only sessions that can still be spent. A batch that has expired is not
@@ -144,6 +186,7 @@ export async function studioStats(
       .from(creditBatches)
       .where(
         and(
+          realMember(creditBatches.userId),
           gt(creditBatches.creditsRemaining, 0),
           or(
             isNull(creditBatches.expiresAt),
@@ -162,6 +205,7 @@ export async function studioStats(
       .innerJoin(classSessions, eq(bookings.sessionId, classSessions.id))
       .where(
         and(
+          realMember(bookings.userId),
           eq(bookings.status, "CONFIRMED"),
           gte(classSessions.startsAt, new Date()),
           eq(classSessions.status, "SCHEDULED"),
@@ -173,7 +217,13 @@ export async function studioStats(
     db
       .select({ n: sql<number>`coalesce(sum(${purchases.amountCents}),0)` })
       .from(purchases)
-      .where(and(eq(purchases.status, "PAID"), within(purchases.createdAt)))
+      .where(
+        and(
+          realMember(purchases.userId),
+          eq(purchases.status, "PAID"),
+          within(purchases.createdAt),
+        ),
+      )
       .get()?.n ?? 0;
 
   const upcoming =
@@ -290,6 +340,10 @@ export async function memberList(limit = 100) {
       )`,
     })
     .from(users)
+    /* Same rule as the figures above. Nothing reads this list today, and the
+       filter is here so that whatever reads it next inherits the rule rather
+       than rediscovering it. */
+    .where(eq(users.isTest, false))
     .orderBy(desc(users.createdAt))
     .limit(limit);
 

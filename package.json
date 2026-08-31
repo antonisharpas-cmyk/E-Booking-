@@ -34,7 +34,10 @@
     "staff": "node scripts/staff.mjs",
     "push:keys": "node scripts/push-keys.mjs",
     "report": "node scripts/report.mjs",
-    "test:sms": "tsx scripts/test-sms.mts"
+    "test:sms": "tsx scripts/test-sms.mts",
+    "test:account": "tsx scripts/test-account.ts",
+    "manual": "node scripts/manual.mjs",
+    "social": "tsx scripts/social.ts"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.8.2",

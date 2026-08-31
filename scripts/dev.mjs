@@ -36,7 +36,7 @@ const ROUTES = [
   "/studio",
   "/contact",
   "/account",
-  "/checkout?pack=pack-10",
+  "/checkout?pack=month-2",
   "/login",
   "/register",
   "/terms",

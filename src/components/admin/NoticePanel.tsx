@@ -52,6 +52,7 @@ type Reach = {
   sms: number;
   /** How many accounts are marked as tests, so their exclusion can be stated. */
   testAccounts: number;
+  unverifiedAccounts: number;
 };
 type HistoryMeta = {
   page: number;
@@ -823,6 +824,17 @@ export function NoticePanel({ onNotice }: { onNotice: (s: string) => void }) {
               {reach.people === 0
                 ? d.segNobody
                 : d.segMatches.replace("{n}", String(reach.people))}
+              {/* Said rather than left to be noticed. An unconfirmed account is
+                  left out of every channel, including the in-app copy, because it
+                  cannot reach the list the copy would be filed in. */}
+              {reach.unverifiedAccounts > 0 && (
+                <span className="mt-1 block text-clay">
+                  {d.segUnverifiedOut.replace(
+                    "{n}",
+                    String(reach.unverifiedAccounts),
+                  )}
+                </span>
+              )}
             </p>
           )}
         </div>

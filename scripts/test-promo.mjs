@@ -14,6 +14,8 @@
  * What it is really checking is one thing: that a free session tied to one week
  * cannot be spent anywhere else. Everything above that is scaffolding.
  */
+import { markVerified } from "./fixture-verify.mjs";
+
 const B = process.argv[2] ?? "http://localhost:3000";
 
 const jar = () => new Map();
@@ -73,6 +75,21 @@ async function member(tag) {
       serviceOptIn: true,
     },
   });
+  /* Confirm the address the way a member would. The free session is granted at
+     registration, so nothing about the offer depends on this — but the member's
+     own screens do, and this suite reads them. */
+  if (reg.json?.ok && markVerified(email) !== 1) {
+    throw new Error(`fixture ${email} did not verify`);
+  }
+  if (reg.json?.ok) {
+  /* And signed in again, which re-issues the cookie with the confirmed stamp on
+       it. The middleware reads the cookie, so the database write alone would leave
+       every page still redirecting to the code box. */
+    await req(j, "/api/auth/login", {
+      method: "POST",
+      body: { email, password: "test12345" },
+    });
+  }
   return { j, email, ok: reg.json?.ok === true, err: reg.json?.error };
 }
 
@@ -123,11 +140,26 @@ const sessions = await req(m.j, "/api/sessions?days=42");
 const all = sessions.json?.sessions ?? sessions.json?.days?.flatMap((d) => d.sessions) ?? [];
 check("the timetable answers", all.length > 0, all.length);
 
+/* Classes with a place left, not simply classes.
+ *
+ * This suite books four of them per run, and every class holds five. Filtering
+ * only by date meant it always reached for the *same first two* — so after a
+ * couple of runs against one database those were full and four assertions
+ * started failing with CLASS_FULL, which reads as a broken booking rule rather
+ * than a suite that has eaten its own fixtures. */
+const free = (s) => (s.spotsLeft ?? 0) > 0;
+
 const inWeek = all.filter((s) => {
   const d = new Date(s.startsAt);
-  return d >= new Date("2026-09-14T00:00:00+03:00") && d <= new Date("2026-09-19T23:59:00+03:00");
+  return (
+    free(s) &&
+    d >= new Date("2026-09-14T00:00:00+03:00") &&
+    d <= new Date("2026-09-19T23:59:00+03:00")
+  );
 });
-const outside = all.filter((s) => new Date(s.startsAt) > new Date("2026-09-21T00:00:00+03:00"));
+const outside = all.filter(
+  (s) => free(s) && new Date(s.startsAt) > new Date("2026-09-21T00:00:00+03:00"),
+);
 
 check("there are classes in the opening week", inWeek.length > 0, inWeek.length);
 check("and classes after it", outside.length > 0, outside.length);
@@ -195,7 +227,7 @@ check("a second member joins", buyer.ok, buyer.err);
 /* Buy a pack through the test provider, so they hold both kinds. */
 const open = await req(buyer.j, "/api/checkout", {
   method: "POST",
-  body: { packSlug: "pack-5" },
+  body: { packSlug: "month-1" },
 });
 if (open.json?.purchaseId) {
   await req(buyer.j, "/api/payments/settle", {
@@ -203,7 +235,7 @@ if (open.json?.purchaseId) {
     body: { purchaseId: open.json.purchaseId },
   });
   const bal = await req(buyer.j, "/api/bookings");
-  check("they hold the free session plus the pack", (bal.json?.credits ?? 0) === 6, bal.json?.credits);
+  check("they hold the free session plus the pack", (bal.json?.credits ?? 0) === 5, bal.json?.credits);
 
   if (outside.length > 1) {
     const later = await req(buyer.j, "/api/bookings", {
@@ -212,7 +244,7 @@ if (open.json?.purchaseId) {
     });
     check("a later class books fine on the pack", later.json?.ok === true, later.json);
     const afterLater = await req(buyer.j, "/api/bookings");
-    check("and five sessions remain", afterLater.json?.credits === 5, afterLater.json?.credits);
+    check("and four sessions remain", afterLater.json?.credits === 4, afterLater.json?.credits);
   }
 
   if (inWeek.length > 1) {
@@ -226,7 +258,7 @@ if (open.json?.purchaseId) {
     const afterPromo = await req(buyer.j, "/api/bookings");
     check(
       "and it spent the free session, leaving the pack whole",
-      afterPromo.json?.credits === 4,
+      afterPromo.json?.credits === 3,
       afterPromo.json?.credits,
     );
   }

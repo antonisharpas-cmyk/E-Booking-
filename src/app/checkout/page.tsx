@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { CheckoutBody } from "@/components/checkout/CheckoutBody";
-import { currentUser } from "@/lib/auth";
+import { currentUser, isVerified } from "@/lib/auth";
 import { getPackageBySlug } from "@/lib/catalogue";
 import { getCreditSummary } from "@/lib/credits";
 import { paymentModeSummary } from "@/lib/payments";
@@ -26,6 +26,15 @@ export default async function CheckoutPage({
   /* Straight back here once they are in, with the pack still chosen. */
   if (!user) {
     redirect(`/login?next=${encodeURIComponent(`/checkout?pack=${pack}`)}`);
+  }
+  /* Nobody pays for sessions on an account that has never confirmed its email:
+     the receipt, and every reminder afterwards, goes to an address we have no
+     reason to believe exists. Carries the pack through, so the code box leads
+     back to this exact checkout rather than to the pricing page. */
+  if (!isVerified(user)) {
+    redirect(
+      `/verify?next=${encodeURIComponent(`/checkout?pack=${pack}`)}`,
+    );
   }
 
   const pkg = await getPackageBySlug(pack);

@@ -20,6 +20,7 @@ export const en = {
     timetable: "Timetable",
     pricing: "Pricing",
     contact: "Contact",
+    faq: "FAQ",
     account: "My account",
     login: "Sign in",
     register: "Create account",
@@ -182,30 +183,34 @@ export const en = {
     faq: {
       eyebrow: "Good to know",
       title: "Questions, answered.",
+      /* Ordered the way a first visit actually happens: where to start, what to
+         bring, when to turn up — and only then the rules about sessions and
+         cancelling. Grouping the mechanics at the end keeps the top of the list
+         useful to somebody who has not booked yet. */
       items: [
         {
           q: "I have never done Reformer Pilates. Where do I start?",
-          a: "Book a Foundations class and leave the rest to us. Your instructor sets your springs, footbar and straps, stays beside you through the hour, and talks you through every position before you take any load. You are not expected to know anything on your first visit, only to turn up.",
+          a: "Book a Reformer Foundations class and leave the rest to us. Your instructor sets your springs, footbar and straps, stays beside you through the hour, and talks you through every position before you take any load. You are not expected to know anything on your first visit, only to turn up.",
+        },
+        {
+          q: "What should I bring?",
+          a: "A towel and water are essential, so do not forget them. Bring comfortable clothes you can move in, and grip socks. Everything else is here.",
+        },
+        {
+          q: "How early should I arrive?",
+          a: "Arrive 5–10 minutes before class so you can settle in calmly. Booking stays open until a minute before the start, but a class already under way cannot be interrupted.",
         },
         {
           q: "How does the session system work?",
           a: "Every class costs exactly one session. You buy sessions in packs, and the bigger the pack, the lower the price per class. A session is deducted the moment you book, and returned automatically if you cancel inside the free cancellation window.",
         },
         {
-          q: "What is the cancellation policy?",
-          a: "Cancel at least 24 hours before the class starts and your session is returned to your balance instantly. Inside 24 hours the booking is locked, because the reformer is held for you and the class only has five places.",
-        },
-        {
           q: "Do sessions expire?",
           a: "Each pack carries a validity window, shown on the pack before you buy. Your account always shows the exact expiry date of every session you hold.",
         },
         {
-          q: "What should I bring?",
-          a: "A towel and water are essential, so do not forget them. Bring comfortable clothing you can move in and be seen moving in. Grip socks are available at reception, and everything else is here.",
-        },
-        {
-          q: "Are you part of the gym?",
-          a: "Yes. APEX pilates is the Reformer studio of APEX Fitness Centre, and gym members get member pricing on every session pack.",
+          q: "What is the cancellation policy?",
+          a: "Cancel at least 12 hours before the class starts and your session is returned to your balance instantly. Inside 12 hours, online cancellation is not available and the session is deducted.",
         },
       ],
     },
@@ -268,7 +273,7 @@ export const en = {
   timetablePage: {
     eyebrow: "Live timetable",
     title: "Book your reformer.",
-    body: "One session per class, free cancellation up to 24 hours before the start.",
+    body: "One session per class, free cancellation up to 12 hours before the start.",
     signedOut:
       "Sign in to book. It takes a moment, and your sessions stay on your account.",
     noClasses: "No classes scheduled for this day.",
@@ -283,6 +288,23 @@ export const en = {
     eyebrow: "Pricing",
     title: "Session packs.",
     body: "No lock-in contracts. Buy sessions, use them when you can actually come. Bigger packs cost less per class.",
+    /* Headings for the three commitments. The note under each is the part that
+       does the work: "12 classes" appears in both the monthly and the 3-month
+       group, and the only thing separating them is how long you have. */
+    groups: {
+      single: {
+        title: "Drop in",
+        note: "One class at a time. No commitment.",
+      },
+      month: {
+        title: "Monthly",
+        note: "Choose how often you train each week. 30 days to use them.",
+      },
+      quarter: {
+        title: "3 months",
+        note: "The same choice over twelve weeks, at a lower price per class. 90 days to use them.",
+      },
+    },
     popular: "Most popular",
     bestValue: "Best value per class",
     perClassLabel: "per class",
@@ -294,7 +316,7 @@ export const en = {
     includes: [
       "60-minute Reformer class on Technogym equipment",
       "Five reformers, so never more than five in the room",
-      "Free cancellation up to 24 hours before",
+      "Free cancellation up to 12 hours before",
       "Sessions usable on any class type",
     ],
     privateTitle: "Private & duet sessions",
@@ -346,7 +368,7 @@ export const en = {
     /* the rota, moved in beside the closures */
     rotaTitle: "The rota",
     rotaHelp:
-      "Classes are written into the timetable a few weeks at a time. Rolling it forward again only adds what is missing — it never doubles a class up, and it skips any day that is closed.",
+      "Classes are written into the timetable a few weeks at a time. Rolling it forward again only adds what is missing: it never doubles a class up, and it skips any day that is closed.",
     rotaWeeks: "Weeks ahead",
     rotaScheduled: "{n} classes on the books",
     kMembers: "Members",
@@ -413,7 +435,7 @@ export const en = {
     payments: "Payments",
     closeTitle: "Close a day",
     closeHelp:
-      "Every class on that day is cancelled and the sessions go back to the members, even inside the 24-hour window. The day disappears from the timetable.",
+      "Every class on that day is cancelled and the sessions go back to the members, even inside the 12-hour window. The day disappears from the timetable.",
     closeDay: "Day",
     closeReason: "Reason, shown to members",
     closeDo: "Close this day",
@@ -426,7 +448,7 @@ export const en = {
     audienceTitle: "Who it goes to",
     audienceAll: "Everyone",
     audienceAllWhy:
-      "Studio and timetable notices. Every member with an account — a cancelled class is not something to opt out of.",
+      "Studio and timetable notices. Every member with an account, because a cancelled class is not something to opt out of.",
     audienceOffers: "Offers only",
     audienceOffersWhy:
       "Offers, news and new class types. Only members who ticked that box. Never anybody else.",
@@ -471,9 +493,9 @@ export const en = {
     chanNotSet: "not connected yet",
     /* Push has no company to connect to — only keys to generate. Said
        differently so the studio does not go looking for an account. */
-    chanNoKeys: "not set up — run npm run push:keys",
+    chanNoKeys: "not set up. Run npm run push:keys",
     chanSmsParts: "{n} SMS per person",
-    sentReport: "Sent — {summary}",
+    sentReport: "Sent. {summary}",
     noticeAudienceAll: "everyone",
     noticeAudienceOffers: "offers only",
     noticeTitle: "Write to your members",
@@ -495,11 +517,11 @@ export const en = {
     rotaUndoWhy:
       "Removes only the classes this run added, and only those nobody has booked. A booked class stays.",
     rotaNothingToUndo:
-      "Nothing was added, so nothing to undo — those weeks were already on the timetable. Running this again is always safe.",
+      "Nothing was added, so nothing to undo: those weeks were already on the timetable. Running this again is always safe.",
     rotaUndone: "{removed} classes removed. {kept} kept because they have bookings.",
     segTitle: "Exclusive categories",
     segHelp:
-      "Optional. These pick out who the message is relevant to. They never widen the audience above — somebody who declined offers still gets no offers.",
+      "Optional. These pick out who the message is relevant to. They never widen the audience above: somebody who declined offers still gets no offers.",
     segNeverPaid: "Never bought a pack",
     segNeverPaidWhy:
       "No payment yet, by card or at the desk. Free sessions given as an adjustment do not count as buying.",
@@ -511,12 +533,12 @@ export const en = {
     segWeeks: "weeks",
     segMonths: "months",
     segAwayOn:
-      "Last class {n} days ago or longer — and members who have never been, since they are the same audience for this kind of message.",
+      "Last class {n} days ago or longer, plus members who have never been, since they are the same audience for this kind of message.",
     segAwayOff: "Leave at 0 to include everybody, however recently they came.",
     segClear: "Clear",
     segMatches: "{n} members match.",
     segNobody:
-      "Nobody matches these filters. Loosen one before sending — there is nobody to send to.",
+      "Nobody matches these filters. Loosen one before sending, because there is nobody to send to.",
     noticeFilterAll: "All",
     memberFilterAll: "All",
     memberFilterReal: "Members",
@@ -529,6 +551,41 @@ export const en = {
     memberTest: "Test account",
     memberTestWhy:
       "A dummy account for trying things out. Left out of anything the desk sends, and out of the member count, unless deliberately included.",
+    /* Errors the desk can actually act on. They used to reach the screen as the
+       server's own codes — a receptionist reading "PHONE_TAKEN" in capitals
+       cannot tell whether they have made a mistake or the system has. */
+    errEmailTaken: "Another member already has that email address.",
+    errPhoneTaken: "Another member already has that phone number.",
+    errEmailInvalid: "That does not look like an email address.",
+    errPhoneInvalid: "That does not look like a phone number.",
+    errSellUnverified:
+      "This member has not confirmed their email address, so sessions cannot be sold to them yet. Correct the address above if it is wrong, then ask them to sign in and type the code from their inbox. Taking sessions back still works.",
+    /* State of the account, shown on the member's card. */
+    segUnverifiedOut:
+      "{n} account(s) left out because they never confirmed their email address. They cannot be sent to on any channel until they do.",
+    memberUnverified: "Email not confirmed",
+    memberUnverifiedWhy:
+      "This member registered but never typed the code we emailed, so they cannot book or pay yet. They can ask for a new code from the site at any time.",
+    memberErased: "Personal data erased",
+    memberErasedWhy:
+      "Erased by {who} on {when}. Their payments and class history are kept, because Cyprus requires accounting records for six years. There is no longer a person attached to this account, and it cannot be signed in to.",
+    /* The erasure panel. Owner only. */
+    eraseTitle: "Erase personal data",
+    eraseHelp:
+      "For a member who has asked to be forgotten. Their name, email, phone, date of birth, height, weight, notes, photograph and registered devices are overwritten or deleted, and the password is replaced with one nobody holds. Their payments, bookings and session history stay exactly as they are, because Cyprus requires accounting records to be kept for six years, so the studio's takings do not change.",
+    eraseWarnBookings:
+      "This member has {n} class(es) booked in the future. Erasing does not cancel them, and the roster will show \u201cErased member\u201d. Cancel them first if that is what they want.",
+    eraseConfirmLabel: "Type this member's email address to confirm",
+    eraseConfirmHint:
+      "There is no undo. Typing the address is how we make sure the right member is selected.",
+    eraseDo: "Erase this member's details",
+    eraseDone:
+      "Done. {n} payment(s) kept, {d} device(s) unregistered. The account is now anonymous.",
+    eraseAlready: "This member's details have already been erased.",
+    eraseDeskAccount:
+      "This is one of the studio's own accounts. Staff accounts are not erased here. Use npm run staff to remove them.",
+    eraseMismatch:
+      "That is not this member's email address. Nothing has been changed.",
     priceTitle: "Run an offer",
     priceHelp:
       "A rule on the whole list, and if you want, a different one on a single pack. Discounted prices round down to a whole euro, and are never shown without the old price beside them.",
@@ -601,12 +658,12 @@ export const en = {
        thing that can turn it off is the browser or phone itself. */
     channelPushAlways: "Always on",
     channelPushWhy:
-      "How the studio reaches you when a class is cancelled at short notice. Your phone or browser can still block it — that part is yours.",
+      "How the studio reaches you when a class is cancelled at short notice. Your phone or browser can still block it, and that part is yours.",
     channelEmailWhy: "On by default. Turn it off if you would rather not.",
     channelSmsWhy: "Off by default. Turn it on for a text as well.",
     pushEnable: "Enable on this device",
     pushTest: "Send a test",
-    pushTestSent: "Sent — it should appear in a second.",
+    pushTestSent: "Sent. It should appear in a second.",
     pushTestFailed: "That did not go through.",
     pushOnThisDevice: "On for this device.",
     pushOnDevices: "On for {n} of your devices.",
@@ -662,6 +719,9 @@ export const en = {
       PASSWORD_LONG: "That password is too long.",
       PASSWORD_UNCHANGED: "Your new password is the same as the old one.",
     },
+  },
+  faqPage: {
+    stillStuck: "Not answered here? Ask us, and somebody at the studio will reply.",
   },
   contactPage: {
     eyebrow: "Contact",
@@ -719,7 +779,7 @@ export const en = {
     walletTopUp: "Top up sessions",
     expiring: "Expiring",
     walletWindowed:
-      "{n} of these is a free opening-week session — it can only be used for a class between {from} and {to}.",
+      "{n} of these is a free opening-week session, usable only for a class between {from} and {to}.",
     expiringOn: "expires",
     upcomingTitle: "Upcoming classes",
     upcomingEmpty: "Nothing booked yet. The timetable is waiting.",
@@ -751,14 +811,17 @@ export const en = {
     noCredits: "You have no sessions left.",
     noCreditsCta: "Buy a session pack",
     creditsNotValidHere:
-      "Your free opening-week session cannot be used for this class — it is only for the opening week. Pick a class in that week, or buy a pack to book any date.",
+      "Your free opening-week session cannot be used for this class, because it is only for the opening week. Pick a class in that week, or buy a pack to book any date.",
     alreadyBooked: "You have already booked this class.",
     classFull: "This class is full.",
     tooLate: "Booking has closed for this class.",
+    unverified:
+      "Confirm your email address before booking. We sent a six-digit code when you signed up.",
+    unverifiedCta: "Enter the code",
     cancelConfirmTitle: "Cancel this booking?",
     cancelRefund: "Your session will be returned to your balance.",
     cancelTooLate:
-      "Cancellation closed 24 hours before this class, so the booking cannot be cancelled now.",
+      "Cancellation closed 12 hours before this class, so the booking cannot be cancelled now.",
     cancelled: "Booking cancelled.",
     instructor: "Instructor",
     spots: "Spots",
@@ -852,6 +915,28 @@ export const en = {
     address: "Larnaca, Cyprus",
     builtBy: "Developed & Designed by",
   },
+  verify: {
+    title: "One last step.",
+    body: "We have emailed a six-digit code to",
+    codeLabel: "Confirmation code",
+    codeHint: "Six digits. It expires fifteen minutes after it was sent.",
+    submit: "Confirm my email",
+    resend: "Send the code again",
+    resendIn: "You can ask for another code in {n} seconds",
+    resent: "A new code is on its way. The previous one no longer works.",
+    wrongAddress:
+      "Mistyped your address? Sign out and register again with the right one. The account you are in now cannot be used, so nothing is lost.",
+    errWrong: "That code is not right. {n} tries left.",
+    errExpired: "That code has expired. Ask for a new one below.",
+    errLocked:
+      "Too many wrong codes. Ask for a new one below and that will start you fresh.",
+    errNoCode: "There is no code waiting. Ask for one below.",
+    errTooSoon: "Hold on {n} seconds before asking for another code.",
+    errLimit:
+      "That is enough codes for now. Try again in about {n} minutes, or ask the studio to help.",
+    errSendFailed:
+      "We could not send the email just now. Please try again in a moment.",
+  },
   legal: {
     privacyTitle: "Privacy policy",
     termsTitle: "Terms & studio policy",
@@ -874,6 +959,7 @@ export const el: typeof en = {
     timetable: "Πρόγραμμα",
     pricing: "Τιμές",
     contact: "Επικοινωνία",
+    faq: "Ερωτήσεις",
     account: "Ο λογαριασμός μου",
     login: "Σύνδεση",
     register: "Δημιουργία λογαριασμού",
@@ -1026,7 +1112,7 @@ export const el: typeof en = {
         },
         {
           t: "Κλείσε με συνεδρίες",
-          d: "Διάλεξε μάθημα από το ζωντανό πρόγραμμα. Ακύρωσε 24 ώρες πριν και η συνεδρία επιστρέφει.",
+          d: "Διάλεξε μάθημα από το ζωντανό πρόγραμμα. Ακύρωσε 12 ώρες πριν και η συνεδρία επιστρέφει.",
         },
       ],
     },
@@ -1039,24 +1125,24 @@ export const el: typeof en = {
           a: "Κλείσε ένα μάθημα Reformer Foundations και άφησε τα υπόλοιπα σε εμάς. Ο εκπαιδευτής ρυθμίζει ελατήρια, μπάρα ποδιών και λουριά, μένει δίπλα σου όλη την ώρα και σου εξηγεί κάθε θέση πριν προστεθεί φορτίο. Δεν χρειάζεται να ξέρεις κάτι στην πρώτη σου επίσκεψη, μόνο να έρθεις.",
         },
         {
-          q: "Πώς λειτουργούν οι συνεδρίες;",
-          a: "Κάθε μάθημα κοστίζει ακριβώς μία συνεδρία. Αγοράζεις συνεδρίες σε πακέτα, και όσο μεγαλύτερο το πακέτο, τόσο χαμηλότερη η τιμή ανά μάθημα. Η συνεδρία αφαιρείται μόλις κλείσεις θέση και επιστρέφει αυτόματα αν ακυρώσεις εντός του χρόνου δωρεάν ακύρωσης.",
+          q: "Τι να φέρω;",
+          a: "Πετσέτα και νερό είναι απαραίτητα, μην τα ξεχάσεις. Φέρε άνετα ρούχα με τα οποία μπορείς να κινηθείς, και αντιολισθητικές κάλτσες. Όλα τα άλλα είναι εδώ.",
         },
         {
-          q: "Ποια είναι η πολιτική ακυρώσεων;",
-          a: "Ακύρωσε τουλάχιστον 24 ώρες πριν την έναρξη και η συνεδρία επιστρέφει αμέσως στο υπόλοιπό σου. Εντός του 24ώρου η κράτηση κλειδώνει, γιατί ο reformer κρατείται για εσένα και το μάθημα έχει μόνο πέντε θέσεις.",
+          q: "Πόσο νωρίς να έρθω;",
+          a: "Έλα 5–10 λεπτά πριν το μάθημα, για να προσαρμοστείς με την ησυχία σου. Οι κρατήσεις μένουν ανοιχτές μέχρι ένα λεπτό πριν την έναρξη, όμως ένα μάθημα που έχει ήδη αρχίσει δεν διακόπτεται.",
+        },
+        {
+          q: "Πώς λειτουργούν οι συνεδρίες;",
+          a: "Κάθε μάθημα κοστίζει ακριβώς μία συνεδρία. Αγοράζεις συνεδρίες σε πακέτα, και όσο μεγαλύτερο το πακέτο, τόσο χαμηλότερη η τιμή ανά μάθημα. Η συνεδρία αφαιρείται μόλις κλείσεις θέση και επιστρέφει αυτόματα αν ακυρώσεις εντός του χρόνου δωρεάν ακύρωσης.",
         },
         {
           q: "Λήγουν οι συνεδρίες;",
           a: "Κάθε πακέτο έχει διάρκεια ισχύος, που φαίνεται πριν την αγορά. Ο λογαριασμός σου δείχνει πάντα την ακριβή ημερομηνία λήξης για κάθε συνεδρία που έχεις.",
         },
         {
-          q: "Τι να φέρω;",
-          a: "Πετσέτα και νερό είναι απαραίτητα, μην τα ξεχάσεις. Φέρε άνετα ρούχα με τα οποία μπορείς να κινηθείς και να φαίνεσαι όταν κινείσαι. Αντιολισθητικές κάλτσες υπάρχουν στη ρεσεψιόν, και όλα τα άλλα είναι εδώ.",
-        },
-        {
-          q: "Ανήκετε στο γυμναστήριο;",
-          a: "Ναι. Το APEX pilates είναι το στούντιο Reformer του APEX Fitness Centre, και τα μέλη του γυμναστηρίου έχουν προνομιακή τιμή σε κάθε πακέτο συνεδριών.",
+          q: "Ποια είναι η πολιτική ακυρώσεων;",
+          a: "Ακύρωσε τουλάχιστον 12 ώρες πριν την έναρξη και η συνεδρία επιστρέφει αμέσως στο υπόλοιπό σου. Εντός 12 ωρών, η ακύρωση από τον ιστότοπο δεν είναι διαθέσιμη και η συνεδρία χρεώνεται.",
         },
       ],
     },
@@ -1119,7 +1205,7 @@ export const el: typeof en = {
   timetablePage: {
     eyebrow: "Ζωντανό πρόγραμμα",
     title: "Κράτα τον reformer σου.",
-    body: "Μία συνεδρία ανά μάθημα, δωρεάν ακύρωση έως 24 ώρες πριν.",
+    body: "Μία συνεδρία ανά μάθημα, δωρεάν ακύρωση έως 12 ώρες πριν.",
     signedOut:
       "Συνδέσου για να κλείσεις θέση. Παίρνει ελάχιστο χρόνο, και οι συνεδρίες μένουν στον λογαριασμό σου.",
     noClasses: "Δεν υπάρχουν μαθήματα για αυτή την ημέρα.",
@@ -1134,6 +1220,20 @@ export const el: typeof en = {
     eyebrow: "Τιμές",
     title: "Πακέτα συνεδριών.",
     body: "Χωρίς δεσμεύσεις. Αγόρασε συνεδρίες και χρησιμοποίησέ τις όταν μπορείς να έρθεις. Τα μεγαλύτερα πακέτα κοστίζουν λιγότερο ανά μάθημα.",
+    groups: {
+      single: {
+        title: "Μεμονωμένο",
+        note: "Ένα μάθημα τη φορά. Χωρίς δέσμευση.",
+      },
+      month: {
+        title: "Μηνιαία",
+        note: "Διάλεξε πόσο συχνά γυμνάζεσαι κάθε εβδομάδα. 30 ημέρες για να τις χρησιμοποιήσεις.",
+      },
+      quarter: {
+        title: "3 μήνες",
+        note: "Η ίδια επιλογή για δώδεκα εβδομάδες, με χαμηλότερη τιμή ανά μάθημα. 90 ημέρες για να τις χρησιμοποιήσεις.",
+      },
+    },
     popular: "Πιο δημοφιλές",
     bestValue: "Καλύτερη τιμή ανά μάθημα",
     perClassLabel: "ανά μάθημα",
@@ -1145,7 +1245,7 @@ export const el: typeof en = {
     includes: [
       "Μάθημα Reformer 60 λεπτών σε εξοπλισμό Technogym",
       "Πέντε reformers, άρα ποτέ πάνω από πέντε στην αίθουσα",
-      "Δωρεάν ακύρωση έως 24 ώρες πριν",
+      "Δωρεάν ακύρωση έως 12 ώρες πριν",
       "Οι συνεδρίες ισχύουν για κάθε τύπο μαθήματος",
     ],
     privateTitle: "Ιδιαίτερα & duet",
@@ -1192,7 +1292,7 @@ export const el: typeof en = {
     monthAfter: "Επόμενος μήνας",
     rotaTitle: "Το πρόγραμμα",
     rotaHelp:
-      "Τα μαθήματα γράφονται στο πρόγραμμα ανά εβδομάδες. Η επέκταση προσθέτει μόνο ό,τι λείπει — δεν διπλασιάζει μάθημα και προσπερνά τις κλειστές ημέρες.",
+      "Τα μαθήματα γράφονται στο πρόγραμμα ανά εβδομάδες. Η επέκταση προσθέτει μόνο ό,τι λείπει: δεν διπλασιάζει μάθημα και προσπερνά τις κλειστές ημέρες.",
     rotaWeeks: "Εβδομάδες μπροστά",
     rotaScheduled: "{n} μαθήματα στο πρόγραμμα",
     kMembers: "Μέλη",
@@ -1259,7 +1359,7 @@ export const el: typeof en = {
     payments: "Πληρωμές",
     closeTitle: "Κλείσιμο ημέρας",
     closeHelp:
-      "Όλα τα μαθήματα της ημέρας ακυρώνονται και οι συνεδρίες επιστρέφουν στα μέλη, ακόμη και μέσα στο 24ωρο. Η ημέρα φεύγει από το πρόγραμμα.",
+      "Όλα τα μαθήματα της ημέρας ακυρώνονται και οι συνεδρίες επιστρέφουν στα μέλη, ακόμη και μέσα στο 12ωρο. Η ημέρα φεύγει από το πρόγραμμα.",
     closeDay: "Ημέρα",
     closeReason: "Αιτία, φαίνεται στα μέλη",
     closeDo: "Κλείσε την ημέρα",
@@ -1271,7 +1371,7 @@ export const el: typeof en = {
     audienceTitle: "Σε ποιους πάει",
     audienceAll: "Σε όλους",
     audienceAllWhy:
-      "Ενημερώσεις στούντιο και προγράμματος. Σε κάθε μέλος — η ακύρωση μαθήματος δεν είναι κάτι που απενεργοποιείς.",
+      "Ενημερώσεις στούντιο και προγράμματος. Σε κάθε μέλος, γιατί η ακύρωση μαθήματος δεν είναι κάτι που απενεργοποιείς.",
     audienceOffers: "Μόνο προσφορές",
     audienceOffersWhy:
       "Προσφορές, νέα και νέα μαθήματα. Μόνο στα μέλη που το έχουν επιλέξει. Σε κανέναν άλλο.",
@@ -1304,9 +1404,9 @@ export const el: typeof en = {
       "Αυτό είναι {n} μηνύματα ανά άτομο, πάνω από το όριο των {max}. Συντομεύστε το κείμενο ή στείλτε το χωρίς SMS.",
     chanReaches: "φτάνει σε {n}",
     chanNotSet: "δεν έχει συνδεθεί",
-    chanNoKeys: "δεν έχει ρυθμιστεί — npm run push:keys",
+    chanNoKeys: "δεν έχει ρυθμιστεί. Τρέξε npm run push:keys",
     chanSmsParts: "{n} SMS ανά άτομο",
-    sentReport: "Απεστάλη — {summary}",
+    sentReport: "Απεστάλη. {summary}",
     noticeAudienceAll: "σε όλους",
     noticeAudienceOffers: "μόνο προσφορές",
     noticeTitle: "Μήνυμα στα μέλη",
@@ -1328,11 +1428,11 @@ export const el: typeof en = {
     rotaUndoWhy:
       "Αφαιρεί μόνο τα μαθήματα που πρόσθεσε αυτή η εκτέλεση, και μόνο όσα δεν έχουν κρατήσεις. Ένα μάθημα με κράτηση παραμένει.",
     rotaNothingToUndo:
-      "Δεν προστέθηκε τίποτα, άρα δεν υπάρχει τι να αναιρεθεί — οι εβδομάδες ήταν ήδη στο πρόγραμμα. Η επανάληψη είναι πάντα ασφαλής.",
+      "Δεν προστέθηκε τίποτα, άρα δεν υπάρχει τι να αναιρεθεί: οι εβδομάδες ήταν ήδη στο πρόγραμμα. Η επανάληψη είναι πάντα ασφαλής.",
     rotaUndone: "Αφαιρέθηκαν {removed} μαθήματα. {kept} παρέμειναν γιατί έχουν κρατήσεις.",
     segTitle: "Αποκλειστικές κατηγορίες",
     segHelp:
-      "Προαιρετικό. Επιλέγουν σε ποιους έχει νόημα το μήνυμα. Δεν διευρύνουν ποτέ το κοινό παραπάνω — όποιος αρνήθηκε τις προσφορές δεν λαμβάνει προσφορές.",
+      "Προαιρετικό. Επιλέγουν σε ποιους έχει νόημα το μήνυμα. Δεν διευρύνουν ποτέ το κοινό παραπάνω: όποιος αρνήθηκε τις προσφορές δεν λαμβάνει προσφορές.",
     segNeverPaid: "Δεν αγόρασαν ποτέ πακέτο",
     segNeverPaidWhy:
       "Καμία πληρωμή ακόμη, με κάρτα ή στο γραφείο. Οι δωρεάν συνεδρίες δεν λογίζονται ως αγορά.",
@@ -1343,12 +1443,12 @@ export const el: typeof en = {
     segWeeks: "εβδομάδες",
     segMonths: "μήνες",
     segAwayOn:
-      "Τελευταίο μάθημα πριν από {n} ημέρες ή περισσότερο — και όσοι δεν έχουν έρθει ποτέ, γιατί είναι το ίδιο κοινό για τέτοιο μήνυμα.",
+      "Τελευταίο μάθημα πριν από {n} ημέρες ή περισσότερο, καθώς και όσοι δεν έχουν έρθει ποτέ, γιατί είναι το ίδιο κοινό για τέτοιο μήνυμα.",
     segAwayOff: "Αφήστε 0 για να συμπεριληφθούν όλοι.",
     segClear: "Καθαρισμός",
     segMatches: "{n} μέλη ταιριάζουν.",
     segNobody:
-      "Κανένα μέλος δεν ταιριάζει. Χαλαρώστε ένα φίλτρο πριν στείλετε — δεν υπάρχει παραλήπτης.",
+      "Κανένα μέλος δεν ταιριάζει. Χαλαρώστε ένα φίλτρο πριν στείλετε, γιατί δεν υπάρχει παραλήπτης.",
     noticeFilterAll: "Όλα",
     memberFilterAll: "Όλοι",
     memberFilterReal: "Μέλη",
@@ -1361,6 +1461,35 @@ export const el: typeof en = {
     memberTest: "Δοκιμαστικός λογαριασμός",
     memberTestWhy:
       "Ψεύτικος λογαριασμός για δοκιμές. Εξαιρείται από ό,τι στέλνει το γραφείο και από την καταμέτρηση μελών, εκτός αν συμπεριληφθεί σκόπιμα.",
+    errEmailTaken: "Άλλο μέλος έχει ήδη αυτή τη διεύθυνση email.",
+    errPhoneTaken: "Άλλο μέλος έχει ήδη αυτό το τηλέφωνο.",
+    errEmailInvalid: "Αυτό δεν μοιάζει με διεύθυνση email.",
+    errPhoneInvalid: "Αυτό δεν μοιάζει με αριθμό τηλεφώνου.",
+    errSellUnverified:
+      "Το μέλος δεν έχει επιβεβαιώσει το email του, οπότε δεν μπορούν να πωληθούν συνεδρίες ακόμη. Διόρθωσε τη διεύθυνση παραπάνω αν είναι λάθος και ζήτησέ του να συνδεθεί και να καταχωρήσει τον κωδικό. Η αφαίρεση συνεδριών λειτουργεί κανονικά.",
+    segUnverifiedOut:
+      "{n} λογαριασμός/οί εξαιρούνται επειδή δεν επιβεβαίωσαν ποτέ το email τους. Δεν μπορούν να λάβουν μήνυμα σε κανένα κανάλι μέχρι να το κάνουν.",
+    memberUnverified: "Το email δεν επιβεβαιώθηκε",
+    memberUnverifiedWhy:
+      "Το μέλος έκανε εγγραφή αλλά δεν καταχώρησε ποτέ τον κωδικό που στείλαμε, οπότε δεν μπορεί ακόμη να κλείσει θέση ή να πληρώσει. Μπορεί να ζητήσει νέο κωδικό από την ιστοσελίδα όποτε θέλει.",
+    memberErased: "Τα προσωπικά δεδομένα διαγράφηκαν",
+    memberErasedWhy:
+      "Διαγράφηκαν από {who} στις {when}. Οι πληρωμές και το ιστορικό μαθημάτων διατηρούνται, γιατί η Κύπρος απαιτεί λογιστικά αρχεία για έξι χρόνια. Δεν υπάρχει πλέον πρόσωπο συνδεδεμένο με αυτόν τον λογαριασμό και δεν είναι δυνατή η σύνδεση σε αυτόν.",
+    eraseTitle: "Διαγραφή προσωπικών δεδομένων",
+    eraseHelp:
+      "Για μέλος που ζήτησε να διαγραφεί. Το όνομα, το email, το τηλέφωνο, η ημερομηνία γέννησης, το ύψος, το βάρος, οι σημειώσεις, η φωτογραφία και οι συνδεδεμένες συσκευές αντικαθίστανται ή διαγράφονται, και ο κωδικός πρόσβασης αντικαθίσταται με έναν που δεν γνωρίζει κανείς. Οι πληρωμές, οι κρατήσεις και το ιστορικό συνεδριών παραμένουν ως έχουν, επειδή η Κύπρος απαιτεί τη διατήρηση λογιστικών αρχείων για έξι χρόνια, οπότε τα έσοδα του στούντιο δεν αλλάζουν.",
+    eraseWarnBookings:
+      "Το μέλος έχει {n} μελλοντικό/ά μάθημα/τα κλεισμένο/α. Η διαγραφή δεν τα ακυρώνει, και στη λίστα παρουσιών θα φαίνεται «Erased member». Ακύρωσέ τα πρώτα αν αυτό θέλει.",
+    eraseConfirmLabel: "Γράψε το email του μέλους για επιβεβαίωση",
+    eraseConfirmHint:
+      "Δεν υπάρχει επαναφορά. Η καταχώρηση της διεύθυνσης διασφαλίζει ότι έχει επιλεγεί το σωστό μέλος.",
+    eraseDo: "Διαγραφή στοιχείων του μέλους",
+    eraseDone:
+      "Έγινε. Διατηρήθηκαν {n} πληρωμή/ές, αποσυνδέθηκαν {d} συσκευή/ές. Ο λογαριασμός είναι πλέον ανώνυμος.",
+    eraseAlready: "Τα στοιχεία αυτού του μέλους έχουν ήδη διαγραφεί.",
+    eraseDeskAccount:
+      "Πρόκειται για λογαριασμό του στούντιο. Οι λογαριασμοί προσωπικού δεν διαγράφονται από εδώ. Χρησιμοποίησε npm run staff.",
+    eraseMismatch: "Αυτό δεν είναι το email του μέλους. Δεν άλλαξε τίποτα.",
     priceTitle: "Προσφορά",
     priceHelp:
       "Ένας κανόνας για όλη τη λίστα και, αν θέλεις, διαφορετικός για ένα πακέτο. Οι τιμές με έκπτωση στρογγυλοποιούνται προς τα κάτω σε ακέραιο ευρώ και δείχνονται πάντα μαζί με την παλιά τιμή.",
@@ -1430,12 +1559,12 @@ export const el: typeof en = {
     channelPushHint: "Στις συσκευές όπου το επιτρέπεις",
     channelPushAlways: "Πάντα ενεργό",
     channelPushWhy:
-      "Έτσι σε ενημερώνει το στούντιο όταν ακυρωθεί μάθημα την τελευταία στιγμή. Το κινητό ή ο browser σου μπορεί πάντως να το μπλοκάρει — αυτό είναι στο χέρι σου.",
+      "Έτσι σε ενημερώνει το στούντιο όταν ακυρωθεί μάθημα την τελευταία στιγμή. Το κινητό ή ο browser σου μπορεί πάντως να το μπλοκάρει, και αυτό είναι στο χέρι σου.",
     channelEmailWhy: "Ενεργό εξ ορισμού. Απενεργοποίησέ το αν προτιμάς.",
     channelSmsWhy: "Ανενεργό εξ ορισμού. Ενεργοποίησέ το για SMS.",
     pushEnable: "Ενεργοποίηση σε αυτή τη συσκευή",
     pushTest: "Δοκιμαστική ειδοποίηση",
-    pushTestSent: "Στάλθηκε — θα εμφανιστεί σε ένα δευτερόλεπτο.",
+    pushTestSent: "Στάλθηκε. Θα εμφανιστεί σε ένα δευτερόλεπτο.",
     pushTestFailed: "Δεν στάλθηκε.",
     pushOnThisDevice: "Ενεργό σε αυτή τη συσκευή.",
     pushOnDevices: "Ενεργό σε {n} από τις συσκευές σου.",
@@ -1493,6 +1622,9 @@ export const el: typeof en = {
       PASSWORD_LONG: "Ο κωδικός είναι πολύ μεγάλος.",
       PASSWORD_UNCHANGED: "Ο νέος κωδικός είναι ίδιος με τον παλιό.",
     },
+  },
+  faqPage: {
+    stillStuck: "Δεν απαντήθηκε εδώ; Ρώτησέ μας και κάποιος από το στούντιο θα σου απαντήσει.",
   },
   contactPage: {
     eyebrow: "Επικοινωνία",
@@ -1552,7 +1684,7 @@ export const el: typeof en = {
     walletTopUp: "Ανανέωση συνεδριών",
     expiring: "Λήγουν",
     walletWindowed:
-      "{n} από αυτές είναι δωρεάν συνεδρία εγκαινίων — μπορεί να χρησιμοποιηθεί μόνο για μάθημα από {from} έως {to}.",
+      "{n} από αυτές είναι δωρεάν συνεδρία εγκαινίων και μπορεί να χρησιμοποιηθεί μόνο για μάθημα από {from} έως {to}.",
     expiringOn: "λήγει",
     upcomingTitle: "Επόμενα μαθήματα",
     upcomingEmpty: "Δεν έχεις κλείσει ακόμη. Το πρόγραμμα σε περιμένει.",
@@ -1584,14 +1716,17 @@ export const el: typeof en = {
     noCredits: "Δεν έχεις άλλες συνεδρίες.",
     noCreditsCta: "Αγόρασε πακέτο συνεδριών",
     creditsNotValidHere:
-      "Η δωρεάν συνεδρία εγκαινίων δεν ισχύει για αυτό το μάθημα — αφορά μόνο την εβδομάδα των εγκαινίων. Διάλεξε μάθημα εκείνης της εβδομάδας, ή αγόρασε πακέτο για οποιαδήποτε ημερομηνία.",
+      "Η δωρεάν συνεδρία εγκαινίων δεν ισχύει για αυτό το μάθημα, γιατί αφορά μόνο την εβδομάδα των εγκαινίων. Διάλεξε μάθημα εκείνης της εβδομάδας, ή αγόρασε πακέτο για οποιαδήποτε ημερομηνία.",
     alreadyBooked: "Έχεις ήδη κλείσει αυτό το μάθημα.",
     classFull: "Το μάθημα είναι πλήρες.",
     tooLate: "Οι κρατήσεις για αυτό το μάθημα έκλεισαν.",
+    unverified:
+      "Επιβεβαίωσε τη διεύθυνση email σου πριν κλείσεις θέση. Σου στείλαμε εξαψήφιο κωδικό όταν έγινε η εγγραφή.",
+    unverifiedCta: "Καταχώρησε τον κωδικό",
     cancelConfirmTitle: "Ακύρωση κράτησης;",
     cancelRefund: "Η συνεδρία θα επιστρέψει στο υπόλοιπό σου.",
     cancelTooLate:
-      "Η ακύρωση έκλεισε 24 ώρες πριν το μάθημα, οπότε η κράτηση δεν μπορεί να ακυρωθεί τώρα.",
+      "Η ακύρωση έκλεισε 12 ώρες πριν το μάθημα, οπότε η κράτηση δεν μπορεί να ακυρωθεί τώρα.",
     cancelled: "Η κράτηση ακυρώθηκε.",
     instructor: "Εκπαιδευτής",
     spots: "Θέσεις",
@@ -1682,6 +1817,28 @@ export const el: typeof en = {
     partner: "Επίσημο συνεργαζόμενο στούντιο Technogym",
     builtBy: "Σχεδιασμός & Ανάπτυξη από",
     address: "Λάρνακα, Κύπρος",
+  },
+  verify: {
+    title: "Ένα τελευταίο βήμα.",
+    body: "Στείλαμε εξαψήφιο κωδικό στο",
+    codeLabel: "Κωδικός επιβεβαίωσης",
+    codeHint: "Έξι ψηφία. Λήγει δεκαπέντε λεπτά μετά την αποστολή.",
+    submit: "Επιβεβαίωση email",
+    resend: "Στείλε ξανά τον κωδικό",
+    resendIn: "Μπορείς να ζητήσεις νέο κωδικό σε {n} δευτερόλεπτα",
+    resent: "Νέος κωδικός στάλθηκε. Ο προηγούμενος δεν ισχύει πλέον.",
+    wrongAddress:
+      "Έγραψες λάθος τη διεύθυνσή σου; Αποσυνδέσου και κάνε εγγραφή ξανά με τη σωστή. Ο λογαριασμός στον οποίο βρίσκεσαι δεν μπορεί να χρησιμοποιηθεί, οπότε δεν χάνεται τίποτα.",
+    errWrong: "Ο κωδικός δεν είναι σωστός. Απομένουν {n} προσπάθειες.",
+    errExpired: "Ο κωδικός έληξε. Ζήτησε νέο παρακάτω.",
+    errLocked:
+      "Πολλές λανθασμένες προσπάθειες. Ζήτησε νέο κωδικό παρακάτω και ξεκινάς από την αρχή.",
+    errNoCode: "Δεν υπάρχει κωδικός σε εκκρεμότητα. Ζήτησε έναν παρακάτω.",
+    errTooSoon: "Περίμενε {n} δευτερόλεπτα πριν ζητήσεις νέο κωδικό.",
+    errLimit:
+      "Αρκετοί κωδικοί για τώρα. Δοκίμασε ξανά σε περίπου {n} λεπτά, ή ζήτησε βοήθεια από το στούντιο.",
+    errSendFailed:
+      "Δεν μπορέσαμε να στείλουμε το email τώρα. Δοκίμασε ξανά σε λίγο.",
   },
   legal: {
     privacyTitle: "Πολιτική απορρήτου",

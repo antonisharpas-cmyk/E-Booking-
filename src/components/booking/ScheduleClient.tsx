@@ -218,6 +218,18 @@ export function ScheduleClient({
         });
         return;
       }
+      /* An account that never confirmed its email. Given a way forward rather
+         than a refusal: the code box is one press away, and the alternative is
+         somebody staring at "you cannot book" with no idea why. */
+      if (data.error === "EMAIL_UNVERIFIED") {
+        flash({
+          kind: "warn",
+          text: t.booking.unverified,
+          cta: { href: "/verify?next=/timetable", label: t.booking.unverifiedCta },
+        });
+        return;
+      }
+
       const messages: Record<string, string> = {
         CLASS_FULL: t.booking.classFull,
         ALREADY_BOOKED: t.booking.alreadyBooked,

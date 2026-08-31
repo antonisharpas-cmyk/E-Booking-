@@ -4,7 +4,7 @@ Generated from the database itself by `npm run docs:db`, so the columns and
 types below cannot drift out of date. The prose is written by hand, in
 `scripts/schema-doc.mjs`.
 
-**19 tables · 170 columns · 10 unique indexes · 24 foreign keys**
+**20 tables · 184 columns · 12 unique indexes · 25 foreign keys**
 
 ---
 
@@ -58,7 +58,7 @@ Every account. Members and the studio's own desk logins share this table; `role`
 | `id` | text | key |  |
 | `email` | text | unique |  |
 | `name` | text |  |  |
-| `phone` | text | optional |  |
+| `phone` | text | optional, unique | Unique, like the email. One number, one member — otherwise two people share a handset and the desk cannot tell them apart on the phone. |
 | `password_hash` | text |  | bcrypt. The plain password is never stored or logged. |
 | `role` | text |  | MEMBER, STAFF (reception) or ADMIN (the owner). Reception cannot reach Analytics or another desk account. default `'MEMBER'` |
 | `service_opt_in_at` | integer | optional | When they agreed to studio and timetable notices — a timestamp, not a checkbox, so consent is a record. |
@@ -67,14 +67,17 @@ Every account. Members and the studio's own desk logins share this table; `role`
 | `notify_sms` | integer |  | default `false` |
 | `notify_push` | integer |  | Not a preference. The studio keeps push on and the server refuses a request that tries to turn it off; only the browser can silence it. default `true` |
 | `reminder_minutes` | integer | optional | How long before a class to remind them. Null means no reminder. New accounts start at 120. |
-| `is_test` | integer |  | A dummy account the studio keeps for testing. Left out of campaigns and out of the member counts. default `false` |
+| `is_test` | integer |  | A dummy account the studio keeps for testing. Left out of campaigns and out of the member counts, and out of every figure in Analytics. default `false` |
 | `birth_date` | text | optional |  |
 | `height_cm` | integer | optional |  |
 | `weight_grams` | integer | optional | Grams rather than kilograms, so no rounding creeps in over repeated edits. |
 | `notes` | text | optional |  |
 | `created_at` | integer |  |  |
+| `email_verified_at` | integer | optional | When a code emailed to that address was typed back. Null means the account exists and can do nothing: no booking, no payment, not even its own profile page. |
+| `erased_at` | integer | optional | When the member's personal details were erased at their request. The row survives because the payments attached to it are accounting records Cyprus requires kept for six years — see lib/erasure.ts. |
+| `erased_by` | text | optional | Which member of staff did it. The whole audit trail for the one irreversible action in the console. |
 
-**unique** on `email`
+**unique** on `phone` · **unique** on `email`
 
 ### `user_avatars`
 
@@ -105,6 +108,24 @@ One row per browser that has allowed notifications. A member's phone and laptop 
 | `failures` | integer |  | Counted, and the row is retired after eight. A 404 or 410 from the push service deletes it immediately — that browser is gone for good. default `0` |
 
 index on `user_id` · **unique** on `endpoint`
+
+### `email_verifications`
+
+The live confirmation code for an account that has not proved its email address yet. One row per account at most, replaced on each resend.
+
+| Column | Type | | Notes |
+| --- | --- | --- | --- |
+| `id` | text | key |  |
+| `user_id` | text | unique, → `users` | Unique. A mailbox holding four codes that all still work is four chances for the wrong one to be lifted out of the wrong email. |
+| `code_hash` | text |  | An HMAC of the six digits, keyed with AUTH_SECRET. The code itself is never stored — it is a credential, and six digits is a small enough space that a plain digest would be a lookup table. |
+| `expires_at` | integer |  |  |
+| `attempts` | integer |  | Wrong answers against the current code. Five kills it, and only a new code clears the count. default `0` |
+| `sends` | integer |  | Codes sent inside the current hour. Five is the cap, so a stranger's address cannot be used as a way of posting mail to them. default `1` |
+| `window_started_at` | integer |  | When the hourly allowance began. Rolling, not a running total, so nobody ends up permanently unable to confirm their own address. |
+| `sent_at` | integer |  |  |
+| `created_at` | integer |  |  |
+
+**unique** on `user_id`
 
 ---
 
@@ -315,6 +336,8 @@ Sessions bought, as a batch with its own expiry. A member's balance is the sum o
 | `credits_remaining` | integer |  | Booking takes one from the batch expiring soonest, so nothing is quietly written off while a later batch is spent. |
 | `source` | text |  | PURCHASE, GRANT or COMPENSATION. A comped session is not a purchase. default `'PURCHASE'` |
 | `expires_at` | integer | optional | Null means never. Otherwise the sessions in this batch stop counting after it. |
+| `usable_from` | integer | optional |  |
+| `usable_to` | integer | optional |  |
 | `created_at` | integer |  |  |
 
 index on `user_id + expires_at`

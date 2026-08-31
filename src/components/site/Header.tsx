@@ -56,6 +56,7 @@ export function Header({ user }: { user: HeaderUser }) {
     { href: "/classes", label: t.nav.classes },
     { href: "/timetable", label: t.nav.timetable },
     { href: "/pricing", label: t.nav.pricing },
+    { href: "/faq", label: t.nav.faq },
     { href: "/contact", label: t.nav.contact },
   ];
 
@@ -134,9 +135,9 @@ export function Header({ user }: { user: HeaderUser }) {
 
           <nav
             className={cn(
-              /* Six items now that Home is among them, so the gap tightens at
-                 lg and opens back up once there is room for it. */
-              "items-center gap-6 xl:gap-8",
+              /* Seven items now that Questions is among them, so the gap tightens
+                 at lg and opens back up once there is room for it. */
+              "items-center gap-5 xl:gap-7",
               cover ? "hidden" : "hidden lg:flex",
             )}
           >
@@ -146,7 +147,9 @@ export function Header({ user }: { user: HeaderUser }) {
                 href={l.href}
                 onClick={() => follow(l.href)}
                 className={cn(
-                  "link-underline text-[11px] uppercase tracking-widest transition-colors",
+                  /* Never let a label break across two lines: one wrapped item
+                     drags the whole bar to a second row. */
+                  "link-underline whitespace-nowrap text-[11px] uppercase tracking-widest transition-colors",
                   onDark
                     ? pathname === l.href
                       ? "text-cream"

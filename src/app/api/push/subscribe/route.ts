@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { body, member } from "@/lib/api-guard";
+import { body, verified } from "@/lib/api-guard";
 import {
   deviceCount,
   dropSubscription,
@@ -16,13 +16,13 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const gate = await member();
+  const gate = await verified();
   if ("res" in gate) return gate.res;
   return NextResponse.json({ devices: deviceCount(gate.user.id) });
 }
 
 export async function POST(req: Request) {
-  const gate = await member();
+  const gate = await verified();
   if ("res" in gate) return gate.res;
 
   const data = await body<{
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const gate = await member();
+  const gate = await verified();
   if ("res" in gate) return gate.res;
 
   const endpoint = new URL(req.url).searchParams.get("endpoint");

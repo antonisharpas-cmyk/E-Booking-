@@ -21,6 +21,7 @@ export function Footer() {
         { href: "/classes", label: t.nav.classes },
         { href: "/timetable", label: t.nav.timetable },
         { href: "/pricing", label: t.nav.pricing },
+        { href: "/faq", label: t.nav.faq },
       ],
     },
     {

@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import type { User } from "@/db/schema";
 import {
   AuthError,
+  isVerified,
   requireDesk,
   requireOwner,
   requireUser,
+  requireVerified,
 } from "@/lib/auth";
 
 /**
@@ -80,6 +82,58 @@ export async function member(): Promise<{ user: User } | { res: NextResponse }> 
       res: NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 }),
     };
   }
+}
+
+/**
+ * A member whose email address has been proved.
+ *
+ * The guard for anything that *does* something — booking a class, spending a
+ * session, paying, changing a detail the studio will act on. An unverified
+ * account can exist and can sign in, and that is all it can do.
+ *
+ * Told apart from plain 403 by its own code, because the screen has somewhere to
+ * send them: `EMAIL_UNVERIFIED` means "go and type the code", which is a step
+ * forward, while a bare "forbidden" reads as a wall.
+ *
+ * Deliberately not used by the two verification routes themselves — an account
+ * proving its address must be able to reach the thing that proves it.
+ */
+export async function verified(): Promise<
+  { user: User } | { res: NextResponse }
+> {
+  try {
+    return { user: await requireVerified() };
+  } catch (e) {
+    if (e instanceof AuthError && e.code === "UNVERIFIED") {
+      return {
+        res: NextResponse.json({ error: "EMAIL_UNVERIFIED" }, { status: 403 }),
+      };
+    }
+    return {
+      res: NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 }),
+    };
+  }
+}
+
+/**
+ * The verification check for the routes that read `currentUser()` themselves.
+ *
+ * Most member routes were written before the guards above existed and fetch the
+ * user directly, which is fine — they only need one more line, and this is it:
+ *
+ *     const stop = notVerified(user);
+ *     if (stop) return stop;
+ *
+ * Returns the response to send, or null to carry on. A function rather than a
+ * boolean so the status code and the error string are decided in one place and
+ * cannot drift between fifteen routes.
+ */
+export function notVerified(user: {
+  role: string;
+  emailVerifiedAt: Date | null;
+}): NextResponse | null {
+  if (isVerified(user)) return null;
+  return NextResponse.json({ error: "EMAIL_UNVERIFIED" }, { status: 403 });
 }
 
 /** Reads a JSON body without throwing on an empty or malformed one. */

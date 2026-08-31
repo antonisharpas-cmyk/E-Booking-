@@ -156,7 +156,7 @@ export function ClosurePanel({
     try {
       await fetch(`/api/admin/closures?day=${which}`, { method: "DELETE" });
       await load();
-      onNotice(`${which} — ${d.closeOpen}`);
+      onNotice(`${which}: ${d.closeOpen}`);
     } finally {
       setBusy(null);
     }

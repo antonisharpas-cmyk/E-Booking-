@@ -52,7 +52,7 @@ export const stripeProvider: PaymentProvider = {
        */
       payment_method_types: ["card"],
       receipt_email: req.email,
-      description: `APEX pilates — ${req.packName}`,
+      description: `APEX pilates: ${req.packName}`,
       statement_descriptor_suffix: "APEX PILATES",
       metadata: {
         purchaseId: req.purchaseId,

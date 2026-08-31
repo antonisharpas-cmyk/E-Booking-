@@ -9,7 +9,7 @@ import {
   purchases,
   users,
 } from "@/db/schema";
-import { hashPassword } from "@/lib/auth";
+import { hashPassword, isVerified } from "@/lib/auth";
 import { toE164 } from "@/lib/messaging/sms";
 import { getCreditSummary, grantCredits, refundOneCredit } from "@/lib/credits";
 
@@ -205,6 +205,12 @@ export async function memberDetail(userId: string) {
     notifyPush: user.notifyPush,
     marketingOptIn: user.marketingOptIn,
     isTest: user.isTest,
+    /* Both shown on the member's card. Unverified explains why somebody cannot
+       book despite having sessions, which is otherwise the desk's problem to
+       guess at; erased explains why the row has no name on it. */
+    emailVerifiedAt: user.emailVerifiedAt,
+    erasedAt: user.erasedAt,
+    erasedBy: user.erasedBy,
     upcoming,
     payments,
     ledger,
@@ -215,15 +221,42 @@ export async function memberDetail(userId: string) {
 
 export type SellResult =
   | { ok: true; credits: number; balance: number }
-  | { ok: false; code: "NOT_FOUND" | "NOTHING_TO_TAKE" | "BAD_AMOUNT" };
+  | {
+      ok: false;
+      code: "NOT_FOUND" | "NOTHING_TO_TAKE" | "BAD_AMOUNT" | "EMAIL_UNVERIFIED";
+    };
 
 /**
  * Add sessions a member paid for in cash, or take sessions back off them.
  *
  * A cash sale is recorded as a purchase as well as a batch, so it shows up in
  * the member's payment history and in the studio's takings beside the card
- * ones. Removing sessions writes a negative ledger line instead — there is no
- * such thing as a negative purchase.
+ * ones. Removing sessions writes a negative ledger line instead, because there
+ * is no such thing as a negative purchase.
+ *
+ * ---
+ *
+ * **An unconfirmed account cannot be sold to, and that is deliberate.**
+ *
+ * The rule the studio set is that nothing happens on an account until its email
+ * address has been proved, and "nothing" has to include the desk or it is not a
+ * rule. It was not, briefly, and the hole it left was a nasty one: reception
+ * takes 110 euro in cash against an account whose address is a typo, and now the
+ * studio has a paying customer it cannot send a receipt to, cannot remind about a
+ * class, and cannot reach when one moves. The member believes they are a member;
+ * the studio believes it has told them things.
+ *
+ * The remedy is in front of the person who can apply it. Reception is standing
+ * with the member: correct the address on this same screen if it is wrong, have
+ * them sign in and type the code from their phone, then sell them the pack. It is
+ * half a minute, and it is the only half-minute in which anybody will ever have
+ * both the member and the right address in the same room.
+ *
+ * **Taking sessions back is still allowed**, and so is cancelling their classes.
+ * The asymmetry is the point: an unconfirmed account can never be *given*
+ * anything, and the studio can always correct what an earlier version of this
+ * code let through. Blocking a correction would strand exactly the rows that most
+ * need fixing.
  */
 export async function sellSessions(args: {
   userId: string;
@@ -253,9 +286,14 @@ export async function sellSessions(args: {
   const user = db.select().from(users).where(eq(users.id, userId)).get();
   if (!user) return { ok: false, code: "NOT_FOUND" };
 
+  /* Giving, not taking. See the note above. */
+  if (credits > 0 && !isVerified(user)) {
+    return { ok: false, code: "EMAIL_UNVERIFIED" };
+  }
+
   const reason = note?.trim()
-    ? `${note.trim()} — ${staffName}`
-    : `At the desk — ${staffName}`;
+    ? `${note.trim()}, ${staffName}`
+    : `At the desk, ${staffName}`;
 
   if (credits > 0) {
     db.transaction(() => {
@@ -382,8 +420,8 @@ export async function cancelForMember(args: {
       refundOneCredit(booking.userId, booking.creditBatchId, {
         bookingId: booking.id,
         note: note?.trim()
-          ? `${note.trim()} — ${staffName}`
-          : `Cancelled at the desk — ${staffName}`,
+          ? `${note.trim()}, ${staffName}`
+          : `Cancelled at the desk, ${staffName}`,
       });
     }
     db.update(bookings)

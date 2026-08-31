@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { notVerified } from "@/lib/api-guard";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { currentUser } from "@/lib/auth";
@@ -53,6 +54,8 @@ export async function PATCH(req: Request) {
   const user = await currentUser();
   if (!user)
     return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  const stop = notVerified(user);
+  if (stop) return stop;
 
   const parsed = profileSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

@@ -8,6 +8,8 @@
  * cosmetic bug: it is either a member who was not told their class was
  * cancelled, or an offer sent to somebody who explicitly said no.
  */
+import { markVerified } from "./fixture-verify.mjs";
+
 const B = process.argv[2] ?? "http://localhost:3000";
 const OWNER = { email: "owner@apexpilates.cy", password: "ownerdev123" };
 
@@ -88,6 +90,21 @@ async function member(tag, { marketing = false } = {}) {
       marketingOptIn: marketing,
     },
   });
+  /* Confirm the address the way a member would. An unverified account is left
+     out of nothing — consent is consent — but it cannot reach /account, and
+     several checks below read the member's own screen. */
+  if (reg.json?.ok && markVerified(email) !== 1) {
+    throw new Error(`fixture ${email} did not verify`);
+  }
+  if (reg.json?.ok) {
+  /* And signed in again, which re-issues the cookie with the confirmed stamp on
+       it. The middleware reads the cookie, so the database write alone would leave
+       every page still redirecting to the code box. */
+    await req(j, "/api/auth/login", {
+      method: "POST",
+      body: { email, password: "test12345" },
+    });
+  }
   return { j, email, ok: reg.json?.ok === true };
 }
 
@@ -452,7 +469,7 @@ console.log("\n8. The three automatic messages");
   /* Sessions to spend. */
   const opened = await req(punter.j, "/api/checkout", {
     method: "POST",
-    body: { packSlug: "pack-10" },
+    body: { packSlug: "month-2" },
   });
   await req(punter.j, "/api/payments/settle", {
     method: "POST",
@@ -569,7 +586,7 @@ console.log("\n10b. Booking and cancelling land in the member's own inbox");
 
   const opened = await req(punter.j, "/api/checkout", {
     method: "POST",
-    body: { packSlug: "pack-10" },
+    body: { packSlug: "month-2" },
   });
   await req(punter.j, "/api/payments/settle", {
     method: "POST",
@@ -609,10 +626,19 @@ console.log("\n10b. Booking and cancelling land in the member's own inbox");
     confirmation?.title === "Booking confirmed",
     confirmation?.title,
   );
-  /* The substance: which class, which day, which hour. */
+  /* The substance: which class, which day, which hour.
+   *
+   * This used to look for the em dash that joined the class to the date, which
+   * made it a test of the punctuation rather than of the content. The studio has
+   * since had every em dash taken out of the copy, so it now asks the question it
+   * always meant to ask: is the class named, and is the day and hour in there. */
   check(
     "naming the class, the day and the hour",
-    /—/.test(confirmation?.body ?? "") && / at \d\d:\d\d/.test(confirmation?.body ?? ""),
+    /[A-Za-z]/.test(confirmation?.body ?? "") &&
+      /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/.test(
+        confirmation?.body ?? "",
+      ) &&
+      / at \d\d:\d\d/.test(confirmation?.body ?? ""),
     confirmation?.body,
   );
 

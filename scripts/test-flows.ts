@@ -29,7 +29,10 @@ import {
   studioDayOfWeek,
   studioStartOfDay,
 } from "../src/lib/time";
-import { FREE_CANCELLATION_HOURS } from "../src/lib/utils";
+import {
+  BOOKING_CUTOFF_MINUTES,
+  FREE_CANCELLATION_HOURS,
+} from "../src/lib/utils";
 import { dictionaries } from "../src/i18n/dictionaries";
 
 let pass = 0;
@@ -183,10 +186,16 @@ async function main() {
 
   const fixtureSessionIds: string[] = [];
 
-  console.log("\n5. Cancellation closes 24 hours before the class");
-  /* A class 3 hours away is inside the 24-hour window, so it is locked. */
+  console.log(
+    `\n5. Cancellation closes ${FREE_CANCELLATION_HOURS} hours before the class`,
+  );
+  /* Both fixtures are derived from the constant rather than written as
+     numbers. The window moved from 24 hours to 12 and these still read "24",
+     which is how a suite ends up documenting a rule the app no longer has. */
+  const insideHours = FREE_CANCELLATION_HOURS / 2;
+  const outsideHours = FREE_CANCELLATION_HOURS + 1;
   const ct = db.select().from(classTypes).limit(1).get()!;
-  const soon = new Date(Date.now() + 3 * 3600_000);
+  const soon = new Date(Date.now() + insideHours * 3600_000);
   const lateSession = db
     .insert(classSessions)
     .values({
@@ -199,7 +208,7 @@ async function main() {
     .get();
   fixtureSessionIds.push(lateSession.id);
   const rl = bookClass(user.id, lateSession.id);
-  check("can book a class 3h away", rl.ok === true, rl);
+  check(`can book a class ${insideHours}h away`, rl.ok === true, rl);
   const balBeforeLate = await getAvailableCredits(user.id);
   const lateBooking = db
     .select()
@@ -210,7 +219,7 @@ async function main() {
     .get()!;
   const c3 = cancelBooking(user.id, lateBooking.id);
   check(
-    "cancelling inside 24 hours is refused",
+    `cancelling inside ${FREE_CANCELLATION_HOURS} hours is refused`,
     c3.ok === false && c3.code === "TOO_LATE_TO_CANCEL",
     c3,
   );
@@ -219,8 +228,8 @@ async function main() {
     (await getAvailableCredits(user.id)) === balBeforeLate,
   );
 
-  /* And a class 25 hours out is still cancellable, with the session returned. */
-  const ahead = new Date(Date.now() + 25 * 3600_000);
+  /* And one just outside it is still cancellable, session returned. */
+  const ahead = new Date(Date.now() + outsideHours * 3600_000);
   const okSession = db
     .insert(classSessions)
     .values({
@@ -233,7 +242,7 @@ async function main() {
     .get();
   fixtureSessionIds.push(okSession.id);
   check(
-    "can book a class 25h away",
+    `can book a class ${outsideHours}h away`,
     bookClass(user.id, okSession.id).ok === true,
   );
   const balMid = await getAvailableCredits(user.id);
@@ -246,7 +255,7 @@ async function main() {
     .get()!;
   const c4 = cancelBooking(user.id, okBooking.id);
   check(
-    "cancelling outside 24 hours is refunded",
+    `cancelling outside ${FREE_CANCELLATION_HOURS} hours is refunded`,
     c4.ok === true && c4.refunded === true,
     c4,
   );
@@ -266,24 +275,58 @@ async function main() {
       ),
   );
 
-  console.log("\n6. Booking cut-off");
-  const past = new Date(Date.now() + 5 * 60_000); // 5 minutes away
-  const tooLate = db
-    .insert(classSessions)
-    .values({
-      classTypeId: ct.id,
-      startsAt: past,
-      endsAt: new Date(past.getTime() + STUDIO.classLengthMinutes * 60_000),
-      capacity: STUDIO.capacity,
-    })
-    .returning()
-    .get();
-  fixtureSessionIds.push(tooLate.id);
-  const rt = bookClass(user.id, tooLate.id);
+  console.log(
+    `\n6. Booking cut-off (${BOOKING_CUTOFF_MINUTES} min before the start)`,
+  );
+  /* Derived from the constant, both sides of it. Written as "5 minutes away"
+     these assertions described a thirty-minute cut-off and would have passed a
+     one-minute one for the wrong reason — the studio's rule is now that the
+     only reasons you cannot book are a closed day or a full class. */
+  const mkSession = (msAway: number) => {
+    const at = new Date(Date.now() + msAway);
+    const row = db
+      .insert(classSessions)
+      .values({
+        classTypeId: ct.id,
+        startsAt: at,
+        endsAt: new Date(at.getTime() + STUDIO.classLengthMinutes * 60_000),
+        capacity: STUDIO.capacity,
+      })
+      .returning()
+      .get();
+    fixtureSessionIds.push(row.id);
+    return row;
+  };
+
+  const insideCutoff = mkSession(BOOKING_CUTOFF_MINUTES * 60_000 * 0.5);
+  const rt = bookClass(user.id, insideCutoff.id);
   check(
-    "booking closes 30 min before start",
+    `a class inside the ${BOOKING_CUTOFF_MINUTES}-minute cut-off is refused`,
     rt.ok === false && rt.code === "TOO_LATE",
     rt,
+  );
+
+  /* And the part that matters to a member standing at the door: a class about
+     to start is still bookable right up to the cut-off. */
+  const justOutside = mkSession((BOOKING_CUTOFF_MINUTES + 1) * 60_000);
+  const rj = bookClass(user.id, justOutside.id);
+  check(
+    `a class ${BOOKING_CUTOFF_MINUTES + 1} minutes away still books`,
+    rj.ok === true,
+    rj,
+  );
+  cancelBooking(
+    user.id,
+    db
+      .select()
+      .from(bookings)
+      .where(
+        and(
+          eq(bookings.userId, user.id),
+          eq(bookings.sessionId, justOutside.id),
+        ),
+      )
+      .get()!.id,
   );
 
   console.log("\n7. Capacity");
@@ -481,11 +524,27 @@ async function main() {
       .run(crypto.randomUUID());
     sqlite.prepare("update instructors set photo_url = NULL").run();
 
-    const withdrawn = repairCatalogue();
+    const sync = repairCatalogue();
     check(
       "a withdrawn pack is taken off sale by a read",
-      withdrawn >= 1,
-      withdrawn,
+      sync.withdrawn >= 1,
+      sync,
+    );
+    /* And the other half of the job: the read path writes the current price
+       list in, so changing packs.ts is the whole change. Without this a price
+       change withdrew the old packs on boot and left nothing in their place
+       until somebody remembered to reseed. */
+    const second = repairCatalogue();
+    check(
+      "running it again changes nothing",
+      second.added === 0 && second.updated === 0 && second.withdrawn === 0,
+      second,
+    );
+    const listed = (await getPackages()).map((p) => p.slug).sort();
+    check(
+      "every pack on the price list is on sale",
+      [...OFFERED_PACK_SLUGS].sort().every((sl) => listed.includes(sl)),
+      { listed, expected: [...OFFERED_PACK_SLUGS].sort() },
     );
 
     const onSale = (await getPackages()).map((p) => p.slug);
@@ -623,9 +682,18 @@ async function main() {
     sqlite.prepare("delete from credit_batches where user_id = ?").run(u.id);
     sqlite.prepare("delete from users where id = ?").run(u.id);
   }
-  sqlite
-    .prepare("delete from class_sessions where id in (?,?,?)")
-    .run(lateSession.id, tooLate.id, capSession.id);
+  /* Every fixture registers itself in fixtureSessionIds, so cleaning up from
+     that list cannot fall out of step with the fixtures again — which it just
+     did, when one of three hard-coded names was renamed. */
+  if (fixtureSessionIds.length > 0) {
+    sqlite
+      .prepare(
+        `delete from class_sessions where id in (${fixtureSessionIds
+          .map(() => "?")
+          .join(",")})`,
+      )
+      .run(...fixtureSessionIds);
+  }
 
   /* ---------------------------------------------------------------- 10 */
   console.log("\n10. What the automatic messages actually say");
@@ -690,8 +758,8 @@ async function main() {
     const used = W.cancelledWords({ classEn: "A", classEl: "Α", startsAt: at, refunded: false });
     check("a refunded cancellation says the session came back", kept.en.body.includes("back in your balance"));
     check("and says so in Greek", kept.el.body.includes("επέστρεψε στο υπόλοιπό σας"));
-    check("a late cancellation says the session was used", used.en.body.includes("24-hour window"));
-    check("and says so in Greek", used.el.body.includes("εντός 24 ωρών"));
+    check("a late cancellation says the session was used", used.en.body.includes("12-hour window"));
+    check("and says so in Greek", used.el.body.includes("εντός 12 ωρών"));
 
     const paid = W.purchasedWords({
       credits: 10,

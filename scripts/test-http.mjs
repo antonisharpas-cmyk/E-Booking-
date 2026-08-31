@@ -3,7 +3,10 @@
  *   npm run build && npx next start -p 3100
  *   node scripts/test-http.mjs http://localhost:3100
  */
+import { markVerified } from "./fixture-verify.mjs";
+
 const BASE = process.argv[2] ?? "http://localhost:3000";
+
 
 /* One number, one account — so every registration in this suite needs its own.
    Registering two members with the same phone is now correctly refused. */
@@ -39,7 +42,16 @@ async function req(path, { method = "GET", body } = {}) {
   try {
     json = JSON.parse(text);
   } catch {}
-  return { status: res.status, json, text };
+  /* Where a redirect points, not only that it redirected. Two guards now send
+     somebody to two different places — /login when they are not signed in,
+     /verify when they are but the address is unconfirmed — and a suite that only
+     counted the 307 would pass either way. */
+  return {
+    status: res.status,
+    json,
+    text,
+    headers: { location: res.headers.get("location") ?? "" },
+  };
 }
 
 function check(label, cond, extra) {
@@ -125,18 +137,148 @@ const reg = await req("/api/auth/register", {
 });
 check("registration succeeds", reg.status === 200 && reg.json?.ok === true, reg.json);
 check("session cookie set", jar.has("apex_session"));
+check(
+  "registration asks for the emailed code",
+  reg.json?.verify === true,
+  reg.json,
+);
 
-const dupe = await req("/api/auth/register", {
+console.log("\n3b. An unverified account can do nothing at all");
+/* Not "cannot book" — cannot go anywhere. Until the code is typed the middleware
+   sends every address on the site back to the code box, which is what the studio
+   asked for. */
+for (const path of ["/account", "/", "/pricing", "/timetable", "/faq"]) {
+  const r = await req(path);
+  check(
+    `GET ${path} sends them to the code box`,
+    (r.status === 307 || r.status === 302) &&
+      (r.headers?.location ?? "").includes("/verify"),
+    { status: r.status, to: r.headers?.location },
+  );
+}
+const verifyPage = await req("/verify");
+check("GET /verify is the one page that loads", verifyPage.status === 200, verifyPage.status);
+check(
+  "and shows the address the code went to",
+  verifyPage.text.includes(email),
+  "the address is not on the page",
+);
+check(
+  "with a way out for a mistyped address",
+  /Sign out|sign out/.test(verifyPage.text),
+  "no sign-out on the verify page",
+);
+
+/* APIs get an answer rather than a redirect: `fetch` follows a 307 by default,
+   so a redirect here would hand the caller HTML where it expected JSON. */
+for (const [path, body] of [
+  ["/api/bookings", { sessionId: "does-not-matter" }],
+  ["/api/checkout", { packSlug: "single" }],
+  ["/api/profile", { name: "Nope" }],
+]) {
+  const r = await req(path, { method: "POST", body });
+  check(
+    `POST ${path} is refused with EMAIL_UNVERIFIED`,
+    r.status === 403 && r.json?.error === "EMAIL_UNVERIFIED",
+    { status: r.status, json: r.json },
+  );
+}
+
+const wrongCode = await req("/api/auth/verify", {
   method: "POST",
-  body: {
-    name: "HTTP Tester",
-    email,
-    password: "test12345",
-    phone: uniquePhone(),
-    serviceOptIn: true,
-  },
+  body: { code: "000000" },
 });
-check("duplicate email refused", dupe.json?.error === "EMAIL_TAKEN", dupe.json);
+check(
+  "a wrong code is refused with tries left",
+  wrongCode.status === 400 &&
+    wrongCode.json?.error === "WRONG" &&
+    typeof wrongCode.json?.attemptsLeft === "number",
+  wrongCode.json,
+);
+const resend = await req("/api/auth/verify/resend", { method: "POST" });
+check(
+  "asking again straight away is refused, with a wait",
+  resend.status === 429 &&
+    resend.json?.error === "TOO_SOON" &&
+    resend.json.secondsLeft > 0,
+  resend.json,
+);
+
+/* Signing out has to work from in here, or the only mistake anybody actually
+   makes — a typo in their own address — has no remedy. */
+const escaped = await req("/api/auth/logout", { method: "POST" });
+check("signing out works from the code box", escaped.status === 200, escaped.status);
+const anonHome = await req("/");
+check("and the site is browsable again", anonHome.status === 200, anonHome.status);
+
+/* Back in, verified the way a member would be: the row is stamped and the
+   cookie is re-issued by signing in again. */
+check("the fixture verifies", markVerified(email) === 1);
+const backIn = await req("/api/auth/login", {
+  method: "POST",
+  body: { email, password: "test12345" },
+});
+check("and signs back in", backIn.json?.ok === true, backIn.json);
+check(
+  "the cookie no longer says unconfirmed",
+  backIn.json?.verify === false,
+  backIn.json,
+);
+check(
+  "so /verify sends them on rather than asking again",
+  [307, 302].includes((await req("/verify")).status),
+);
+
+console.log("\n3c. Closing the browser does not lose the account");
+/* The studio asked what happens to somebody who registers, never types the
+   code, and comes back later. The answer this locks in: the account is kept, the
+   same password still works, they land back on the code box, and the code they
+   were already sent is still the one to type — no new one needed unless it has
+   expired. */
+{
+  const keep = new Map(jar);
+  jar.clear();
+
+  const lapsedEmail = `lapsed-${Date.now()}@apex.test`;
+  const made = await req("/api/auth/register", {
+    method: "POST",
+    body: {
+      name: "Came Back Later",
+      email: lapsedEmail,
+      password: "test12345",
+      phone: uniquePhone(),
+      serviceOptIn: true,
+    },
+  });
+  check("registers", made.json?.ok === true, made.json);
+
+  /* Closing the browser: the cookie is gone, the row is not. */
+  jar.clear();
+
+  const again = await req("/api/auth/login", {
+    method: "POST",
+    body: { email: lapsedEmail, password: "test12345" },
+  });
+  check("the same credentials still sign in", again.json?.ok === true, again.json);
+  check("and are sent to the code box", again.json?.verify === true, again.json);
+
+  const state = await req("/api/auth/verify");
+  check("the code they were already sent is still live", state.json?.challenge, state.json);
+  check(
+    "not expired, so there is nothing to re-request",
+    state.json?.challenge?.expired === false,
+    state.json?.challenge,
+  );
+  check(
+    "and it has all its attempts",
+    state.json?.challenge?.attemptsLeft === 5,
+    state.json?.challenge,
+  );
+
+  await req("/api/auth/logout", { method: "POST" });
+  jar.clear();
+  for (const [k, v] of keep) jar.set(k, v);
+}
 
 console.log("\n4. Account page now loads");
 const acct = await req("/account");
@@ -204,7 +346,7 @@ check("no 3-session pack anywhere on the page", !/"credits":3/.test(pricing.text
 /* Buying is two steps now, the same two a card goes through: open the payment,
    then settle it. Nothing is granted by opening it — see scripts/test-payments.mjs
    for the full set of promises around that. */
-const opened = await req("/api/checkout", { method: "POST", body: { packSlug: "pack-10" } });
+const opened = await req("/api/checkout", { method: "POST", body: { packSlug: "month-2" } });
 check("a payment opens for the 10-class pack", Boolean(opened.json?.purchaseId), opened.json);
 check(
   "the provider says how to pay",
@@ -217,12 +359,12 @@ const settled = await req("/api/payments/settle", {
   body: { purchaseId: opened.json?.purchaseId },
 });
 check("settling it grants the sessions", settled.json?.status === "PAID", settled.json);
-check("balance is 10", settled.json?.credits === 10, settled.json);
+check("balance is 8", settled.json?.credits === 8, settled.json);
 
 console.log("\n7. Book with credits");
 const booked = await req("/api/bookings", { method: "POST", body: { sessionId: target.id } });
 check("booking succeeds", booked.json?.ok === true, booked.json);
-check("balance is now 9", booked.json?.credits === 9, booked.json);
+check("balance is now 7", booked.json?.credits === 7, booked.json);
 
 const again = await req("/api/bookings", { method: "POST", body: { sessionId: target.id } });
 check("double booking refused", again.json?.error === "ALREADY_BOOKED", again.json);
@@ -234,7 +376,7 @@ console.log("\n8. Cancel and get the credit back");
 const bookingId = booked.json?.bookingId;
 const cancelled = await req("/api/bookings/cancel", { method: "POST", body: { bookingId } });
 check("cancel succeeds and refunds", cancelled.json?.ok && cancelled.json?.refunded, cancelled.json);
-check("balance back to 10", cancelled.json?.credits === 10, cancelled.json);
+check("balance back to 8", cancelled.json?.credits === 8, cancelled.json);
 
 /* Every class the studio runs is 60 minutes with five places. */
 const cap = list.every((s) => s.capacity === 5);
@@ -255,15 +397,36 @@ check("double cancel refused", cancelAgain.status === 409, cancelAgain.status);
 console.log("\n9. Cannot touch another member's booking");
 const otherJarBackup = new Map(jar);
 jar.clear();
+const otherEmail = `other-${Date.now()}@apex.test`;
 await req("/api/auth/register", {
   method: "POST",
   body: {
     name: "Second User",
-    email: `other-${Date.now()}@apex.test`,
+    email: otherEmail,
     password: "test12345",
     phone: uniquePhone(),
     serviceOptIn: true,
   },
+});
+/* Refused twice over until the address is confirmed, which would hide the rule
+   being tested here: verify first, so the 409 that comes back is "that booking
+   is not yours" rather than "confirm your email". */
+const stealUnverified = await req("/api/bookings/cancel", {
+  method: "POST",
+  body: { bookingId },
+});
+check(
+  "an unverified account cannot cancel anything at all",
+  stealUnverified.status === 403 &&
+    stealUnverified.json?.error === "EMAIL_UNVERIFIED",
+  stealUnverified.json,
+);
+check("the second fixture verifies", markVerified(otherEmail) === 1);
+/* And signs in again, so the cookie carries the confirmed stamp — otherwise the
+   middleware answers first and this tests the wrong rule. */
+await req("/api/auth/login", {
+  method: "POST",
+  body: { email: otherEmail, password: "test12345" },
 });
 const steal = await req("/api/bookings/cancel", { method: "POST", body: { bookingId } });
 check("other member cannot cancel it", steal.status === 409, steal.status);

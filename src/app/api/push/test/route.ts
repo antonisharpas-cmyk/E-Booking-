@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { member } from "@/lib/api-guard";
+import { verified } from "@/lib/api-guard";
 import { pushToUser } from "@/lib/messaging/events";
 import { deviceCount, pushReady } from "@/lib/messaging/push";
 
@@ -14,7 +14,7 @@ import { deviceCount, pushReady } from "@/lib/messaging/push";
 export const dynamic = "force-dynamic";
 
 export async function POST() {
-  const gate = await member();
+  const gate = await verified();
   if ("res" in gate) return gate.res;
 
   if (!pushReady()) {

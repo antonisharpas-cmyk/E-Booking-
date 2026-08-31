@@ -99,14 +99,21 @@ if (cmd === "add") {
 
   if (existing) {
     db.prepare(
-      "update users set name = ?, role = ?, password_hash = ? where id = ?",
+      `update users set name = ?, role = ?, password_hash = ?,
+              email_verified_at = coalesce(email_verified_at, unixepoch())
+        where id = ?`,
     ).run(name, role, hash, existing.id);
     console.log(`\n  Updated ${email} — now ${LABEL[role]}.`);
   } else {
     db.prepare(
+      /* email_verified_at is stamped, not left null. A desk account is created
+         by somebody standing at this keyboard, and requiring them to confirm an
+         address in order to open the console that would tell them the code never
+         arrived is a locked door with the key inside. */
       `insert into users
-         (id, email, name, password_hash, role, created_at, service_opt_in_at)
-       values (?, ?, ?, ?, ?, unixepoch(), unixepoch())`,
+         (id, email, name, password_hash, role, created_at, service_opt_in_at,
+          email_verified_at)
+       values (?, ?, ?, ?, ?, unixepoch(), unixepoch(), unixepoch())`,
     ).run(randomUUID(), email, name, hash, role);
     console.log(`\n  Created ${email} — ${LABEL[role]}.`);
   }

@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { body, member } from "@/lib/api-guard";
+import { body, verified } from "@/lib/api-guard";
 import { markRead, unreadCount } from "@/lib/notices";
 
 /** A member marking one notice read, or all of them. */
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
-  const gate = await member();
+  const gate = await verified();
   if ("res" in gate) return gate.res;
 
   const data = await body<{ noticeId?: string }>(req);

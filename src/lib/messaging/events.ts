@@ -22,6 +22,7 @@ import {
   promoWords,
   purchasedWords,
   reminderWords,
+  verifyWords,
   whenWords,
   type Bilingual,
 } from "./wording";
@@ -264,6 +265,31 @@ export async function notifyPromoGranted(
     }),
     { email: true, push: false, sms: false },
   );
+}
+
+/**
+ * The confirmation code, emailed and nothing else.
+ *
+ * Outside `deliverPersonal` on purpose, and it breaks two of its rules for good
+ * reasons.
+ *
+ * It writes no copy into the member's account. Every other message here does,
+ * because the account is where a member goes to check what they were told — but
+ * a one-time code sitting in a list, readable by anybody already signed in to
+ * that account, is a credential filed next to the door it opens. And the member
+ * cannot reach that list anyway until the code has been typed.
+ *
+ * It ignores `notifyEmail`. That switch is consent to be *contacted*: reminders,
+ * receipts, news. This is the address proving itself, asked for by the person
+ * who typed it thirty seconds ago, and an account that cannot be confirmed
+ * because its owner turned off emails is an account nobody can use.
+ */
+export async function sendVerificationCode(
+  to: string,
+  code: string,
+  minutes: number,
+) {
+  return emailTransport().send(to, forEmail(verifyWords({ code, minutes })));
 }
 
 /**

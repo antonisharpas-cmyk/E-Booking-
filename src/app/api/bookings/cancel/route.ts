@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { notVerified } from "@/lib/api-guard";
 import { currentUser } from "@/lib/auth";
 import { cancelBooking } from "@/lib/booking";
 import { getAvailableCredits } from "@/lib/credits";
@@ -8,6 +9,8 @@ import { cancelReminder } from "@/lib/reminders";
 export async function POST(req: Request) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  const stop = notVerified(user);
+  if (stop) return stop;
 
   const body = (await req.json().catch(() => null)) as { bookingId?: string } | null;
   if (!body?.bookingId) {

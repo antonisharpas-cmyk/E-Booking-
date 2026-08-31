@@ -3,6 +3,8 @@
  *   npm run build && npx next start -p 3100
  *   node scripts/test-profile.mjs http://localhost:3100
  */
+import { markVerified } from "./fixture-verify.mjs";
+
 const B = process.argv[2] ?? "http://localhost:3000";
 const jar=new Map();
 function ch(){return [...jar].map(([k,v])=>`${k}=${v}`).join('; ');}
@@ -32,7 +34,16 @@ r=await req('/api/auth/register',{method:'POST',body:{name:'Prof Test',email,pho
 check('declining the service consent is refused', r.json?.error==='SERVICE_CONSENT_REQUIRED', r.json);
 r=await req('/api/auth/register',{method:'POST',body:{name:'Prof Test',email,phone,password:'test12345',serviceOptIn:true}});
 check('registers with a phone and consent', r.json?.ok===true, r.json);
+check('and is asked for the emailed code', r.json?.verify===true, r.json);
 check('marketing consent is optional and defaults off', true);
+
+/* Confirmed the way a member would be. Everything below this line is about a
+   member editing their own account, and an unverified one may not — so leaving
+   it out would turn this suite into twenty-five reports of the same one fact. */
+check('the fixture verifies', markVerified(email)===1);
+/* And signs in again: the middleware reads the cookie, not the row, so without
+   this every request below is still redirected to the code box. */
+await req('/api/auth/login',{method:'POST',body:{email,password:'test12345'}});
 
 console.log('\n2. Profile updates');
 r=await req('/api/profile',{method:'PATCH',body:{name:'Prof Test',birthDate:'1990-05-14',heightCm:178,weightKg:72.5,marketingOptIn:true,notifyEmail:true,notifySms:true,notifyPush:false,reminderMinutes:180}});
@@ -100,10 +111,10 @@ console.log('\n5. Reminders');
 await req('/api/profile',{method:'PATCH',body:{name:'Prof Test',marketingOptIn:false,notifyEmail:true,notifySms:false,notifyPush:false,reminderMinutes:120}});
 const sess=await req('/api/sessions?days=20');
 const target=(sess.json?.sessions??[]).find(s=>s.spotsLeft>0 && new Date(s.startsAt)>new Date(Date.now()+72*3600e3));
-const opened=await req('/api/checkout',{method:'POST',body:{packSlug:'pack-10'}});
-check('a payment opens for the 10-class pack', Boolean(opened.json?.purchaseId), opened.json);
+const opened=await req('/api/checkout',{method:'POST',body:{packSlug:'month-2'}});
+check('a payment opens for the monthly 2-a-week pack', Boolean(opened.json?.purchaseId), opened.json);
 const grant=await req('/api/payments/settle',{method:'POST',body:{purchaseId:opened.json?.purchaseId}});
-check('settling it gives 10 sessions', grant.json?.credits===10, grant.json);
+check('settling it gives 8 sessions', grant.json?.credits===8, grant.json);
 const booked=await req('/api/bookings',{method:'POST',body:{sessionId:target.id}});
 check('booking succeeds', booked.json?.ok===true, booked.json);
 check('a reminder is scheduled with the booking', typeof booked.json?.reminderAt==='string', booked.json);

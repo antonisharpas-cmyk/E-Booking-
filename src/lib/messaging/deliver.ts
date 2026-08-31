@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, ne, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { noticeDeliveries, users } from "@/db/schema";
 import { emailTransport } from "./email";
@@ -108,6 +108,25 @@ export function recipientsFor(
   const rules = [audienceRule];
   if (!includeTest) rules.push(eq(users.isTest, false));
 
+  /**
+   * Accounts that never confirmed their email address are not written to.
+   *
+   * Three reasons, and each would be enough on its own. The address may not
+   * exist, and a campaign that bounces off a dozen invented mailboxes damages the
+   * studio's ability to reach the real ones. The in-app copy would be filed
+   * somewhere they cannot reach, since an unconfirmed account is redirected to the
+   * code box wherever it goes. And the studio's own rule is that nothing happens
+   * on an account until the address is proved, which has to mean in both
+   * directions or it is not a rule.
+   *
+   * The studio's own logins are exempt, the same way they are exempt from having
+   * to verify at all: nobody emailed them a code.
+   */
+  rules.push(
+    sql`(${users.emailVerifiedAt} is not null
+         or ${users.role} in ('STAFF', 'ADMIN'))`,
+  );
+
   /* Never paid. A desk cash sale writes a PAID purchase just as a card payment
      does, so this is "has never given the studio any money" rather than "has
      never used the website" — which is the question actually being asked. Free
@@ -175,9 +194,42 @@ export function reachOf(audience: Audience, includeTest = false, segment: Segmen
     push: people.filter((p) => withPush.has(p.id)).length,
     email: people.filter((p) => p.notifyEmail && p.email).length,
     sms: people.filter((p) => p.notifySms && toE164(p.phone)).length,
-    /* So the desk can say "4 test accounts excluded" rather than leaving
-       somebody to wonder why the count dropped. */
-    testAccounts: db.select().from(users).where(eq(users.isTest, true)).all().length,
+    /**
+     * So the desk can say "4 test accounts excluded" rather than leaving somebody
+     * to wonder why the count dropped.
+     *
+     * Counts the ones the switch would actually put back, not every test account
+     * that exists. A dummy account that never confirmed its own address is
+     * excluded twice over and stays excluded whatever the switch says, so
+     * counting it here would make the number a small lie: tick the box, and the
+     * reach would go up by less than the figure promised.
+     */
+    testAccounts: db
+      .select()
+      .from(users)
+      .where(
+        and(
+          eq(users.isTest, true),
+          isNull(users.erasedAt),
+          sql`(${users.emailVerifiedAt} is not null
+               or ${users.role} in ('STAFF', 'ADMIN'))`,
+        ),
+      )
+      .all().length,
+    /* And the same courtesy for the other exclusion. A reach of 38 out of 41 with
+       no explanation is the kind of number somebody quietly stops trusting. */
+    unverifiedAccounts: db
+      .select()
+      .from(users)
+      .where(
+        and(
+          eq(users.role, "MEMBER"),
+          eq(users.isTest, false),
+          isNull(users.emailVerifiedAt),
+          isNull(users.erasedAt),
+        ),
+      )
+      .all().length,
   };
 }
 

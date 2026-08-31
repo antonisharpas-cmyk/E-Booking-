@@ -21,7 +21,7 @@ import { isBookable } from "@/lib/utils";
 export const metadata: Metadata = {
   title: "Timetable",
   description:
-    "Live Reformer Pilates timetable at APEX pilates. Book with sessions, free cancellation up to 24 hours before class.",
+    "Live Reformer Pilates timetable at APEX pilates. Book with sessions, free cancellation up to 12 hours before class.",
 };
 
 export const dynamic = "force-dynamic";

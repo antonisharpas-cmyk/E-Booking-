@@ -18,7 +18,7 @@ const d = new Database(file, { readonly: true });
 
 const GROUPS = [
   { name: "People", blurb: "Accounts, and the two things attached to one.",
-    tables: ["users", "user_avatars", "push_subscriptions"] },
+    tables: ["users", "user_avatars", "push_subscriptions", "email_verifications"] },
   { name: "The room",
     blurb: "What the studio teaches, who teaches it, and when. A template is the weekly habit; a session is a class on a date.",
     tables: ["class_types", "instructors", "class_templates", "class_sessions", "studio_closures"] },
@@ -40,7 +40,11 @@ const ABOUT = {
     service_opt_in_at: "When they agreed to studio and timetable notices — a timestamp, not a checkbox, so consent is a record.",
     notify_push: "Not a preference. The studio keeps push on and the server refuses a request that tries to turn it off; only the browser can silence it.",
     reminder_minutes: "How long before a class to remind them. Null means no reminder. New accounts start at 120.",
-    is_test: "A dummy account the studio keeps for testing. Left out of campaigns and out of the member counts.",
+    is_test: "A dummy account the studio keeps for testing. Left out of campaigns and out of the member counts, and out of every figure in Analytics.",
+    email_verified_at: "When a code emailed to that address was typed back. Null means the account exists and can do nothing: no booking, no payment, not even its own profile page.",
+    erased_at: "When the member's personal details were erased at their request. The row survives because the payments attached to it are accounting records Cyprus requires kept for six years — see lib/erasure.ts.",
+    erased_by: "Which member of staff did it. The whole audit trail for the one irreversible action in the console.",
+    phone: "Unique, like the email. One number, one member — otherwise two people share a handset and the desk cannot tell them apart on the phone.",
     password_hash: "bcrypt. The plain password is never stored or logged.",
     weight_grams: "Grams rather than kilograms, so no rounding creeps in over repeated edits." } },
   user_avatars: { what: "The member's photograph, held in the database rather than on disk.", notes: {
@@ -50,6 +54,12 @@ const ABOUT = {
     endpoint: "The address Google, Apple or Mozilla gave us for that browser. Unique, so re-subscribing updates rather than duplicating.",
     p256dh: "The browser's public key. Every push is encrypted to it before it leaves.",
     failures: "Counted, and the row is retired after eight. A 404 or 410 from the push service deletes it immediately — that browser is gone for good." } },
+  email_verifications: { what: "The live confirmation code for an account that has not proved its email address yet. One row per account at most, replaced on each resend.", notes: {
+    code_hash: "An HMAC of the six digits, keyed with AUTH_SECRET. The code itself is never stored — it is a credential, and six digits is a small enough space that a plain digest would be a lookup table.",
+    attempts: "Wrong answers against the current code. Five kills it, and only a new code clears the count.",
+    sends: "Codes sent inside the current hour. Five is the cap, so a stranger's address cannot be used as a way of posting mail to them.",
+    window_started_at: "When the hourly allowance began. Rolling, not a running total, so nobody ends up permanently unable to confirm their own address.",
+    user_id: "Unique. A mailbox holding four codes that all still work is four chances for the wrong one to be lifted out of the wrong email." } },
   class_types: { what: "What the studio teaches. Reformer Flow, Reformer Strength, and so on.", notes: {
     slug: "The stable name used in code and URLs, so renaming a class in Greek breaks nothing.",
     intensity: "1 to 3, shown as dots on the classes page.",

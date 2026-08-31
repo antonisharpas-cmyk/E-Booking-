@@ -9,6 +9,8 @@
  * Runs against the test provider (no card, nothing charged), which exercises
  * exactly the same routes and the same fulfilment path as a real provider.
  */
+import { markVerified } from "./fixture-verify.mjs";
+
 const B = process.argv[2] ?? "http://localhost:3000";
 
 /* One number, one account — so every registration in this suite needs its own.
@@ -88,6 +90,18 @@ async function member(tag) {
       serviceOptIn: true,
     },
   });
+  /* Confirm the address the way a member would. Without this every fixture in
+     this suite is an account that may not pay for anything. */
+  if (markVerified(email) !== 1) {
+    throw new Error(`fixture ${email} did not verify`);
+  }
+  /* And signed in again, which re-issues the cookie with the confirmed stamp on
+     it. The middleware reads the cookie, so the database write alone would leave
+     every page still redirecting to the code box. */
+  await req(j, "/api/auth/login", {
+    method: "POST",
+    body: { email, password: "test12345" },
+  });
   return { j, email };
 }
 
@@ -102,7 +116,7 @@ async function balance(j) {
 console.log("\n1. The checkout page is not open to the world");
 {
   const anon = jar();
-  const r = await req(anon, "/checkout?pack=pack-5");
+  const r = await req(anon, "/checkout?pack=month-1");
   check(
     "a signed-out visitor is sent to sign in",
     r.status === 307 || r.status === 302,
@@ -131,7 +145,7 @@ console.log("\n2. Opening a payment");
 const buyer = await member("a");
 let purchaseId = null;
 {
-  const page = await req(buyer.j, "/checkout?pack=pack-10");
+  const page = await req(buyer.j, "/checkout?pack=month-2");
   check("the page renders for a member", page.status === 200, page.status);
   check(
     "it shows the pack and the total",
@@ -146,7 +160,7 @@ let purchaseId = null;
 
   const started = await req(buyer.j, "/api/checkout", {
     method: "POST",
-    body: { packSlug: "pack-10" },
+    body: { packSlug: "month-2" },
   });
   purchaseId = started.json?.purchaseId ?? null;
   check("a payment opens", Boolean(purchaseId), started.json);
@@ -176,7 +190,7 @@ console.log("\n3. Settling the payment");
     body: { purchaseId },
   });
   check("the payment settles", first.json?.status === "PAID", first.json);
-  check("ten sessions land on the account", first.json?.credits === 10, first.json);
+  check("eight sessions land on the account", first.json?.credits === 8, first.json);
 
   const again = await req(buyer.j, "/api/payments/settle", {
     method: "POST",
@@ -185,7 +199,7 @@ console.log("\n3. Settling the payment");
   check("settling twice is safe", again.json?.status === "PAID", again.json);
   check(
     "and does not grant them twice",
-    again.json?.credits === 10,
+    again.json?.credits === 8,
     again.json,
   );
 
@@ -193,7 +207,7 @@ console.log("\n3. Settling the payment");
     method: "POST",
     body: { purchaseId },
   });
-  check("nor a third time", third.json?.credits === 10, third.json);
+  check("nor a third time", third.json?.credits === 8, third.json);
 
   const missing = await req(buyer.j, "/api/payments/settle", {
     method: "POST",
@@ -282,6 +296,11 @@ console.log("\n8. Paying tells the member, once");
       serviceOptIn: true,
     },
   });
+  if (markVerified(email) !== 1) throw new Error(`fixture ${email} did not verify`);
+  await req(buyer, "/api/auth/login", {
+    method: "POST",
+    body: { email, password: "test12345" },
+  });
   /* Timestamps are whole seconds and notices from before somebody joined are
      not theirs — so the boundary is put beyond doubt before counting. */
   await new Promise((r) => setTimeout(r, 1100));
@@ -291,7 +310,7 @@ console.log("\n8. Paying tells the member, once");
 
   const opened = await req(buyer, "/api/checkout", {
     method: "POST",
-    body: { packSlug: "pack-10" },
+    body: { packSlug: "month-2" },
   });
   const midway = await req(buyer, "/api/notices");
   /* Opening a payment is not paying. Telling somebody their sessions have
@@ -314,8 +333,8 @@ console.log("\n8. Paying tells the member, once");
   check("with the payment named", msg?.title === "Payment received", msg?.title);
   check(
     "the sessions, the price and the expiry",
-    /10 sessions/.test(msg?.body ?? "") &&
-      /€200/.test(msg?.body ?? "") &&
+    /8 sessions/.test(msg?.body ?? "") &&
+      /€110/.test(msg?.body ?? "") &&
       /expire on/.test(msg?.body ?? ""),
     msg?.body,
   );
@@ -338,7 +357,7 @@ console.log("\n8. Paying tells the member, once");
   );
   check(
     "and grants the sessions once",
-    (await req(buyer, "/api/bookings")).json?.credits === 10,
+    (await req(buyer, "/api/bookings")).json?.credits === 8,
     "balance moved on a repeat settle",
   );
 }

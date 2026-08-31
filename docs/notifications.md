@@ -376,6 +376,65 @@ constant, which meant the answer to "does a booking send an email?" was spread
 across two files and a `.env`. If that line is still in your `.env` it does
 nothing, and `npm run doctor` says so.
 
+### The one that is not in that table
+
+**The confirmation code.** It is email only, it ignores every consent switch, and
+it writes nothing into the member's account. All three are deliberate.
+
+Email only, because that is the point of it: the message exists to prove that the
+address someone typed is an address they can read.
+
+It ignores `notifyEmail` because that switch is consent to be *contacted* —
+reminders, receipts, news — and this is the address proving itself, asked for by
+the person who typed it thirty seconds ago. An account that cannot be confirmed
+because its owner turned off emails is an account nobody can use.
+
+And it writes no copy into the account, unlike every other message here, because
+a one-time code sitting in a list readable by anyone already signed in is a
+credential filed next to the door it opens. The member cannot reach that list
+before verifying anyway.
+
+The code is in the **subject line** as well as the body, which is the one place
+this system puts anything sensitive in a subject. The reasoning: the member is
+sitting in front of the site with the box open, and reading six digits off a lock
+screen is three steps fewer than opening a mail app and scrolling. Every large
+service does the same, and what it guards here is an email address rather than
+money.
+
+**Until the code comes back, the site is closed.** Not just booking and paying —
+every address. A signed-in member whose address is unconfirmed is redirected to
+the code box whatever they ask for, and API calls are answered with
+`EMAIL_UNVERIFIED` rather than a redirect, since `fetch` would follow one and get
+HTML where it expected JSON. Four things stay open, each because it has to: the
+code box, the two routes behind it, and **signing out** — which is the only
+remedy for the one mistake people actually make, a typo in their own address, and
+a person locked in a room with no door is a worse bug than the one this fixes.
+
+That decision is made by `src/middleware.ts` from a claim in the session cookie,
+not from the database — middleware runs on the edge runtime, where SQLite does
+not exist. The cookie is re-issued the moment a code is accepted. The database
+stays the authority for anything that *acts*: every route re-reads the row, so a
+stale cookie can at worst let somebody look at a page, never use one.
+
+**And the studio does not write to them either.** An unconfirmed account is left
+out of every notice on every channel, the in-app copy included. Three reasons, any
+one of which would do: the address may not exist, and a campaign bouncing off a
+dozen invented mailboxes damages the studio's ability to reach the real ones; the
+in-app copy would be filed somewhere they cannot open; and a rule that only runs
+in one direction is not a rule. The reach line at the desk says how many were
+excluded, so the figure never drops without saying why.
+
+**This makes email a hard dependency of registration.** In `log` mode nothing is
+sent, so nobody can finish signing up at all — `npm run doctor` reports that as a
+problem rather than a warning, because it is the one misconfiguration that looks
+fine from the outside and lets nobody in.
+
+The limits, all in `src/lib/verify.ts`: six digits, fifteen minutes, five wrong
+answers before the code dies, sixty seconds between sends, five sends an hour on
+a rolling window. Each resend generates a genuinely new code and the previous one
+stops working — a resend that produced the same digits would look to the member
+as though nothing had happened.
+
 ### Why the reminder is the one that buzzes
 
 It is the only automatic message that reaches outside the app, and that is the

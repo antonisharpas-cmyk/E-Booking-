@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { desk } from "@/lib/api-guard";
+import {
+  sweepDeadChallenges,
+  sweepUnverifiedAccounts,
+} from "@/lib/housekeeping";
 import { runDueReminders } from "@/lib/messaging/events";
 
 /**
@@ -18,6 +22,10 @@ import { runDueReminders } from "@/lib/messaging/events";
  * Two ways in, and no third: the shared secret for a machine, or a signed-in
  * member of staff for a person testing it. Left open, this would be a way for
  * anyone to make four hundred phones buzz.
+ *
+ * It also carries the housekeeping: registrations nobody finished, and dead
+ * confirmation codes. See `housekeeping()` at the bottom for why they live here
+ * rather than in a second scheduled job.
  */
 export const dynamic = "force-dynamic";
 
@@ -36,7 +44,54 @@ export async function POST(req: Request) {
   }
 
   const result = await runDueReminders();
-  return NextResponse.json({ ok: true, ...result });
+
+  return NextResponse.json({ ok: true, ...result, ...housekeeping() });
+}
+
+/**
+ * The tidying that rides along with the sweep.
+ *
+ * Here rather than in a second scheduled job because the studio should not have
+ * to set up two, and because this is the one thing already knocking on the door
+ * on a timer. It is not a reminder, so it keeps its own function and its own keys
+ * in the response.
+ *
+ * Rate-limited to once an hour. The sweep itself runs every minute in
+ * development, and looking for week-old registrations sixty times an hour would
+ * be sixty queries finding the same nothing. The clock is module state, so a
+ * restart brings it forward, which is better than a restart delaying it.
+ *
+ * Never allowed to fail the sweep. A class starting in two hours must not go
+ * unannounced because a delete threw.
+ */
+let lastTidy = 0;
+const TIDY_EVERY_MS = 60 * 60 * 1000;
+
+function housekeeping() {
+  const now = Date.now();
+  if (now - lastTidy < TIDY_EVERY_MS) return {};
+  lastTidy = now;
+  try {
+    const accounts = sweepUnverifiedAccounts();
+    const codes = sweepDeadChallenges();
+    if (accounts.deleted || accounts.kept.length || codes) {
+      console.log(
+        `[housekeeping] ${accounts.deleted} unfinished registration(s) cleared` +
+          (codes ? ` · ${codes} dead code(s) cleared` : "") +
+          (accounts.kept.length
+            ? ` · ${accounts.kept.length} kept, they have history: ${accounts.kept.join(", ")}`
+            : ""),
+      );
+    }
+    return {
+      unverifiedCleared: accounts.deleted,
+      unverifiedKept: accounts.kept.length,
+      deadCodesCleared: codes,
+    };
+  } catch (e) {
+    console.error("[housekeeping] failed", (e as Error).message);
+    return {};
+  }
 }
 
 /** Convenience for a scheduler that can only issue GETs. Same two doors. */

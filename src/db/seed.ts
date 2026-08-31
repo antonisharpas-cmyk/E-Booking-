@@ -53,6 +53,11 @@ function upsertUser(row: {
            missing: a real member's own choices are never overwritten. */
         serviceOptInAt: existing.serviceOptInAt ?? new Date(),
         reminderMinutes: existing.reminderMinutes ?? REMINDER_DEFAULT_MINUTES,
+        /* Seeded accounts are verified by definition: the person who created
+           them was sitting at this machine typing the command, and there is no
+           mailbox in that story to send a code to. Only filled if missing, so a
+           member who verified for themselves keeps their own date. */
+        emailVerifiedAt: existing.emailVerifiedAt ?? new Date(),
       })
       .where(eq(users.id, existing.id))
       .run();
@@ -69,6 +74,7 @@ function upsertUser(row: {
       serviceOptInAt: new Date(),
       notifyEmail: true,
       reminderMinutes: REMINDER_DEFAULT_MINUTES,
+      emailVerifiedAt: new Date(),
     })
     .returning()
     .get();
@@ -285,10 +291,10 @@ async function main() {
   /* Packs the studio no longer sells are deactivated rather than deleted:
      past purchases and credit batches still point at those rows. Shared with
      the read path so both agree on what is on sale. */
-  const retired = repairCatalogue();
+  const sync = repairCatalogue();
   console.log(
     `  ✓ ${PACKAGES.length} credit packs` +
-      (retired ? `, ${retired} withdrawn from sale` : ""),
+      (sync.withdrawn ? `, ${sync.withdrawn} withdrawn from sale` : ""),
   );
 
   /* Instructors */

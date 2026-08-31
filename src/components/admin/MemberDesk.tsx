@@ -47,6 +47,9 @@ type Detail = {
   notifyPush: boolean;
   marketingOptIn: boolean;
   isTest: boolean;
+  emailVerifiedAt: string | null;
+  erasedAt: string | null;
+  erasedBy: string | null;
   upcoming: { id: string; startsAt: string; className: string }[];
   payments: {
     id: string;
@@ -65,7 +68,17 @@ type Detail = {
   }[];
 };
 
-export function MemberDesk({ onNotice }: { onNotice: (s: string) => void }) {
+export function MemberDesk({
+  onNotice,
+  owner,
+}: {
+  onNotice: (s: string) => void;
+  /* Erasing a member is the owner's decision, not reception's. Passed in rather
+     than fetched here so this component has one source of truth about who is
+     looking at it, and so the panel is absent from the HTML rather than merely
+     hidden by a class. */
+  owner: boolean;
+}) {
   const { t, fmtMoney, fmtShortDate, fmtTime, fmtMonthYear } = useI18n();
   const d = t.desk;
 
@@ -97,6 +110,10 @@ export function MemberDesk({ onNotice }: { onNotice: (s: string) => void }) {
      we email you" invites somebody to switch it by accident. */
   const [isTest, setIsTest] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  /* Cleared whenever a different member is loaded, below: a typed confirmation
+     left sitting in the box while the desk clicks onto somebody else is the one
+     way this could erase the wrong person. */
+  const [eraseConfirm, setEraseConfirm] = useState("");
 
   /* Browsing the list is a real way to use this screen, not a fallback for
      failing to search: the member who came in last week, the one whose name you
@@ -157,6 +174,7 @@ export function MemberDesk({ onNotice }: { onNotice: (s: string) => void }) {
     });
     setIsTest(data.member.isTest);
     setNewPassword("");
+    setEraseConfirm("");
   }, []);
 
   async function post(url: string, payload: unknown, key: string, method = "POST") {
@@ -169,7 +187,23 @@ export function MemberDesk({ onNotice }: { onNotice: (s: string) => void }) {
       });
       const data = (await res.json()) as Record<string, unknown>;
       if (!res.ok) {
-        onNotice(String(data.error ?? t.common.somethingWrong));
+        /* Said in words. The server answers in codes, which is right for a
+           server and useless at a counter: "PHONE_TAKEN" in capitals tells a
+           receptionist neither what went wrong nor whose fault it was. Unknown
+           codes still fall through to the code itself, because a rare unmapped
+           one is something they can at least quote down the phone. */
+        const known: Record<string, string> = {
+          EMAIL_TAKEN: d.errEmailTaken,
+          PHONE_TAKEN: d.errPhoneTaken,
+          EMAIL_INVALID: d.errEmailInvalid,
+          PHONE_INVALID: d.errPhoneInvalid,
+          EMAIL_UNVERIFIED: d.errSellUnverified,
+          ALREADY_ERASED: d.eraseAlready,
+          DESK_ACCOUNT: d.eraseDeskAccount,
+          CONFIRM_MISMATCH: d.eraseMismatch,
+        };
+        const code = String(data.error ?? "");
+        onNotice(known[code] ?? code ?? t.common.somethingWrong);
         return null;
       }
       if (member) await load(member.id);
@@ -315,6 +349,28 @@ export function MemberDesk({ onNotice }: { onNotice: (s: string) => void }) {
                   {d.joined} {fmtMonthYear(member.createdAt)}
                   {member.role !== "MEMBER" ? ` · ${member.role}` : ""}
                 </p>
+
+                {/* Two states worth saying out loud on the card rather than
+                    leaving the desk to deduce from a balance that will not
+                    spend. Both explain themselves underneath, because the
+                    person reading this is being asked "why can't I book?" by
+                    somebody standing in front of them. */}
+                {!member.erasedAt && !member.emailVerifiedAt && (
+                  <Flag
+                    tone="warn"
+                    label={d.memberUnverified}
+                    why={d.memberUnverifiedWhy}
+                  />
+                )}
+                {member.erasedAt && (
+                  <Flag
+                    tone="quiet"
+                    label={d.memberErased}
+                    why={d.memberErasedWhy
+                      .replace("{who}", member.erasedBy ?? "—")
+                      .replace("{when}", fmtShortDate(member.erasedAt))}
+                  />
+                )}
               </div>
               <p className="text-right">
                 <span className="block font-display text-3xl text-mocha-600 lining-nums tabular-nums">
@@ -329,6 +385,15 @@ export function MemberDesk({ onNotice }: { onNotice: (s: string) => void }) {
 
           {/* sessions in and out */}
           <Panel title={d.sellTitle} help={d.sellHelp}>
+            {/* Said before the form rather than after the press. The rule is that
+                nothing lands on an account until its address is proved, and the
+                desk is not an exception to it — but taking sessions back is,
+                because the studio must always be able to correct itself. */}
+            {!member.erasedAt && !member.emailVerifiedAt && (
+              <p className="mb-5 rounded-2xl border border-gold/60 bg-gold/[0.07] px-4 py-3 text-[12px] leading-relaxed text-mocha-700">
+                {d.errSellUnverified}
+              </p>
+            )}
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={d.sellCredits}>
                 <input
@@ -383,7 +448,13 @@ export function MemberDesk({ onNotice }: { onNotice: (s: string) => void }) {
             <Button
               size="sm"
               className="mt-5"
-              disabled={busy === "sell" || credits === 0}
+              disabled={
+                busy === "sell" ||
+                credits === 0 ||
+                /* Only the giving half. A negative number is a correction and
+                   stays available whatever state the account is in. */
+                (credits > 0 && !member.emailVerifiedAt && !member.erasedAt)
+              }
               onClick={async () => {
                 const res = await post(
                   "/api/admin/sessions",
@@ -615,6 +686,66 @@ export function MemberDesk({ onNotice }: { onNotice: (s: string) => void }) {
             </div>
           </Panel>
 
+          {/* erasure — the owner's screen only, and never on a desk account */}
+          {owner && !member.erasedAt && member.role === "MEMBER" && (
+            <Panel title={d.eraseTitle} help={d.eraseHelp} mark="erase">
+              {/* Said before the box rather than after the press. A member with
+                  a class on Thursday is a conversation, not a keystroke. */}
+              {member.upcoming.length > 0 && (
+                <p className="mb-5 rounded-2xl border border-gold/60 bg-gold/[0.07] px-4 py-3 text-[12px] leading-relaxed text-mocha-700">
+                  {d.eraseWarnBookings.replace(
+                    "{n}",
+                    String(member.upcoming.length),
+                  )}
+                </p>
+              )}
+
+              <Field label={d.eraseConfirmLabel}>
+                <input
+                  value={eraseConfirm}
+                  onChange={(e) => setEraseConfirm(e.target.value)}
+                  placeholder={member.email}
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="input"
+                />
+              </Field>
+              <p className="mt-2 text-[11px] text-clay">
+                {d.eraseConfirmHint}
+              </p>
+
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-5 border-red-300 text-red-700 hover:border-red-500 hover:bg-red-50"
+                /* Compared here as well as on the server, and the server is the
+                   one that counts. This only stops the press being wasted. */
+                disabled={
+                  busy === "erase" ||
+                  eraseConfirm.trim().toLowerCase() !==
+                    member.email.trim().toLowerCase()
+                }
+                onClick={async () => {
+                  const res = await post(
+                    "/api/admin/member/erase",
+                    { userId: member.id, confirmEmail: eraseConfirm },
+                    "erase",
+                  );
+                  if (res) {
+                    onNotice(
+                      d.eraseDone
+                        .replace("{n}", String(res.paymentsKept ?? 0))
+                        .replace("{d}", String(res.devicesRemoved ?? 0)),
+                    );
+                    setEraseConfirm("");
+                  }
+                }}
+              >
+                {busy === "erase" ? t.common.loading : d.eraseDo}
+              </Button>
+            </Panel>
+          )}
+
           {/* history */}
           <div className="grid gap-6 lg:grid-cols-2">
             <Panel title={d.ledger}>
@@ -664,13 +795,21 @@ function Panel({
   title,
   help,
   children,
+  mark,
 }: {
   title: string;
   help?: string;
   children: React.ReactNode;
+  /* A stable hook for the tests and for the manual's screenshots, in the same
+     style as data-desk-console and data-sms-panel. Class names are for looks and
+     change with the design; these do not. */
+  mark?: string;
 }) {
   return (
-    <div className="rounded-3xl border border-mocha-200/70 bg-white/60 p-6">
+    <div
+      data-desk-panel={mark}
+      className="rounded-3xl border border-mocha-200/70 bg-white/60 p-6"
+    >
       <p className="text-[10px] uppercase tracking-brand text-clay">{title}</p>
       {help && (
         <p className="mt-3 max-w-2xl text-[12px] leading-relaxed text-clay">
@@ -679,6 +818,48 @@ function Panel({
       )}
       <div className="mt-5">{children}</div>
     </div>
+  );
+}
+
+/**
+ * A state the desk needs to know about, with the reason underneath.
+ *
+ * Two tones and no third. Amber is something to act on — a member who cannot
+ * book yet; grey is something to be aware of — a member who has been erased and
+ * whose row will never look normal again. A red one would say "error", and
+ * neither of these is one.
+ */
+function Flag({
+  tone,
+  label,
+  why,
+}: {
+  tone: "warn" | "quiet";
+  label: string;
+  why: string;
+}) {
+  return (
+    <span
+      data-member-flag={tone}
+      className={cn(
+        "mt-3 block max-w-md rounded-2xl border px-3.5 py-2.5",
+        tone === "warn"
+          ? "border-gold/60 bg-gold/[0.07]"
+          : "border-mocha-200 bg-cream-200/60",
+      )}
+    >
+      <span
+        className={cn(
+          "block text-[10px] uppercase tracking-widest",
+          tone === "warn" ? "text-[#8a6f1a]" : "text-clay",
+        )}
+      >
+        {label}
+      </span>
+      <span className="mt-1 block text-[11px] leading-relaxed text-mocha-600">
+        {why}
+      </span>
+    </span>
   );
 }
 

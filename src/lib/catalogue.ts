@@ -2,7 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { classTypes, creditPackages, instructors } from "@/db/schema";
 import { repairCatalogueOnce } from "./catalogue-repair";
-import { INSTRUCTOR_PHOTOS } from "./packs";
+import { groupOf, INSTRUCTOR_PHOTOS } from "./packs";
 import { priceList } from "@/lib/pricing";
 
 export async function getClassTypes() {
@@ -33,7 +33,7 @@ export async function getPackages() {
 
   /* Priced here, once, so the list, the checkout and the amount charged can
      never disagree about what an offer is worth. See lib/pricing.ts. */
-  return priceList(packs);
+  return priceList(packs).map((p) => ({ ...p, group: groupOf(p.slug) }));
 }
 
 export async function getPackageById(id: string) {
@@ -60,7 +60,7 @@ export async function getInstructors() {
   }));
 }
 
-/** By the slug that appears in a URL — /checkout?pack=pack-10. */
+/** By the slug that appears in a URL — /checkout?pack=month-2. */
 export async function getPackageBySlug(slug: string) {
   repairCatalogueOnce();
 

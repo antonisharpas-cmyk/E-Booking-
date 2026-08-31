@@ -14,9 +14,18 @@ export function euro(cents: number) {
  * the session returns to the member's balance; after it the booking is locked,
  * because the reformer is held and the class is capped at five.
  */
-export const FREE_CANCELLATION_HOURS = 24;
-/** Minutes before class start when booking closes. */
-export const BOOKING_CUTOFF_MINUTES = 30;
+export const FREE_CANCELLATION_HOURS = 12;
+/**
+ * Minutes before class start when booking closes.
+ *
+ * One, because the studio's rule is that the only reasons you cannot book are
+ * that the day is closed or the class is full. It used to be thirty, which shut
+ * an empty 19:00 class at 18:30 and read as a fault rather than a policy.
+ *
+ * One rather than zero so a booking cannot land in the same second the class
+ * begins: a 19:00 class takes bookings until 18:58:59 and closes at 18:59:00.
+ */
+export const BOOKING_CUTOFF_MINUTES = 1;
 
 export function isFreeCancellation(startsAt: Date, now = new Date()) {
   return (

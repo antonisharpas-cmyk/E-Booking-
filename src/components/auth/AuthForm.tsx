@@ -95,9 +95,27 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = (await res.json()) as { ok?: boolean; error?: string };
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        verify?: boolean;
+        sent?: boolean;
+      };
 
       if (data.ok) {
+        /* An account whose email has not been confirmed goes to the code box,
+           carrying its destination with it: somebody who was on their way to
+           checkout when they registered gets put back there once the code is
+           typed, rather than being dropped on the timetable. */
+        if (data.verify) {
+          /* `sent=0` when the email could not be got out of the door. Without
+             it the member sits watching an inbox for something that was never
+             posted; with it the screen says so and offers to try again. */
+          const q = new URLSearchParams({ next });
+          if (data.sent === false) q.set("sent", "0");
+          window.location.assign(`/verify?${q}`);
+          return;
+        }
         /* A document load rather than a client navigation. Everything that shows
            who is signed in — the header, the session count on their photograph,
            the notice badge — is rendered on the server, and a client push with a

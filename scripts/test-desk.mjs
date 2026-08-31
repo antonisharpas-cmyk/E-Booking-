@@ -8,6 +8,8 @@
  * convenience for the studio; the lock is the thing standing between a public
  * room and four hundred people's phone numbers.
  */
+import { markVerified } from "./fixture-verify.mjs";
+
 const B = process.argv[2] ?? "http://localhost:3000";
 
 /* One number, one account — so every registration in this suite needs its own.
@@ -75,6 +77,18 @@ async function member(tag) {
       password: "test12345",
       serviceOptIn: true,
     },
+  });
+  /* Confirm the address the way a member would; /account redirects to the code
+     box until it is done, so the id below would come back null. */
+  if (markVerified(email) !== 1) {
+    throw new Error(`fixture ${email} did not verify`);
+  }
+  /* And signed in again, which re-issues the cookie with the confirmed stamp on
+     it. The middleware reads the cookie, so the database write alone would leave
+     every page still redirecting to the code box. */
+  await req(j, "/api/auth/login", {
+    method: "POST",
+    body: { email, password: "test12345" },
   });
   const me = await req(j, "/account");
   const id = me.text.match(/data-member-id="([^"]+)"/)?.[1] ?? null;
@@ -551,11 +565,25 @@ console.log("\n5. Closing a day");
       { before: balanceBefore, after: after.json?.member?.credits },
     );
 
+    /* The timetable keeps a closed day on screen and marks it shut, rather than
+       dropping the date. Silently removing it left a gap in the strip and a
+       visitor wondering what they were missing; saying "closed" answers the
+       question. So the day must still be there — and must offer nothing. */
     const timetable = await req(jar(), "/timetable");
     check(
-      "the day is gone from the timetable",
-      !timetable.text.includes(`"${day}"`),
-      "closed day still offered",
+      "the closed day is still shown, not dropped",
+      timetable.text.includes(`data-day="${day}"`),
+      "the date vanished from the strip",
+    );
+    const dayApi = await req(jar(), `/api/sessions?days=28`);
+    const onClosedDay = (dayApi.json?.sessions ?? []).filter(
+      (x) => String(x.startsAt).slice(0, 10) === day,
+    );
+    check(
+      "and every class on it comes back cancelled",
+      onClosedDay.length > 0 &&
+        onClosedDay.every((x) => x.status === "CANCELLED"),
+      [...new Set(onClosedDay.map((x) => x.status))],
     );
 
     const bad = await req(staff, "/api/admin/closures", {
@@ -643,8 +671,8 @@ console.log("\n7. An offer on the price list");
     "no struck-through price",
   );
   check(
-    "the 10-pack is 160 rather than 200",
-    pricing.text.includes("160") && pricing.text.includes("200"),
+    "the monthly 2-a-week pack is 88 rather than 110",
+    pricing.text.includes("€88") && pricing.text.includes("€110"),
     "prices look wrong",
   );
 
@@ -652,7 +680,7 @@ console.log("\n7. An offer on the price list");
   const shopper = await member("shopper");
   const opened = await req(shopper.j, "/api/checkout", {
     method: "POST",
-    body: { packSlug: "pack-10" },
+    body: { packSlug: "month-2" },
   });
   await req(shopper.j, "/api/payments/settle", {
     method: "POST",
@@ -665,7 +693,7 @@ console.log("\n7. An offer on the price list");
   );
   check(
     "and the member is charged the offer price",
-    detail.json?.member?.payments?.[0]?.amountCents === 16000,
+    detail.json?.member?.payments?.[0]?.amountCents === 8800,
     detail.json?.member?.payments?.[0],
   );
 
@@ -745,6 +773,194 @@ console.log("\n8. Leaving the desk");
     body: { email: RECEPTION.email, password: RECEPTION.password },
   });
   check("and the other account signs in on the same browser", swap.json?.ok === true, swap.json);
+}
+
+/* ------------------------------------------------------------------ 11b */
+console.log("\n11b. The desk cannot sell to an unconfirmed account either");
+{
+  const back = await req(staff, "/api/admin/unlock", {
+    method: "POST",
+    body: { email: OWNER.email, password: OWNER.password },
+  });
+  check("the owner is at the desk", back.json?.ok === true, back.json);
+
+  /* Registered and left unconfirmed on purpose: no markVerified, no re-login. */
+  const j = jar();
+  const email = `unconf-${Date.now()}@apex.test`;
+  const reg = await req(j, "/api/auth/register", {
+    method: "POST",
+    body: {
+      name: "Unconfirmed Walkin",
+      email,
+      phone: uniquePhone(),
+      password: "test12345",
+      serviceOptIn: true,
+    },
+  });
+  check("an account registers and stays unconfirmed", reg.json?.verify === true, reg.json);
+
+  const row = await req(staff, `/api/admin/members?q=${email}`);
+  const id = row.json?.members?.[0]?.id ?? null;
+  check("the desk can find them", Boolean(id), row.json);
+
+  /* The rule the studio set, applied to the counter. */
+  const cash = await req(staff, "/api/admin/sessions", {
+    method: "POST",
+    body: { userId: id, credits: 8, amountCents: 11000, method: "cash" },
+  });
+  check(
+    "selling them a pack for cash is refused",
+    cash.json?.error === "EMAIL_UNVERIFIED",
+    cash.json,
+  );
+  const comp = await req(staff, "/api/admin/sessions", {
+    method: "POST",
+    body: { userId: id, credits: 2, method: "adjustment" },
+  });
+  check(
+    "and so is giving them free sessions",
+    comp.json?.error === "EMAIL_UNVERIFIED",
+    comp.json,
+  );
+  const legacyGrant = await req(staff, "/api/admin/grant", {
+    method: "POST",
+    body: { userId: id, credits: 2 },
+  });
+  check(
+    "including through the older grant route",
+    legacyGrant.json?.error === "EMAIL_UNVERIFIED",
+    legacyGrant.json,
+  );
+
+  const detail = await req(staff, `/api/admin/members?id=${id}`);
+  check("their balance is still nothing", detail.json?.member?.credits === 0, detail.json?.member?.credits);
+  check(
+    "and the desk is told why on their card",
+    detail.json?.member?.emailVerifiedAt === null,
+    detail.json?.member?.emailVerifiedAt,
+  );
+
+  /* The remedy, in the order reception would actually do it: confirm, then sell. */
+  check("the member confirms", markVerified(email) === 1);
+  const sold = await req(staff, "/api/admin/sessions", {
+    method: "POST",
+    body: { userId: id, credits: 8, amountCents: 11000, method: "cash" },
+  });
+  check("and now the pack sells", sold.json?.ok === true, sold.json);
+  check("eight sessions land", sold.json?.balance === 8, sold.json?.balance);
+
+  /* Taking back is allowed whatever the state, because the studio must always be
+     able to correct itself. Proved on a fresh unconfirmed account that already
+     holds sessions, which is only reachable by writing them in directly. */
+  const takeBack = await req(staff, "/api/admin/sessions", {
+    method: "POST",
+    body: { userId: id, credits: -3, method: "adjustment" },
+  });
+  check("and sessions can be taken back", takeBack.json?.ok === true, takeBack.json);
+}
+
+/* ------------------------------------------------------------------ 12 */
+console.log("\n12. Erasing a member is the owner's alone");
+{
+  /* Section 8 left the `staff` browser signed in as reception, deliberately —
+     it was testing that one machine can swap accounts. Put the owner back
+     before testing what only the owner may do. */
+  const back = await req(staff, "/api/admin/unlock", {
+    method: "POST",
+    body: { email: OWNER.email, password: OWNER.password },
+  });
+  check("the owner takes the console back", back.json?.ok === true, back.json);
+
+  const victim = await member("erase");
+  /* Looked up through the desk's own search, the way every other section here
+     does. `member().id` is always null — the account page carries no id
+     attribute — and a null userId comes back as BAD_REQUEST, which would look
+     like a broken route rather than a broken fixture. */
+  const victimRow = await req(staff, `/api/admin/members?q=${victim.email}`);
+  const victimId = victimRow.json?.members?.[0]?.id ?? null;
+  check("the desk can find them", Boolean(victimId), victimRow.json);
+
+  /* Reception first. The point of this block is not that erasure works — that
+     is covered against the database in test:account — it is that the door is
+     shut to the account that stands in a public room all day. */
+  const refused = await req(desk, "/api/admin/member/erase", {
+    method: "POST",
+    body: { userId: victimId, confirmEmail: victim.email },
+  });
+  check("reception is refused", refused.status === 403, refused.status);
+  const stillThere = await req(staff, `/api/admin/members?id=${victimId}`);
+  check(
+    "and nothing was erased",
+    stillThere.json?.member?.email === victim.email,
+    stillThere.json?.member?.email,
+  );
+
+  /* The owner, with the wrong address typed. */
+  const mistyped = await req(staff, "/api/admin/member/erase", {
+    method: "POST",
+    body: { userId: victimId, confirmEmail: "somebody-else@apex.test" },
+  });
+  check(
+    "a mistyped confirmation is refused",
+    mistyped.status === 409 && mistyped.json?.error === "CONFIRM_MISMATCH",
+    mistyped.json,
+  );
+
+  /* And the studio's own accounts are not erasable from this screen at all. */
+  const ownerRowAgain = await req(staff, `/api/admin/members?q=${OWNER.email}`);
+  const ownerIdAgain = ownerRowAgain.json?.members?.[0]?.id ?? null;
+  if (ownerIdAgain) {
+    const selfHarm = await req(staff, "/api/admin/member/erase", {
+      method: "POST",
+      body: { userId: ownerIdAgain, confirmEmail: OWNER.email },
+    });
+    check(
+      "the owner cannot erase a desk account",
+      selfHarm.status === 409 && selfHarm.json?.error === "DESK_ACCOUNT",
+      selfHarm.json,
+    );
+  }
+
+  /* Now for real. */
+  const done = await req(staff, "/api/admin/member/erase", {
+    method: "POST",
+    body: { userId: victimId, confirmEmail: victim.email.toUpperCase() },
+  });
+  check("the owner erases them", done.json?.ok === true, done.json);
+  check(
+    "and is told what was kept",
+    typeof done.json?.paymentsKept === "number" &&
+      typeof done.json?.upcomingBookings === "number",
+    done.json,
+  );
+
+  const after = await req(staff, `/api/admin/members?id=${victimId}`);
+  check("the name is gone", after.json?.member?.name === "Erased member");
+  check(
+    "the address can no longer receive mail",
+    String(after.json?.member?.email ?? "").endsWith("@apex.invalid"),
+    after.json?.member?.email,
+  );
+  check("the number is gone", after.json?.member?.phone === null);
+  check("and it is stamped", Boolean(after.json?.member?.erasedAt));
+
+  /* The account is now unusable, which is the point. */
+  const lockedOut = await req(victim.j, "/api/profile");
+  check(
+    "they cannot use the account any more",
+    lockedOut.status === 401 || lockedOut.status === 403,
+    lockedOut.status,
+  );
+
+  const twice = await req(staff, "/api/admin/member/erase", {
+    method: "POST",
+    body: { userId: victimId, confirmEmail: after.json?.member?.email },
+  });
+  check(
+    "erasing twice is refused",
+    twice.status === 409 && twice.json?.error === "ALREADY_ERASED",
+    twice.json,
+  );
 }
 
 console.log(

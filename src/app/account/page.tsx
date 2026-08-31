@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AccountBody } from "@/components/account/AccountBody";
-import { currentUser } from "@/lib/auth";
+import { currentUser, isVerified } from "@/lib/auth";
 import { listMyBookings } from "@/lib/booking";
 import { getCreditSummary, getLedger } from "@/lib/credits";
 import { gramsToKg } from "@/lib/profile";
@@ -18,6 +18,9 @@ export const dynamic = "force-dynamic";
 export default async function AccountPage() {
   const user = await currentUser();
   if (!user) redirect("/login?next=/account");
+  /* Nothing on this page is safe to show an account that has never proved its
+     address — it is the balance, the payment history and the profile. */
+  if (!isVerified(user)) redirect("/verify?next=/account");
 
   const [wallet, bookings, purchases, ledger] = await Promise.all([
     getCreditSummary(user.id),

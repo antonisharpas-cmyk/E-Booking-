@@ -30,6 +30,9 @@ const COLUMNS: Record<string, Column[]> = {
     { name: "notify_sms", ddl: "integer default 0 not null" },
     { name: "notify_push", ddl: "integer default 1 not null" },
     { name: "is_test", ddl: "integer default 0 not null" },
+    { name: "email_verified_at", ddl: "integer" },
+    { name: "erased_at", ddl: "integer" },
+    { name: "erased_by", ddl: "text" },
     { name: "reminder_minutes", ddl: "integer" },
     { name: "birth_date", ddl: "text" },
     { name: "height_cm", ddl: "integer" },
@@ -156,9 +159,28 @@ const TABLES: { name: string; ddl: string }[] = [
             created_at integer not null
           )`,
   },
+  {
+    name: "email_verifications",
+    ddl: `create table email_verifications (
+            id text primary key not null,
+            user_id text not null
+              references users(id) on delete cascade,
+            code_hash text not null,
+            expires_at integer not null,
+            attempts integer default 0 not null,
+            sends integer default 1 not null,
+            window_started_at integer not null,
+            sent_at integer not null,
+            created_at integer not null
+          )`,
+  },
 ];
 
 const INDEXES: { name: string; ddl: string }[] = [
+  {
+    name: "email_verifications_user_idx",
+    ddl: "create unique index email_verifications_user_idx on email_verifications (user_id)",
+  },
   {
     name: "booking_reminders_due_idx",
     ddl: "create index booking_reminders_due_idx on booking_reminders (due_at)",
@@ -254,6 +276,72 @@ export function ensureSchema(conn: Database.Database): string[] {
     if (on && !tableExists(conn, on)) continue;
     conn.prepare(i.ddl).run();
     applied.push(`index ${i.name}`);
+  }
+
+  /**
+   * Accounts that predate email verification are verified.
+   *
+   * They were created when registering was the whole of registering, so they
+   * never had a code to type and there is nobody to send one to retrospectively.
+   * Leaving them null would lock every existing member — including the owner's
+   * own account — out of a site they have been using for weeks.
+   *
+   * Runs only in the boot that adds the column, which is what makes it a
+   * backfill rather than a rule: from here on, null means unverified and is
+   * enforced.
+   */
+  if (applied.includes("users.email_verified_at")) {
+    const n = conn
+      .prepare(
+        "update users set email_verified_at = unixepoch() where email_verified_at is null",
+      )
+      .run().changes;
+    if (n > 0) applied.push(`users.email_verified_at backfilled for ${n}`);
+  }
+
+  /**
+   * The two uniqueness rules on an account, added to a database that may already
+   * break them.
+   *
+   * These are not in the list above because that list assumes an index can
+   * always be created, and a unique index cannot: if the data already holds two
+   * members with one phone number, `create unique index` throws, and a throw
+   * here happens on connect — which would take the whole site down over
+   * something a person can fix in the desk in twenty seconds.
+   *
+   * So each one looks first and skips itself if the data would refuse it,
+   * reporting the clash instead. A fresh database, and any database somebody has
+   * tidied, gets the constraint; a dirty one keeps running with the
+   * application-level check that was there before.
+   */
+  for (const rule of [
+    { index: "users_email_idx", column: "email" },
+    { index: "users_phone_idx", column: "phone" },
+  ]) {
+    if (indexExists(conn, rule.index)) continue;
+    const dupe = conn
+      .prepare(
+        `select ${rule.column} as v, count(*) as n from users
+          where ${rule.column} is not null and trim(${rule.column}) <> ''
+          group by ${rule.column} having n > 1 limit 1`,
+      )
+      .get() as { v: string; n: number } | undefined;
+    if (dupe) {
+      applied.push(
+        `index ${rule.index} SKIPPED — ${dupe.n} accounts share ${rule.column} "${dupe.v}"`,
+      );
+      continue;
+    }
+    /* Partial, so a blank string is not treated as a value. NULLs are already
+       distinct to SQLite; empty strings are not, and a second account with no
+       number typed as "" would otherwise collide with the first. */
+    conn
+      .prepare(
+        `create unique index ${rule.index} on users (${rule.column})
+           where ${rule.column} is not null and trim(${rule.column}) <> ''`,
+      )
+      .run();
+    applied.push(`index ${rule.index}`);
   }
 
   /* Push stopped being a preference and became a constant: the studio keeps it
