@@ -3,8 +3,14 @@
  *
  *   npm run social
  *
- * Ten images into `docs/social/`, at 1080 x 1350: the size Instagram gives the
- * most room to in a feed, and one Facebook is happy with as well.
+ * Into `docs/social/`, in both shapes a studio actually posts:
+ *
+ *   1080 x 1350   the feed, on Instagram and Facebook. The tallest an Instagram
+ *                 post may be, so the one that takes the most of the screen
+ *   1080 x 1920   an Instagram or Facebook story, full screen on a phone
+ *
+ * `--post` or `--story` for one of them, `--with-offer` to add the opening-week
+ * card.
  *
  * ---
  *
@@ -36,7 +42,7 @@
  * language versions of a card are identical apart from the words. That is worth
  * more on a bilingual island than an exact match with the website's Latin.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { sqlite } from "../src/db";
 import { PACKS } from "../src/lib/packs";
@@ -45,8 +51,51 @@ import { STUDIO } from "../src/lib/studio";
 
 const OUT = "docs/social";
 const W = 1080;
-const H = 1350;
 
+/**
+ * The two shapes, and why a story is not simply a taller post.
+ *
+ * A feed post is looked at in a scrolling column with the whole image visible.
+ * A story is full screen on a phone with Instagram's own furniture on top of it:
+ * the profile row and the close button eat roughly the top 250 pixels, and the
+ * reply bar, link sticker and "send message" eat about 300 at the bottom.
+ * Anything put there is either covered or tapped by accident.
+ *
+ * So the story keeps the same type at the same size, which is already large on a
+ * 1080 canvas, and spends its extra 570 pixels on those two margins and on air
+ * between the blocks. Stretching a post to 9:16 would put the price list under
+ * the reply bar, which is the one part somebody actually wants to read.
+ */
+const FORMATS = {
+  /* `fs` scales every type size at once. A story is looked at full screen and
+     scrolled past in two seconds, so it earns bigger type; the same numbers at
+     the same size on a taller canvas just read as timid. */
+  post: { h: 1350, padTop: 74, padBottom: 70, gap: 0, photo: 430, fs: 1, maxFs: 1.3 },
+  /**
+   * The story fills the screen, and that is the studio's call rather than the
+   * cautious one.
+   *
+   * Instagram's own furniture covers roughly the top 250px of a story (progress
+   * bar, profile photo, username, close button) and the bottom 250px (reply bar,
+   * send, stickers), which is the received wisdom for keeping everything clear of
+   * it. Obeying that left a card floating in the middle of the frame with a
+   * hand's width of cream above and below: correct, and it read as a photo of a
+   * poster rather than as the screen.
+   *
+   * So these margins are typographic instead: the wordmark sits at the top of the
+   * screen and the handle at the bottom, and the type grows until the card fills
+   * the 1920. The wordmark and the handle do end up under Instagram's bars, and
+   * that is an acceptable trade because neither is what the reader came for. The
+   * prices, which are, occupy the middle where nothing covers them.
+   *
+   * If a version fully inside the safe zone is ever wanted, put these back to
+   * 250 and 340 (340 rather than 250 because a paid Story ad adds a
+   * call-to-action button) and the fitter below will size the type to suit.
+   */
+  story: { h: 1920, padTop: 96, padBottom: 96, gap: 30, photo: 720, fs: 1.14, maxFs: 1.9 },
+} as const;
+
+type Fmt = keyof typeof FORMATS;
 type Lang = "en" | "el";
 
 /* ------------------------------------------------------------------- assets */
@@ -292,14 +341,16 @@ const photoStudio = dataUrl("public/media/reformer.jpg", "image/jpeg");
 
 function shell(
   body: string,
-  opts: { dark?: boolean; lang?: Lang } = {},
+  opts: { dark?: boolean; lang?: Lang; fmt?: Fmt } = {},
 ) {
+  const { h: H, fs } = FORMATS[opts.fmt ?? "post"];
   /* `lang` is not decoration. Chromium uppercases Greek correctly only when it
      knows the text is Greek: with it, `text-transform: uppercase` drops the tonos
      as Greek typography requires, and without it a card reads "ΛΆΡΝΑΚΑ", which is
      wrong in the way a Greek reader notices before they read anything else. */
   return `<!doctype html><html lang="${opts.lang ?? "en"}"><head><meta charset="utf-8"><style>
 ${fontCss()}
+:root{--fs:${fs}}
 *{box-sizing:border-box;margin:0;padding:0}
 body{width:${W}px;height:${H}px;overflow:hidden;
   font-family:'Grotesk','DejaVu Sans',sans-serif;
@@ -308,73 +359,75 @@ body{width:${W}px;height:${H}px;overflow:hidden;
   -webkit-font-smoothing:antialiased}
 .card{width:${W}px;height:${H}px;position:relative;display:flex;flex-direction:column}
 .pad{padding:0 92px}
-.wordmark{width:212px;display:block;margin:0 auto}
-.eyebrow{font-size:17px;letter-spacing:.30em;text-transform:uppercase;
+.wordmark{width:calc(212px * var(--fs));display:block;margin:0 auto}
+.eyebrow{font-size:calc(17px * var(--fs));letter-spacing:.30em;text-transform:uppercase;
   color:${opts.dark ? "#C2B9AA" : "#A08D85"};font-weight:600;text-align:center}
-.rule{width:64px;height:2px;background:#C9A227;margin:0 auto}
+.rule{width:calc(64px * var(--fs));height:calc(2px * var(--fs));
+  background:#C9A227;margin:0 auto}
 h1{font-family:'Garamond','DejaVu Serif',serif;font-weight:400;
-  font-size:96px;line-height:1.02;letter-spacing:-.01em;
+  font-size:calc(96px * var(--fs));line-height:1.02;letter-spacing:-.01em;
   color:${opts.dark ? "#FAF6F3" : "#3A2D2C"}}
-h2{font-family:'Garamond','DejaVu Serif',serif;font-weight:400;font-size:44px;
+h2{font-family:'Garamond','DejaVu Serif',serif;font-weight:400;font-size:calc(44px * var(--fs));
   line-height:1.1;color:${opts.dark ? "#FAF6F3" : "#3A2D2C"}}
-.sub{font-size:23px;line-height:1.5;font-weight:300;
+.sub{font-size:calc(23px * var(--fs));line-height:1.5;font-weight:300;
   color:${opts.dark ? "#C2B9AA" : "#7C6360"}}
-.lead{font-size:26px;line-height:1.55;font-weight:300;color:#5B4645}
+.lead{font-size:calc(26px * var(--fs));line-height:1.55;font-weight:300;color:#5B4645}
 .foot{display:flex;justify-content:space-between;align-items:flex-end;
-  font-size:19px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;
+  font-size:calc(19px * var(--fs));letter-spacing:.14em;text-transform:uppercase;font-weight:600;
   color:${opts.dark ? "#C2B9AA" : "#A08D85"}}
 .foot .right{text-align:right;font-weight:300;letter-spacing:.05em;
-  text-transform:none;font-size:18px;line-height:1.45}
+  text-transform:none;font-size:calc(18px * var(--fs));line-height:1.45}
 /* ------------------------------------------------------------ a price row */
 .rows{display:flex;flex-direction:column;gap:0}
-.row{display:flex;align-items:center;gap:22px;padding:34px 30px;
+.row{display:flex;align-items:center;gap:22px;
+  padding:calc(34px * var(--fs)) 30px;
   border-bottom:1px solid #E9DED6}
 .row:first-child{border-top:1px solid #E9DED6}
-.row .n{font-family:'Garamond',serif;font-size:40px;width:74px;flex:none;
+.row .n{font-family:'Garamond',serif;font-size:calc(40px * var(--fs));width:calc(74px * var(--fs));flex:none;
   color:#3A2D2C;line-height:1}
 .row .what{flex:1;min-width:0}
-.row .what b{display:block;font-size:26px;font-weight:400;color:#3A2D2C;
+.row .what b{display:block;font-size:calc(26px * var(--fs));font-weight:400;color:#3A2D2C;
   letter-spacing:.005em}
-.row .what span{display:block;font-size:18px;font-weight:300;color:#A08D85;
+.row .what span{display:block;font-size:calc(18px * var(--fs));font-weight:300;color:#A08D85;
   margin-top:3px}
-.row .price{font-family:'Garamond',serif;font-size:52px;line-height:1;
-  color:#3A2D2C;text-align:right;flex:none;min-width:118px}
-.row .per{font-size:17px;font-weight:300;color:#A08D85;text-align:right;
-  flex:none;width:112px;line-height:1.3}
+.row .price{font-family:'Garamond',serif;font-size:calc(52px * var(--fs));line-height:1;
+  color:#3A2D2C;text-align:right;flex:none;min-width:calc(118px * var(--fs))}
+.row .per{font-size:calc(17px * var(--fs));font-weight:300;color:#A08D85;text-align:right;
+  flex:none;width:calc(112px * var(--fs));line-height:1.3}
 .row.mark{background:#F3ECE6;border-radius:16px;border-bottom-color:transparent;
   padding-left:30px}
 .tag{position:absolute;right:30px;top:-14px;background:#C9A227;color:#3A2D2C;
-  font-size:14px;letter-spacing:.16em;text-transform:uppercase;font-weight:600;
+  font-size:calc(14px * var(--fs));letter-spacing:.16em;text-transform:uppercase;font-weight:600;
   padding:6px 14px;border-radius:20px}
 .rowwrap{position:relative}
 /* -------------------------------------------------------------- timetable */
 .tt{display:flex;gap:56px}
 .tt .col{flex:1}
-.tt h3{font-size:19px;letter-spacing:.22em;text-transform:uppercase;
+.tt h3{font-size:calc(19px * var(--fs));letter-spacing:.22em;text-transform:uppercase;
   font-weight:600;color:#A08D85;margin-bottom:18px}
-.slot{display:flex;gap:18px;align-items:baseline;padding:12px 0;
+.slot{display:flex;gap:18px;align-items:baseline;padding:calc(12px * var(--fs)) 0;
   border-bottom:1px solid #EDE6E3}
-.slot .t{font-family:'Garamond',serif;font-size:30px;color:#3A2D2C;
-  width:88px;flex:none;line-height:1}
-.slot .c{font-size:21px;font-weight:300;color:#5B4645;line-height:1.25}
-.slot .c i{display:block;font-style:normal;font-size:16px;color:#A08D85;
+.slot .t{font-family:'Garamond',serif;font-size:calc(30px * var(--fs));color:#3A2D2C;
+  width:calc(88px * var(--fs));flex:none;line-height:1}
+.slot .c{font-size:calc(21px * var(--fs));font-weight:300;color:#5B4645;line-height:1.25}
+.slot .c i{display:block;font-style:normal;font-size:calc(16px * var(--fs));color:#A08D85;
   margin-top:2px}
 /* ------------------------------------------------------------------ facts */
 .facts{display:flex;flex-direction:column;gap:0}
-.fact{display:flex;gap:26px;padding:22px 0;border-bottom:1px solid #E9DED6}
+.fact{display:flex;gap:26px;padding:calc(22px * var(--fs)) 0;border-bottom:1px solid #E9DED6}
 .fact b{font-size:22px;font-weight:600;color:#3A2D2C;width:220px;flex:none;
   letter-spacing:.01em}
 .fact span{font-size:21px;font-weight:300;color:#5B4645;line-height:1.35;flex:1}
 .chips{display:flex;flex-wrap:wrap;gap:12px}
 .chip{border:1px solid #DACECA;border-radius:26px;padding:11px 22px;
-  font-size:19px;font-weight:300;color:#5B4645}
+  font-size:calc(19px * var(--fs));font-weight:300;color:#5B4645}
 </style></head><body>${body}</body></html>`;
 }
 
 /* ---------------------------------------------------------------- the cards */
 
-function header(lang: Lang, dark = false) {
-  return `<div class="pad" style="padding-top:74px">
+function header(lang: Lang, fmt: Fmt, dark = false) {
+  return `<div class="pad" style="padding-top:${FORMATS[fmt].padTop}px">
     <img class="wordmark" src="${dark ? wordmarkCream : wordmarkBrown}">
     <p class="eyebrow" style="margin-top:26px">${T[lang].eyebrow}</p>
   </div>`;
@@ -394,9 +447,13 @@ const ADDRESS = {
   el: ["Γρηγόρη Αυξεντίου 9", "Λιβάδια, Λάρνακα 7060"],
 };
 
-function footer(lang: Lang) {
+function footer(lang: Lang, fmt: Fmt) {
   const [street, town] = ADDRESS[lang];
-  return `<div class="pad" style="padding-bottom:70px">
+  /* `margin-top` as well as the flex spacer above it. When the content grows
+     enough to eat the spacer, `auto` becomes nothing and the gold rule lands on
+     top of the last line of text; this is the floor under that. */
+  return `<div class="pad" style="margin-top:56px;
+    padding-bottom:${FORMATS[fmt].padBottom}px">
     <div class="rule" style="margin-bottom:34px"></div>
     <div class="foot">
       <span>${STUDIO.instagramHandle}</span>
@@ -405,7 +462,8 @@ function footer(lang: Lang) {
   </div>`;
 }
 
-function priceCard(lang: Lang, group: "month" | "quarter") {
+function priceCard(lang: Lang, fmt: Fmt, group: "month" | "quarter") {
+  const f = FORMATS[fmt];
   const t = T[lang];
   const packs = bySlug(group === "month" ? "month-" : "quarter-");
   const single = PACKS.find((p) => p.slug === "single")!;
@@ -435,25 +493,26 @@ function priceCard(lang: Lang, group: "month" | "quarter") {
     .join("");
 
   return shell(`<div class="card">
-    ${header(lang)}
-    <div class="pad" style="margin-top:60px">
+    ${header(lang, fmt)}
+    <div class="pad" style="margin-top:${60 + f.gap * 2}px">
       <h1>${group === "month" ? t.monthly : t.quarter}</h1>
       <p class="sub" style="margin-top:14px">${group === "month" ? t.monthlySub : t.quarterSub}</p>
     </div>
-    <div class="pad rows" style="margin-top:52px">${rows}</div>
-    <div class="pad" style="margin-top:52px">
-      <p class="sub" style="font-size:22px">
+    <div class="pad rows" style="margin-top:${52 + f.gap}px">${rows}</div>
+    <div class="pad" style="margin-top:${52 + f.gap}px">
+      <p class="sub" style="font-size:calc(22px * var(--fs))">
         <b style="font-weight:600;color:#5B4645">${t.single}</b>
         ${t.singleLine(money(single.priceCents))}
       </p>
-      <p class="sub" style="margin-top:14px;font-size:22px">${t.bookLine}</p>
+      <p class="sub" style="margin-top:14px;font-size:calc(22px * var(--fs))">${t.bookLine}</p>
     </div>
     <div style="margin-top:auto"></div>
-    ${footer(lang)}
-  </div>`, { lang });
+    ${footer(lang, fmt)}
+  </div>`, { lang, fmt });
 }
 
-function timetableCard(lang: Lang) {
+function timetableCard(lang: Lang, fmt: Fmt) {
+  const f = FORMATS[fmt];
   const t = T[lang];
   const slots = timetable();
   const week = weekdayPattern(slots, lang);
@@ -464,12 +523,12 @@ function timetableCard(lang: Lang) {
       <span class="c">${s.name}${s.note ? `<i>${s.note}</i>` : ""}</span></div>`;
 
   return shell(`<div class="card">
-    ${header(lang)}
-    <div class="pad" style="margin-top:40px">
-      <h1 style="font-size:84px">${t.timetable}</h1>
+    ${header(lang, fmt)}
+    <div class="pad" style="margin-top:${40 + f.gap * 2}px">
+      <h1 style="font-size:calc(84px * var(--fs))">${t.timetable}</h1>
       <p class="sub" style="margin-top:12px">${t.timetableSub}</p>
     </div>
-    <div class="pad tt" style="margin-top:40px">
+    <div class="pad tt" style="margin-top:${40 + f.gap}px">
       <div class="col">
         <h3>${t.monFri}</h3>
         ${week.map(slotHtml).join("")}
@@ -477,17 +536,18 @@ function timetableCard(lang: Lang) {
       <div class="col">
         <h3>${t.sat}</h3>
         ${sat.map(slotHtml).join("")}
-        <p class="sub" style="margin-top:26px;font-size:20px">${t.sun}</p>
+        <p class="sub" style="margin-top:26px;font-size:calc(20px * var(--fs))">${t.sun}</p>
       </div>
     </div>
     <div class="pad" style="margin-top:auto;padding-bottom:14px">
-      <p class="sub" style="font-size:21px">${t.bookLine}</p>
+      <p class="sub" style="font-size:calc(21px * var(--fs))">${t.bookLine}</p>
     </div>
-    ${footer(lang)}
-  </div>`, { lang });
+    ${footer(lang, fmt)}
+  </div>`, { lang, fmt });
 }
 
-function infoCard(lang: Lang) {
+function infoCard(lang: Lang, fmt: Fmt) {
+  const f = FORMATS[fmt];
   const t = T[lang];
   const types = sqlite
     .prepare(
@@ -501,48 +561,51 @@ function infoCard(lang: Lang) {
      runs past it is simply gone, footer included. Everything below is sized to
      leave the handle and the address on the page. */
   return shell(`<div class="card">
-    <div style="height:430px;overflow:hidden;position:relative;flex:none;
+    <div style="height:${f.photo}px;overflow:hidden;position:relative;flex:none;
       background:#FBFAF9">
       <img src="${photoStudio}" style="width:112%;position:absolute;
-        top:-372px;left:-6%">
+        top:${fmt === "story" ? -232 : -372}px;left:-6%">
       <div style="position:absolute;inset:0;background:linear-gradient(to bottom,
         rgba(250,246,243,.42) 0%,rgba(250,246,243,0) 26%,
         rgba(250,246,243,0) 58%,#FAF6F3 100%)"></div>
+      <!-- below Instagram's own furniture on a story, not under it -->
       <img class="wordmark" src="${wordmarkBrown}"
-        style="position:absolute;left:0;right:0;top:54px;width:206px">
+        style="position:absolute;left:0;right:0;
+        top:${fmt === "story" ? f.padTop + 14 : 54}px;
+        width:calc(206px * var(--fs))">
     </div>
     <div class="pad" style="margin-top:-6px">
-      <h2 style="font-size:52px;white-space:pre-line">${t.infoTitle}</h2>
-      <p class="lead" style="margin-top:18px;font-size:24px">${t.infoLead}</p>
+      <h2 style="font-size:calc(52px * var(--fs));white-space:pre-line">${t.infoTitle}</h2>
+      <p class="lead" style="margin-top:18px;font-size:calc(24px * var(--fs))">${t.infoLead}</p>
     </div>
     <div class="pad" style="margin-top:26px">
-      <h3 style="font-size:18px;letter-spacing:.22em;text-transform:uppercase;
+      <h3 style="font-size:calc(18px * var(--fs));letter-spacing:.22em;text-transform:uppercase;
         font-weight:600;color:#A08D85;margin-bottom:4px">${t.factsHead}</h3>
       <div class="facts">
-        ${t.facts.map(([k, v]) => `<div class="fact" style="padding:16px 0"><b style="font-size:21px;width:206px">${k}</b><span style="font-size:20px">${v}</span></div>`).join("")}
+        ${t.facts.map(([k, v]) => `<div class="fact" style="padding:calc(16px * var(--fs)) 0"><b style="font-size:calc(21px * var(--fs));width:calc(206px * var(--fs))">${k}</b><span style="font-size:calc(20px * var(--fs))">${v}</span></div>`).join("")}
       </div>
     </div>
     <div class="pad" style="margin-top:24px">
-      <h3 style="font-size:18px;letter-spacing:.22em;text-transform:uppercase;
+      <h3 style="font-size:calc(18px * var(--fs));letter-spacing:.22em;text-transform:uppercase;
         font-weight:600;color:#A08D85;margin-bottom:14px">${t.classesHead}</h3>
       <div class="chips">
-        ${types.map((c) => `<span class="chip" style="font-size:18px;padding:9px 19px">${lang === "el" ? c.el || c.en : c.en}</span>`).join("")}
+        ${types.map((c) => `<span class="chip" style="font-size:calc(18px * var(--fs));padding:9px 19px">${lang === "el" ? c.el || c.en : c.en}</span>`).join("")}
       </div>
     </div>
     <div style="margin-top:auto"></div>
-    ${footer(lang)}
-  </div>`, { lang });
+    ${footer(lang, fmt)}
+  </div>`, { lang, fmt });
 }
 
-function promoCard(lang: Lang) {
+function promoCard(lang: Lang, fmt: Fmt) {
   const t = T[lang];
   const { from, to } = promoDates(lang);
   return shell(
     `<div class="card">
-      ${header(lang, true)}
+      ${header(lang, fmt, true)}
       <div class="pad" style="margin-top:auto;margin-bottom:auto">
         <p class="eyebrow" style="text-align:left;color:#C9A227">${t.promoKicker}</p>
-        <h1 style="margin-top:26px;white-space:pre-line;font-size:104px">${t.promoTitle}</h1>
+        <h1 style="margin-top:26px;white-space:pre-line;font-size:calc(104px * var(--fs))">${t.promoTitle}</h1>
         <div class="rule" style="margin:40px 0 0 0"></div>
         <p class="sub" style="margin-top:34px;font-size:26px;max-width:760px">
           ${t.promoBody(from, to)}
@@ -551,9 +614,9 @@ function promoCard(lang: Lang) {
           ${t.promoFoot(to)}
         </p>
       </div>
-      ${footer(lang)}
+      ${footer(lang, fmt)}
     </div>`,
-    { dark: true, lang },
+    { dark: true, lang, fmt },
   );
 }
 
@@ -574,15 +637,42 @@ function promoCard(lang: Lang) {
  *
  *   npm run social -- --with-offer
  */
-const CARDS: { name: string; html: (l: Lang) => string }[] = [
-  { name: "pricing-monthly", html: (l) => priceCard(l, "month") },
-  { name: "pricing-3-months", html: (l) => priceCard(l, "quarter") },
+const CARDS: { name: string; html: (l: Lang, f: Fmt) => string }[] = [
+  { name: "pricing-monthly", html: (l, f) => priceCard(l, f, "month") },
+  { name: "pricing-3-months", html: (l, f) => priceCard(l, f, "quarter") },
   { name: "timetable", html: timetableCard },
   { name: "studio", html: infoCard },
   ...(process.argv.includes("--with-offer")
     ? [{ name: "opening-week", html: promoCard }]
     : []),
 ];
+
+/**
+ * Which shapes to render.
+ *
+ * Both by default, because a studio posts the same thing twice: once to the feed,
+ * where it stays, and once to a story, where it does not. `--post` or `--story`
+ * narrows it when only one has changed.
+ */
+const FMTS: Fmt[] = process.argv.includes("--story")
+  ? ["story"]
+  : process.argv.includes("--post")
+    ? ["post"]
+    : ["post", "story"];
+
+/** `--only=timetable` for one card, `--lang=en` for one language. */
+const arg = (name: string) =>
+  process.argv.find((a) => a.startsWith(`--${name}=`))?.split("=")[1] ?? null;
+
+const ONLY = arg("only");
+const LANGS: Lang[] = arg("lang") === "el" ? ["el"] : arg("lang") === "en" ? ["en"] : ["en", "el"];
+const WANTED = ONLY ? CARDS.filter((c) => c.name === ONLY) : CARDS;
+if (ONLY && WANTED.length === 0) {
+  console.error(
+    `\n  no card called "${ONLY}". There is: ${CARDS.map((c) => c.name).join(", ")}\n`,
+  );
+  process.exit(1);
+}
 
 async function main() {
   let chromium;
@@ -600,27 +690,108 @@ async function main() {
     executablePath: process.env.CHROMIUM_PATH || undefined,
   });
   const ctx = await browser.newContext({
-    viewport: { width: W, height: H },
+    viewport: { width: W, height: FORMATS.post.h },
     deviceScaleFactor: 1,
   });
   const page = await ctx.newPage();
 
-  for (const card of CARDS) {
-    for (const lang of ["en", "el"] as Lang[]) {
-      const file = join(OUT, `${card.name}-${lang}.png`);
-      const tmp = join(OUT, `.${card.name}-${lang}.html`);
-      writeFileSync(tmp, card.html(lang), "utf8");
-      await page.goto(`file://${process.cwd()}/${tmp}`, {
-        waitUntil: "networkidle",
-      });
-      await page.evaluate(() => document.fonts.ready);
-      await page.screenshot({ path: file });
-      console.log(`  ${file}`);
+  for (const card of WANTED) {
+    for (const fmt of FMTS) {
+      const { h } = FORMATS[fmt];
+      await page.setViewportSize({ width: W, height: h });
+      for (const lang of LANGS) {
+        /* The suffix is on the story only, so the feed files keep the names the
+           studio already has in a folder somewhere. */
+        const stem = `${card.name}-${lang}${fmt === "story" ? "-story" : ""}`;
+        const file = join(OUT, `${stem}.png`);
+        const tmp = join(OUT, `.${stem}.html`);
+        writeFileSync(tmp, card.html(lang, fmt), "utf8");
+        await page.goto(`file://${process.cwd()}/${tmp}`, {
+          waitUntil: "networkidle",
+        });
+        await page.evaluate(() => document.fonts.ready);
+
+        /**
+         * Size the type so the card fills its frame exactly.
+         *
+         * Every size on the card is a multiple of `--fs`, so one number controls
+         * the whole composition. This walks that number until the content is as
+         * tall as the frame will take and no taller.
+         *
+         * It grows as well as shrinks, which it did not before. Shrinking alone
+         * kept the card from being cropped and left it sitting in the middle of a
+         * story like a photograph of a poster, with a hand's width of empty cream
+         * top and bottom. Growing is what makes the wordmark sit at the top of
+         * the screen and the handle at the bottom.
+         *
+         * A hundredth at a time, and it stops at the format's ceiling: past a
+         * point the price rows would start wrapping, and a wrapped row is worse
+         * than a slightly smaller one.
+         *
+         * Passed as a string rather than a function, deliberately. tsx compiles
+         * this file with esbuild, which rewrites named inner functions and injects
+         * its own `__name` helper; that helper does not exist inside the page, so
+         * a closure carrying one dies with "__name is not defined".
+         */
+        const fitted = (await page.evaluate(
+          `((startFs, maxFs) => {
+            var el = document.querySelector('.card');
+            if (!el) return { fs: startFs, over: 0, fill: 0 };
+            var root = document.documentElement;
+            var fs = startFs;
+            root.style.setProperty('--fs', String(fs));
+            var over = function () {
+              return Math.max(0, el.scrollHeight - el.clientHeight);
+            };
+            var round = function (v) { return Math.round(v * 1000) / 1000; };
+
+            /* Too big for the frame: come down until it fits. */
+            var guard = 0;
+            while (over() > 0 && fs > 0.5 && guard++ < 200) {
+              fs = round(fs - 0.01);
+              root.style.setProperty('--fs', String(fs));
+            }
+            /* Then up, one step at a time, stopping the step before it spills. */
+            guard = 0;
+            while (fs < maxFs && guard++ < 300) {
+              var next = round(fs + 0.01);
+              root.style.setProperty('--fs', String(next));
+              if (over() > 0) {
+                root.style.setProperty('--fs', String(fs));
+                break;
+              }
+              fs = next;
+            }
+            return {
+              fs: fs,
+              over: over(),
+              fill: Math.round((el.scrollHeight / el.clientHeight) * 100),
+            };
+          })(${FORMATS[fmt].fs}, ${FORMATS[fmt].maxFs})`,
+        )) as { fs: number; over: number; fill: number };
+
+        if (fitted.over > 0) {
+          console.warn(
+            `  ! ${stem} overflows by ${fitted.over}px at --fs ${fitted.fs}`,
+          );
+        } else {
+          console.log(
+            `    ${stem}: --fs ${fitted.fs}, fills ${fitted.fill}% of the frame`,
+          );
+        }
+
+        await page.screenshot({ path: file });
+        rmSync(tmp, { force: true });
+        console.log(`  ${file}`);
+      }
     }
   }
 
   await browser.close();
-  console.log(`\n  ${CARDS.length * 2} images, ${W}x${H}, in ${OUT}\n`);
+  const shapes = FMTS.map((f) => `${W}x${FORMATS[f].h}`).join(" and ");
+  console.log(
+    `\n  ${WANTED.length * FMTS.length * LANGS.length} images, ${shapes}, in ${OUT}\n`,
+  );
 }
 
 main().catch((e) => {
