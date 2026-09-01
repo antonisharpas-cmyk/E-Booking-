@@ -1,3 +1,6 @@
+import { existsSync, mkdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { tmpdir } from "node:os";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { ensureSchema } from "./migrate";
@@ -7,10 +10,60 @@ import * as schema from "./schema";
  * Single shared connection. Next.js hot-reloads modules in dev, so the handle
  * is cached on globalThis to avoid opening a new SQLite handle on every reload.
  */
-const file = (process.env.DATABASE_URL ?? "file:./dev.db").replace(
+const configured = (process.env.DATABASE_URL ?? "file:./dev.db").replace(
   /^file:/,
   "",
 );
+
+/**
+ * Where the file actually goes, which is not always where it was configured.
+ *
+ * This module opens the database as it is imported, and `next build` imports
+ * every route module while it collects page data. On a hosting provider that is
+ * a problem the moment the database lives on a mounted disk: the disk is a
+ * runtime thing, so during the build `/var/data` does not exist and the build
+ * dies on "Cannot open database because the directory does not exist" — pointing
+ * at a route that is perfectly fine.
+ *
+ * So: make the directory if it is missing, which is right on a first run
+ * anywhere. If it cannot be made, the answer depends entirely on when we are:
+ *
+ *   during `next build` — nothing is being stored. Point at a throwaway file in
+ *     the temp directory so the build can finish. Nothing reads it, nothing
+ *     writes anything meaningful to it, and it dies with the build container.
+ *
+ *   while serving — this is the studio's data and there is no acceptable
+ *     substitute. Throwing is correct: a site that quietly serves from a
+ *     temporary file looks like it works and loses every booking on the next
+ *     deploy. `scripts/boot.mjs` refuses earlier and more clearly, and this is
+ *     the backstop for anything that gets past it.
+ */
+const building = process.env.NEXT_PHASE === "phase-production-build";
+
+function usable(target: string) {
+  const dir = dirname(target);
+  if (!dir || dir === "." || existsSync(dir)) return true;
+  try {
+    mkdirSync(dir, { recursive: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+let file = configured;
+if (!usable(file)) {
+  if (!building) {
+    throw new Error(
+      `[db] cannot open ${file}: the directory does not exist and could not be created. ` +
+        "If this is a hosted service, the persistent disk is not mounted at that path.",
+    );
+  }
+  file = join(tmpdir(), "apex-build.db");
+  console.log(
+    `[db] ${configured} is not reachable during the build, using ${file} instead. Nothing is stored in it.`,
+  );
+}
 
 const globalForDb = globalThis as unknown as {
   __apexSqlite?: Database.Database;

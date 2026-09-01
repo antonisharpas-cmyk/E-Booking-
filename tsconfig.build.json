@@ -20,5 +20,9 @@
    * commit if you wire it up.
    */
   "extends": "./tsconfig.json",
+  /* Repeated from the base config only to silence a build warning: Next cannot
+     add its TypeScript plugin automatically to a config that extends another
+     one, and says so on every build. Naming it here is the whole fix. */
+  "compilerOptions": { "plugins": [{ "name": "next" }] },
   "exclude": ["node_modules", "scripts"]
 }
