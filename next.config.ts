@@ -18,6 +18,19 @@ const nextConfig: NextConfig = {
    * binary, and bundling a `.node` file is not a thing that works.
    */
   serverExternalPackages: ["web-push", "better-sqlite3"],
+
+  /**
+   * The build type-checks the website, not the toolbox.
+   *
+   * `scripts/` holds the test suites, the manual renderer and the social card
+   * renderer, and those reach for packages the website itself does not depend
+   * on. `next build` type-checks every file the tsconfig includes, so one script
+   * importing something a hosting provider has not installed fails the deploy,
+   * pointing at a file that never runs in production. See tsconfig.build.json.
+   *
+   * `npm run typecheck` still uses tsconfig.json and still checks everything.
+   */
+  typescript: { tsconfigPath: "tsconfig.build.json" },
 };
 
 export default nextConfig;

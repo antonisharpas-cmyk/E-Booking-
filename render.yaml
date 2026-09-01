@@ -1,0 +1,121 @@
+# Render Blueprint for the APEX pilates website.
+#
+# One Web Service, one persistent disk. Nothing else: the database is SQLite in a
+# file, the reminder sweep runs inside the app on its own timer, and there is
+# nothing to cache. Adding Postgres or a background worker would be adding parts
+# this app does not have.
+#
+# To use it: Render dashboard → Blueprints → New Blueprint Instance → pick this
+# repository. Render reads this file and creates the service. Everything marked
+# `sync: false` is a secret, so Render asks for it once at that point and stores
+# it itself; none of them are in this file and none of them are in git.
+#
+# Editing this file later and pushing updates the service. Two exceptions worth
+# knowing: changing `region` or the disk means Render replaces the service rather
+# than updating it, so decide those once.
+services:
+  - type: web
+    name: apex-pilates
+    runtime: node
+    # Frankfurt is Render's closest region to Cyprus. Oregon is the default and
+    # would add roughly 150ms to every request from Larnaca.
+    region: frankfurt
+    # Formerly called Starter. The build runs on separate compute, so this is
+    # only what the running site needs: a small Next.js server with a SQLite file
+    # sits well inside it. Move up to 1c-2g if the logs ever show a restart with
+    # "out of memory". The free plan cannot hold a disk, which rules it out.
+    plan: 0.5c-512mb
+    buildCommand: npm ci && npm run build
+    # Not `npm start`. The disk is not mounted during the build, so the very
+    # first boot on a new disk has to create the database before serving: see
+    # the comment at the top of scripts/boot.mjs.
+    startCommand: npm run start:render
+    healthCheckPath: /
+    # Everything the studio owns lives in this one file. Without the disk, the
+    # filesystem is rebuilt on every deploy and every member, booking, payment
+    # and ledger line is deleted.
+    disk:
+      name: apex-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      # ---------------------------------------------------------------- basics
+      - key: DATABASE_URL
+        value: file:/var/data/apex.db
+      - key: NODE_VERSION
+        # Matches .node-version and the studio's own machine. better-sqlite3 is
+        # a native module, and a matching Node major means a prebuilt binary
+        # instead of a compile from source on every deploy.
+        value: 22.23.2
+      - key: NEXT_PUBLIC_SITE_URL
+        # Baked into the browser bundle at build time, so it has to be right
+        # before the first build, not after. Set it to the custom domain from the
+        # start if there is going to be one.
+        sync: false
+      - key: PROMO_ENABLED
+        value: "false"
+
+      # -------------------------------------------------- reminders and push
+      # Without CRON_SECRET the sweep refuses itself and no reminder is ever
+      # sent, silently. Generate all three with `npm run push:keys`.
+      - key: CRON_SECRET
+        generateValue: true
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        value: mailto:info@ergonsite.com
+      - key: AUTH_SECRET
+        generateValue: true
+
+      # ------------------------------------------------------------------ email
+      # `log` writes the email to the console instead of sending it, which means
+      # nobody can finish registering: the confirmation code never arrives. This
+      # is the one setting that has to change before the site is announced.
+      - key: EMAIL_PROVIDER
+        value: brevo
+      - key: BREVO_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: STUDIO_OPS_EMAIL
+        value: info@ergonsite.com
+
+      # ------------------------------------------------------------------ money
+      - key: PAYMENT_PROVIDER
+        value: stripe
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+        sync: false
+      # Stripe gives you this when you create the webhook endpoint, which you can
+      # only do once the service has a URL. So: deploy, add the endpoint in
+      # Stripe pointing at https://<the site>/api/stripe/webhook, then paste the
+      # secret here. Until then a paid pack never lands in a member's balance.
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: ALLOW_TEST_PAYMENTS
+        value: "false"
+
+      # -------------------------------------------------------------------- SMS
+      - key: SMS_PROVIDER
+        value: smsto
+      - key: SMSTO_API_KEY
+        sync: false
+      - key: SMS_SENDER
+        sync: false
+      - key: SMS_DEFAULT_COUNTRY
+        value: CY
+
+      # ------------------------------------------------- the first boot only
+      # Read once, by the seed, when the disk is empty. Without them the desk
+      # accounts are created with the passwords written in src/db/seed.ts.
+      - key: SEED_OWNER_EMAIL
+        sync: false
+      - key: SEED_OWNER_PASSWORD
+        sync: false
+      - key: SEED_RECEPTION_EMAIL
+        sync: false
+      - key: SEED_RECEPTION_PASSWORD
+        sync: false

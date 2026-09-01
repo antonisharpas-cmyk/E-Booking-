@@ -676,7 +676,16 @@ if (ONLY && WANTED.length === 0) {
 async function main() {
   let chromium;
   try {
-    ({ chromium } = await import("playwright-core").then((m) => m.default ?? m));
+    /* The specifier goes through a variable deliberately.
+       `playwright-core` is not a dependency of the website — it is installed by
+       hand when somebody wants to rebuild these cards — and a literal specifier
+       makes `next build` type-check a module that is not installed. That failed
+       a production deploy on a hosting provider for the sake of a script the
+       website never runs. A variable keeps the runtime behaviour identical (the
+       try/catch below still reports the missing module in plain words) while
+       leaving the type checker nothing to resolve. */
+    const spec = "playwright-core";
+    ({ chromium } = await import(spec).then((m) => m.default ?? m));
   } catch {
     console.error(
       "\n  This needs Playwright:  npm i -D playwright-core\n",
