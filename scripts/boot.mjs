@@ -35,10 +35,6 @@ const file = (process.env.DATABASE_URL ?? "file:./dev.db").replace(
   "",
 );
 
-/* The disk is mounted, but the directories under it are ours to make. */
-const dir = dirname(file);
-if (dir && dir !== "." && !existsSync(dir)) mkdirSync(dir, { recursive: true });
-
 /**
  * Is there a database here, or only a mount point?
  *
@@ -103,6 +99,40 @@ if (hosted && !process.env.DATABASE_URL) {
     "",
     "    DATABASE_URL = file:/var/data/apex.db",
   ]);
+}
+
+/**
+ * The directory the file goes in.
+ *
+ * On a first run anywhere it may simply not be there yet, and making it is the
+ * right answer. On a hosted service there is a second possibility that looks
+ * identical from here and is not the same thing at all: the directory is a disk
+ * mount point and the disk is not attached. The container runs as an ordinary
+ * user, so creating it fails with EACCES — which used to arrive as a stack trace
+ * from inside node:fs naming a line of this file, which tells you nothing about
+ * what to go and do.
+ */
+const dir = dirname(file);
+if (dir && dir !== "." && !existsSync(dir)) {
+  try {
+    mkdirSync(dir, { recursive: true });
+  } catch (e) {
+    refuse(`${dir} does not exist and cannot be created (${e.code}).`, [
+      `The database is meant to live at ${file}, and there is nothing at ${dir}.`,
+      "",
+      "On a hosted service this means the persistent disk is not attached. The",
+      "path is a mount point, not an ordinary folder: the service cannot create",
+      "it, only the platform can, by mounting a disk there.",
+      "",
+      "Render: your service, then Disks in the sidebar, then Add Disk.",
+      "",
+      "    Name         apex-data",
+      `    Mount Path   ${dir}`,
+      "    Size         1 GB",
+      "",
+      "Adding it starts a new deploy by itself. Nothing else needs changing.",
+    ]);
+  }
 }
 
 if (
