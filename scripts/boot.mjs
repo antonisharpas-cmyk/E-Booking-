@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 /**
- * The production start command.  On Render, set the start command to:
- *
- *     npm run start:render
+ * The production start command. This IS `npm start`, on purpose: a hosting
+ * provider's default start command is `npm start`, and a deploy that only works
+ * when somebody remembers to change a field in a dashboard is a deploy that
+ * breaks. `npm run start:next` is the raw `next start` underneath, and
+ * `npm run start:render` is a spelled-out alias of this script.
  *
  * Why this exists instead of plain `next start`.
  *
@@ -71,6 +73,64 @@ function run(label, args) {
   }
 }
 
+/**
+ * Two refusals, and only on a hosted service.
+ *
+ * `RENDER` is set by the platform, so this is silent on a developer's machine
+ * where `npm start` should just start. On the host it is the last point at which
+ * either mistake can still be caught, and both are mistakes that a green deploy
+ * would hide until it was too late to fix cleanly.
+ */
+const hosted = Boolean(process.env.RENDER || process.env.RENDER_SERVICE_ID);
+
+function refuse(what, lines) {
+  console.error(`\n[boot] REFUSING TO START: ${what}\n`);
+  for (const l of lines) console.error(`  ${l}`);
+  console.error("");
+  process.exit(1);
+}
+
+if (hosted && !process.env.DATABASE_URL) {
+  /* Without this the database is a file in the container's own filesystem, which
+     the platform rebuilds on every deploy. The site would work perfectly and
+     then lose every member, booking, payment and ledger line the next time
+     anybody pushed a commit — silently, and with no copy anywhere. */
+  refuse("DATABASE_URL is not set, so the database would not be on the disk.", [
+    "Everything the studio owns lives in one SQLite file. Unset, that file goes",
+    "into temporary storage and is deleted on the next deploy.",
+    "",
+    "Attach a persistent disk (mount path /var/data), then set:",
+    "",
+    "    DATABASE_URL = file:/var/data/apex.db",
+  ]);
+}
+
+if (
+  hosted &&
+  needsBuilding() &&
+  !(process.env.SEED_OWNER_PASSWORD && process.env.SEED_RECEPTION_PASSWORD)
+) {
+  /* The seed's fallback passwords are written in src/db/seed.ts, which is in the
+     repository. Creating the owner account with one of those on a public URL
+     hands /admin, and every member's name, phone and history, to anybody who has
+     read the source. This is the one moment it can be prevented: after the first
+     boot the accounts exist and changing them is a separate errand. */
+  refuse("the desk accounts would be created with the passwords from the source.", [
+    "This is the first boot, so the owner and reception accounts are about to be",
+    "created. src/db/seed.ts holds development passwords as a fallback, and that",
+    "file is in the repository: anybody who can read it could open /admin.",
+    "",
+    "Set all four, then deploy again:",
+    "",
+    "    SEED_OWNER_EMAIL        the real owner address",
+    "    SEED_OWNER_PASSWORD     a strong password",
+    "    SEED_RECEPTION_EMAIL    the real reception address",
+    "    SEED_RECEPTION_PASSWORD a strong password",
+    "",
+    "They are read once, here, and never again.",
+  ]);
+}
+
 if (needsBuilding()) {
   console.log(`[boot] no database at ${file}. Building it for the first time.`);
   run("creating the schema", ["run", "db:push"]);
@@ -94,7 +154,7 @@ if (needsBuilding()) {
  * old instance and the new one, which makes that closing moment the only chance
  * the file gets.
  */
-const child = spawn("npm", ["run", "start"], {
+const child = spawn("npm", ["run", "start:next"], {
   stdio: "inherit",
   shell: process.platform === "win32",
 });

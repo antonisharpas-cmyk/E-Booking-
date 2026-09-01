@@ -33,9 +33,11 @@ services:
     # with "drizzle-kit: not found" — after a green build. This says the quiet
     # part out loud so it cannot be undone by an environment variable.
     buildCommand: npm ci --include=dev && npm run build
-    # Not `npm start`. The disk is not mounted during the build, so the very
-    # first boot on a new disk has to create the database before serving: see
-    # the comment at the top of scripts/boot.mjs.
+    # `npm start` runs this too, so the platform default is already correct and
+    # a forgotten dashboard field cannot break the deploy. Spelled out here
+    # because a blueprint should say what it does. The disk is not mounted during
+    # the build, so the first boot on a new disk has to create the database
+    # before serving: see the comment at the top of scripts/boot.mjs.
     startCommand: npm run start:render
     healthCheckPath: /
     # Everything the studio owns lives in this one file. Without the disk, the
