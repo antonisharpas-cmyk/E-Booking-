@@ -36,11 +36,35 @@ function ready() {
     configured = false;
     return false;
   }
-  webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT ?? "mailto:hello@apexpilates.cy",
-    pub,
-    priv,
-  );
+  /**
+   * Set, but that does not mean valid.
+   *
+   * A VAPID key is a specific 65-byte thing, and `setVapidDetails` throws if it
+   * is given anything else. A placeholder typed into a hosting provider's
+   * environment panel while waiting for the real keys is exactly that: present,
+   * and not a key. Left to throw, it took down every request that touched push —
+   * which on a page load means a 500 in the console and a member who cannot
+   * register, for the sake of a notification.
+   *
+   * Push is the most optional thing this site does. An unusable key means push
+   * is off, said once in the log, and nothing else changes: members still get
+   * every notice in the app, and the reminders still send by email. Treating a
+   * bad key as "off" rather than as "fail" is the only proportionate answer.
+   */
+  try {
+    webpush.setVapidDetails(
+      process.env.VAPID_SUBJECT ?? "mailto:hello@apexpilates.cy",
+      pub,
+      priv,
+    );
+  } catch (e) {
+    console.error(
+      "[push] VAPID keys are set but not usable, so push is off. Generate a real pair with `npm run push:keys`.",
+      (e as Error).message,
+    );
+    configured = false;
+    return false;
+  }
   configured = true;
   return true;
 }
@@ -50,6 +74,13 @@ export function pushReady() {
 }
 
 export function pushPublicKey() {
+  /* Only a key the server could actually sign with is worth handing to the
+     browser. A placeholder returned from here reaches the enrolment button,
+     which then fails inside the browser's own push API with a message about
+     byte lengths — a mystery in the member's console instead of a feature that
+     is quietly off. Empty means "do not offer it", which the panel already
+     understands. */
+  if (!ready()) return "";
   return process.env.VAPID_PUBLIC_KEY ?? "";
 }
 
