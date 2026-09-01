@@ -25,7 +25,14 @@ services:
     # sits well inside it. Move up to 1c-2g if the logs ever show a restart with
     # "out of memory". The free plan cannot hold a disk, which rules it out.
     plan: 0.5c-512mb
-    buildCommand: npm ci && npm run build
+    # `--include=dev` is not optional here, and it is not about the build.
+    # drizzle-kit and tsx are devDependencies, and scripts/boot.mjs needs both of
+    # them at RUNTIME to create the database on the first boot. npm omits
+    # devDependencies whenever NODE_ENV is production, so a stray NODE_ENV would
+    # otherwise leave the container without them and the first boot would fail
+    # with "drizzle-kit: not found" — after a green build. This says the quiet
+    # part out loud so it cannot be undone by an environment variable.
+    buildCommand: npm ci --include=dev && npm run build
     # Not `npm start`. The disk is not mounted during the build, so the very
     # first boot on a new disk has to create the database before serving: see
     # the comment at the top of scripts/boot.mjs.
@@ -53,6 +60,13 @@ services:
         # start if there is going to be one.
         sync: false
       - key: PROMO_ENABLED
+        value: "false"
+      # Deliberately NOT setting NODE_ENV. Next sets it for itself when it
+      # serves, and setting it here would reach npm as well: devDependencies
+      # would be skipped, and drizzle-kit and tsx are needed at runtime by the
+      # first-boot script. The demo member is kept off production by
+      # SEED_DEMO_MEMBER below rather than by guessing at NODE_ENV.
+      - key: SEED_DEMO_MEMBER
         value: "false"
 
       # -------------------------------------------------- reminders and push
