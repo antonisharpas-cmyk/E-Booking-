@@ -35,6 +35,7 @@
     "push:keys": "node scripts/push-keys.mjs",
     "report": "node scripts/report.mjs",
     "test:sms": "tsx scripts/test-sms.mts",
+    "test:personal": "tsx scripts/test-personal.ts",
     "test:account": "tsx scripts/test-account.ts",
     "manual": "node scripts/manual.mjs",
     "social": "tsx scripts/social.ts"

@@ -86,6 +86,22 @@ export function studioStartOfDay(instant: Date) {
   return studioWallTimeToInstant(p.year, p.month, p.day, 0, 0);
 }
 
+/**
+ * The last instant of the studio's calendar day containing `instant`.
+ *
+ * 23:59:59.999 in Larnaca, worked out as one millisecond before midnight
+ * tomorrow rather than by writing 23:59 into a wall-clock time, so it stays
+ * right across a daylight-saving change where "the last second of the day" and
+ * "23:59:59" are not always the same moment.
+ *
+ * Used for expiry dates. A pack that dies at 14:53 because that is when it was
+ * bought is a rule nobody can see: the member's account shows a date, and a date
+ * that has hours left in it must still work.
+ */
+export function studioEndOfDay(instant: Date) {
+  return new Date(studioStartOfDay(studioAddDays(instant, 1)).getTime() - 1);
+}
+
 /** Adds whole calendar days in the studio's timezone (DST-safe). */
 export function studioAddDays(instant: Date, days: number) {
   const p = studioParts(instant);

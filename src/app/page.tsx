@@ -1,5 +1,4 @@
 import {
-  ClassesPreview,
   FaqSection,
   PricingPreview,
 } from "@/components/home/CatalogueSections";
@@ -17,16 +16,12 @@ import {
 import { currentUser } from "@/lib/auth";
 import { hasAvatar } from "@/lib/avatars";
 import { getAvailableCredits } from "@/lib/credits";
-import { getClassTypes, getPackages } from "@/lib/catalogue";
+import { getPackages } from "@/lib/catalogue";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [types, packages, user] = await Promise.all([
-    getClassTypes(),
-    getPackages(),
-    currentUser(),
-  ]);
+  const [packages, user] = await Promise.all([getPackages(), currentUser()]);
 
   /* The cover carries its own account row, because the header hides its chip
      over this section. Two extra reads, and only when somebody is signed in. */
@@ -46,7 +41,6 @@ export default async function HomePage() {
       <Intro />
       <Method />
       <Technogym />
-      <ClassesPreview types={types} />
       <TimetablePreview />
       <PricingPreview packages={packages} signedIn={Boolean(user)} />
       <HowItWorks />

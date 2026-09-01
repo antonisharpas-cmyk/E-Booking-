@@ -479,7 +479,9 @@ console.log("\n8. The three automatic messages");
   const list = await req(punter.j, "/api/sessions?days=10");
   const target = (list.json?.sessions ?? []).find(
     (x) =>
-      x.spotsLeft > 0 && new Date(x.startsAt) > new Date(Date.now() + 48 * 3600_000),
+      x.classType?.kind !== "PERSONAL" &&
+      x.spotsLeft > 0 &&
+      new Date(x.startsAt) > new Date(Date.now() + 48 * 3600_000),
   );
   check("a bookable class exists", Boolean(target));
 
@@ -605,7 +607,9 @@ console.log("\n10b. Booking and cancelling land in the member's own inbox");
   const list = await req(punter.j, "/api/sessions?days=10");
   const target = (list.json?.sessions ?? []).find(
     (x) =>
-      x.spotsLeft > 0 && new Date(x.startsAt) > new Date(Date.now() + 48 * 3600_000),
+      x.classType?.kind !== "PERSONAL" &&
+      x.spotsLeft > 0 &&
+      new Date(x.startsAt) > new Date(Date.now() + 48 * 3600_000),
   );
 
   const booked = await req(punter.j, "/api/bookings", {
@@ -1199,9 +1203,29 @@ console.log("\n19. Rolling the rota forward, and taking it back");
       method: "POST",
       body: { userId: buyerId, credits: 2, validityDays: 90, note: "undo test" },
     });
+    /**
+     * A group class among the new ones, not simply the last of them.
+     *
+     * The roll-forward now creates midday appointment slots as well as classes,
+     * and an appointment cannot be paid for with the class sessions granted
+     * above, closes to booking at the end of the previous day, and holds one
+     * person. Any of those three would fail this check for a reason that has
+     * nothing to do with what it is testing, which is that an undo leaves a
+     * booked class alone.
+     */
+    /* Ninety days, because the roll above went ten weeks ahead and a window
+       that stops at six would not contain any of the classes it just made. */
+    const timetable = await req(buyer.j, "/api/sessions?days=90");
+    const groupIds = new Set(
+      (timetable.json?.sessions ?? [])
+        .filter((s) => s.classType?.kind !== "PERSONAL" && s.spotsLeft > 0)
+        .map((s) => s.id),
+    );
+    const target = [...fresh].reverse().find((id) => groupIds.has(id));
+    check("there is a new group class to book", Boolean(target), fresh.length);
     const booked = await req(buyer.j, "/api/bookings", {
       method: "POST",
-      body: { sessionId: fresh[fresh.length - 1] },
+      body: { sessionId: target ?? fresh[fresh.length - 1] },
     });
     check("a member books one of the new classes", booked.json?.ok === true, booked.json);
 

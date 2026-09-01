@@ -292,6 +292,209 @@ export function verifyWords(a: { code: string; minutes: number }): Bilingual {
   };
 }
 
+/* ------------------------------------------- personal and duet appointments */
+
+/**
+ * The member's own confirmation for a midday appointment.
+ *
+ * Deliberately not the class confirmation with a different noun in it. Three
+ * things are true here that are not true of a group class, and a member who has
+ * just paid €30 or €45 should be told all three without having to go and look
+ * them up:
+ *
+ *   who is coming        one person, or two, and the second person by name, so
+ *                        a typo is caught now rather than at the door
+ *   who is teaching      nobody yet. The studio rings round after this lands,
+ *                        and promising a name we have not asked for would be a
+ *                        promise the site is not in a position to make
+ *   when it locks        end of the day before, which is the same line as
+ *                        booking and is worth saying once plainly, because it
+ *                        is stricter than the twelve hours they are used to
+ *
+ * Written to be read by somebody standing up. Short lines, no headings, and the
+ * one sentence that could cost them money is the last one, where it is read.
+ */
+export function personalBookedWords(a: {
+  startsAt: Date;
+  guestName: string | null;
+}): Bilingual {
+  const two = Boolean(a.guestName);
+
+  return {
+    en: {
+      subject: two ? "Your Duet is booked" : "Your session is booked",
+      body:
+        (two
+          ? `You and ${a.guestName} have the studio on ${whenWords(a.startsAt)}.`
+          : `The studio is yours on ${whenWords(a.startsAt)}.`) +
+        `\n\nAn instructor will be there for the hour.\n\n` +
+        `If something changes you can cancel free until the end of the day ` +
+        `before. After that an instructor has already been put on the rota for ` +
+        `you, so the session counts as used.`,
+      url: "/account",
+    },
+    el: {
+      subject: two ? "Η Duet συνεδρία σας κλείστηκε" : "Η συνεδρία σας κλείστηκε",
+      body:
+        (two
+          ? `Εσείς και ${a.guestName} έχετε το στούντιο ${whenWords(a.startsAt, "el")}.`
+          : `Το στούντιο είναι δικό σας ${whenWords(a.startsAt, "el")}.`) +
+        `\n\nΘα υπάρχει εκπαιδευτής εκεί για όλη την ώρα.\n\n` +
+        `Αν κάτι αλλάξει, μπορείτε να ακυρώσετε χωρίς χρέωση μέχρι το τέλος ` +
+        `της προηγούμενης μέρας. Μετά από αυτό ο εκπαιδευτής έχει ήδη μπει στο ` +
+        `πρόγραμμα για εσάς, οπότε η συνεδρία μετράει ως χρησιμοποιημένη.`,
+      url: "/account",
+    },
+  };
+}
+
+/**
+ * The message that actually gets somebody to work: the studio's own copy.
+ *
+ * This one is not a courtesy. An appointment is an hour nobody was rostered for,
+ * and between the booking landing and the member arriving somebody has to read
+ * this and ring an instructor. So it is written as a note to a colleague rather
+ * than as a notification: the hour first, the names and the number next, and one
+ * line saying what needs doing.
+ *
+ * The member's phone number is in it on purpose. The person calling round the
+ * instructors is often the same person who then has to call the member back
+ * about the time, and making them open the admin panel to find a number they
+ * were just emailed about is the kind of small friction that ends with the call
+ * not being made.
+ */
+export function studioAppointmentWords(a: {
+  startsAt: Date;
+  memberName: string;
+  memberEmail: string;
+  memberPhone: string | null;
+  guestName: string | null;
+  /** True when the booking has just been cancelled rather than made. */
+  cancelled?: boolean;
+}): Bilingual {
+  const two = Boolean(a.guestName);
+  const who = two ? `${a.memberName} and ${a.guestName}` : a.memberName;
+  const whoEl = two ? `${a.memberName} και ${a.guestName}` : a.memberName;
+  const kindEn = two ? "Duet, two people" : "Personal, one person";
+  const kindEl = two ? "Duet, δύο άτομα" : "Ατομική, ένα άτομο";
+  const contact = [a.memberEmail, a.memberPhone].filter(Boolean).join(", ");
+
+  if (a.cancelled) {
+    return {
+      en: {
+        subject: `Cancelled: ${whenWords(a.startsAt)}`,
+        body:
+          `${who} has cancelled the ${whenWords(a.startsAt)} session.\n\n` +
+          `${kindEn}. ${contact}\n\n` +
+          `The hour is free again. If an instructor was already asked to come ` +
+          `in for it, they need to be told.`,
+      },
+      el: {
+        subject: `Ακύρωση: ${whenWords(a.startsAt, "el")}`,
+        body:
+          `${whoEl} ακύρωσε τη συνεδρία ${whenWords(a.startsAt, "el")}.\n\n` +
+          `${kindEl}. ${contact}\n\n` +
+          `Η ώρα είναι ξανά ελεύθερη. Αν έχει ήδη ζητηθεί από εκπαιδευτή να ` +
+          `έρθει, πρέπει να ενημερωθεί.`,
+      },
+    };
+  }
+
+  return {
+    en: {
+      subject: `New session: ${whenWords(a.startsAt)}`,
+      body:
+        `${who} has booked the studio for ${whenWords(a.startsAt)}.\n\n` +
+        `${kindEn}. ${contact}\n\n` +
+        `An instructor needs to be there for that hour. It falls in the midday ` +
+        `gap, so nobody is on the rota for it yet.`,
+    },
+    el: {
+      subject: `Νέα συνεδρία: ${whenWords(a.startsAt, "el")}`,
+      body:
+        `${whoEl} έκλεισε το στούντιο για ${whenWords(a.startsAt, "el")}.\n\n` +
+        `${kindEl}. ${contact}\n\n` +
+        `Χρειάζεται εκπαιδευτής για αυτή την ώρα. Πέφτει στο μεσημεριανό κενό, ` +
+        `οπότε δεν είναι ακόμη κανείς στο πρόγραμμα.`,
+    },
+  };
+}
+
+/**
+ * The member's confirmation that a cancelled appointment is cancelled.
+ *
+ * Says whether the session came back, like the class version, and nothing else.
+ * Somebody cancelling is not in the mood to read about how the hour is built.
+ */
+export function personalCancelledWords(a: {
+  startsAt: Date;
+  refunded: boolean;
+}): Bilingual {
+  return {
+    en: {
+      subject: "Session cancelled",
+      body:
+        `Your session on ${whenWords(a.startsAt)} is cancelled. ` +
+        (a.refunded
+          ? "The session is back in your balance."
+          : "This was past the end of the day before, so the session was used."),
+      url: "/account?tab=notifications",
+    },
+    el: {
+      subject: "Η συνεδρία ακυρώθηκε",
+      body:
+        `Η συνεδρία σας ${whenWords(a.startsAt, "el")} ακυρώθηκε. ` +
+        (a.refunded
+          ? "Η συνεδρία επέστρεψε στο υπόλοιπό σας."
+          : "Η ακύρωση έγινε μετά το τέλος της προηγούμενης μέρας, γι' αυτό η συνεδρία χρησιμοποιήθηκε."),
+      url: "/account?tab=notifications",
+    },
+  };
+}
+
+/**
+ * "Somebody else is taking your class."
+ *
+ * Short, and it does not apologise. An instructor changing is ordinary: people
+ * are ill, people swap shifts, and a studio that treats it as an incident
+ * teaches its members to treat it as one too. What the member needs is the fact
+ * and the reassurance that nothing else has moved, which is the second sentence.
+ *
+ * The outgoing name is included as well as the incoming one, because that is the
+ * whole content of the message: a member who booked with Elena specifically is
+ * the only person this notice is really for, and telling them "your instructor is
+ * Andreas" without saying who it was leaves them to work out whether anything
+ * changed at all.
+ */
+export function instructorChangedWords(a: {
+  classEn: string;
+  classEl: string;
+  startsAt: Date;
+  from: string;
+  to: string;
+}): Bilingual {
+  return {
+    en: {
+      subject: "A change of instructor",
+      body:
+        `${a.to} is taking your ${a.classEn} on ${whenWords(a.startsAt)}, ` +
+        `instead of ${a.from}.\n\n` +
+        `Nothing else has changed. Same time, same room, and your booking is ` +
+        `exactly as it was.`,
+      url: "/account",
+    },
+    el: {
+      subject: "Αλλαγή εκπαιδευτή",
+      body:
+        `Το μάθημά σας ${a.classEl} ${whenWords(a.startsAt, "el")} θα το κάνει ` +
+        `${a.to} αντί για ${a.from}.\n\n` +
+        `Δεν αλλάζει κάτι άλλο. Ίδια ώρα, ίδια αίθουσα, και η κράτησή σας ` +
+        `μένει όπως ήταν.`,
+      url: "/account",
+    },
+  };
+}
+
 /* ------------------------------------------------------------- for the inbox */
 
 /**

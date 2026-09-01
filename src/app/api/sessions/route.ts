@@ -12,7 +12,15 @@ export async function GET(req: Request) {
   nudgeReminders();
   const url = new URL(req.url);
   const fromParam = url.searchParams.get("from");
-  const days = Math.min(Number(url.searchParams.get("days") ?? 7) || 7, 42);
+  /**
+   * Up to a quarter, not six weeks.
+   *
+   * The cap was 42 days, chosen when the longest thing anybody held was a
+   * 30-day pack. The studio now sells three-month plans, including an Unlimited
+   * one, and somebody planning ninety days of training with a window that stops
+   * at six weeks is being shown half of what they bought.
+   */
+  const days = Math.min(Number(url.searchParams.get("days") ?? 7) || 7, 92);
 
   const from = studioStartOfDay(fromParam ? new Date(fromParam) : new Date());
   const to = studioAddDays(from, days);

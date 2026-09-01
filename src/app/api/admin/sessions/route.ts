@@ -23,6 +23,7 @@ export async function POST(req: Request) {
     amountCents?: number;
     method?: "cash" | "card_at_desk" | "adjustment";
     note?: string;
+    kind?: "CLASS" | "PERSONAL" | "DUET";
   }>(req);
 
   if (!data?.userId || typeof data.credits !== "number") {
@@ -45,6 +46,10 @@ export async function POST(req: Request) {
     note: data.note,
     staffId: gate.user.id,
     staffName: gate.user.name,
+    /* Validated against the three names rather than passed through, so a
+       malformed body cannot write a kind nothing knows how to spend. */
+    kind:
+      data.kind === "PERSONAL" || data.kind === "DUET" ? data.kind : "CLASS",
   });
 
   if (!result.ok) {

@@ -136,6 +136,50 @@ async function makeFixtures(page) {
   return { member, unverified };
 }
 
+/**
+ * Books the soonest appointment the studio could still accept, as the member.
+ *
+ * Signs in as them and hands the desk back afterwards, because booking is a
+ * member action and reception has no route for it. Silent on failure: a figure
+ * with no appointment strip is a worse manual, not a broken one, and the run
+ * should not stop over it.
+ */
+async function bookAnAppointment(ctx, page, email) {
+  try {
+    const res = await page.request.get(`${BASE}/api/sessions?days=21`);
+    const json = await res.json();
+    /* At least two days out. An appointment closes to booking at the end of the
+       previous day, so today's and tomorrow's may already be shut, and the
+       booking would be refused for a reason that has nothing to do with the
+       figure. */
+    const earliest = Date.now() + 2 * 86_400_000;
+    const slot = (json?.sessions ?? []).find(
+      (s) =>
+        s.classType?.kind === "PERSONAL" &&
+        s.spotsLeft > 0 &&
+        new Date(s.startsAt).getTime() > earliest,
+    );
+    if (!slot) return;
+
+    const locale = "en";
+    await api(page, "/api/auth/logout");
+    await ctx.clearCookies();
+    await api(page, "/api/auth/login", { email, password: "test12345" });
+    const booked = await api(page, "/api/bookings", {
+      sessionId: slot.id,
+      guestName: "Marina C.",
+    });
+    if (!booked.json?.ok) {
+      console.log("  ! appointment fixture not booked:", booked.json?.error);
+    }
+    await api(page, "/api/auth/logout");
+    await ctx.clearCookies();
+    void locale;
+  } catch {
+    /* Nothing to do about it, and nothing worth failing the manual over. */
+  }
+}
+
 async function idOf(page, email) {
   const res = await page.request.get(
     `${BASE}/api/admin/members?q=${encodeURIComponent(email)}`,
@@ -206,6 +250,30 @@ async function captureAll(browser) {
         method: "cash",
         note: "Manual figure",
       });
+
+      /**
+       * And one midday appointment, because the strip that announces them only
+       * appears when there is something in it.
+       *
+       * A manual figure of an empty state teaches nothing, and this is the one
+       * block on the desk that somebody has to act on. So the fixture buys a
+       * duet at the counter and books the next free noon hour, which puts a real
+       * row on the Bookings screen with a real name and a real partner on it.
+       */
+      await api(page, "/api/admin/sessions", {
+        userId: memberId,
+        credits: 1,
+        amountCents: 4500,
+        method: "cash",
+        validityDays: 30,
+        kind: "DUET",
+        note: "Manual figure",
+      });
+      await bookAnAppointment(ctx, page, fixtures.member);
+      /* And back behind the desk, with the language cookie the figures need. */
+      await ctx.addCookies([{ name: "apex_locale", value: locale, url: BASE }]);
+      await api(page, "/api/auth/login", OWNER);
+      await api(page, "/api/admin/unlock", { password: OWNER.password });
     }
 
     for (const tab of TABS) {

@@ -251,6 +251,9 @@ export function CheckoutBody({
                     clientSecret={started.clientSecret}
                     returnUrl={`${window.location.origin}/checkout/success?p=${started.purchaseId}`}
                     amountLabel={amountLabel}
+                    /* Already known and already signed in, so the card form
+                       does not ask for it a second time. */
+                    email={member.email}
                     onPaid={() => void finish(started.purchaseId)}
                   />
                 )}

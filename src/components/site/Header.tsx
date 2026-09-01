@@ -53,7 +53,6 @@ export function Header({ user }: { user: HeaderUser }) {
   const links = [
     { href: "/", label: t.nav.home },
     { href: "/studio", label: t.nav.studio },
-    { href: "/classes", label: t.nav.classes },
     { href: "/timetable", label: t.nav.timetable },
     { href: "/pricing", label: t.nav.pricing },
     { href: "/faq", label: t.nav.faq },
@@ -494,24 +493,12 @@ function AccountMenu({
             key={id}
             role="menuitem"
             tabIndex={open ? 0 : -1}
-            /* Profile carries its name like the rest.
-             *
-             * It used to link to plain `/account`, which made it indistinguishable
-             * from clicking the photograph — and the photograph is meant to land
-             * at the top of the page, on the balance, while a menu item is meant
-             * to land on the section it names. One address cannot mean both, so
-             * the member clicked Profile and arrived at the top with the right
-             * pill selected somewhere below the fold.
-             *
-             * Profile alone carries `jump=1`. It is also the default section, so
-             * `?tab=profile` is where the member's own face points too — and that
-             * is meant to land at the top, on the balance. The marker is what
-             * separates the two, and no other section needs one. */
-            href={
-              id === "profile"
-                ? "/account?tab=profile&jump=1"
-                : `/account?tab=${id}`
-            }
+            /* Profile carries its name like the rest, and points at the same
+             * address as the member's own photograph, because the two mean the
+             * same thing: take me to my account. It lands at the top, on the
+             * balance. Every other item lands with the pill bar at the top of
+             * the screen and its own panel beneath. See AccountBody. */
+            href={`/account?tab=${id}`}
             /* Next resets the scroll position to the top on navigation, which
              * used to land on top of the jump-to-section and cancel it. Turning
              * that off removes the race rather than racing it with a timeout. */
@@ -524,11 +511,15 @@ function AccountMenu({
                * clicking the same menu item twice, which is not a new address and
                * so is not a new navigation. */
               if (pathname === "/account") {
-                requestAnimationFrame(() =>
+                requestAnimationFrame(() => {
+                  if (id === "profile") {
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    return;
+                  }
                   document
                     .getElementById("account-sections")
-                    ?.scrollIntoView({ behavior: "smooth", block: "start" }),
-                );
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                });
               }
             }}
             className="block rounded-2xl px-4 py-2.5 text-[11px] uppercase tracking-widest text-mocha-500 transition-colors hover:bg-cream-200 hover:text-mocha-700"

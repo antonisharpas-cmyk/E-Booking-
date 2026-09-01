@@ -9,6 +9,29 @@ import { useI18n } from "@/i18n/LanguageProvider";
 import { SocialLinks } from "@/components/ui/SocialLinks";
 import { STUDIO } from "@/lib/studio";
 
+/**
+ * One grid, three rows, four columns.
+ *
+ * The footer used to be three separate layouts stacked on top of each other: a
+ * four-column grid for the link lists, a three-column grid for the address, and
+ * a flex row with the credit pushed to the middle and the language toggle to the
+ * far right. Nothing lined up with anything below it, which is the sort of thing
+ * that reads as sloppiness without anybody being able to say why.
+ *
+ * So every row now sits on the same columns and the alignment is a fact of the
+ * layout rather than a coincidence:
+ *
+ *   column 1   the wordmark      the address        the copyright line
+ *   column 2   Explore           Studio hours       Developed & designed by
+ *   column 3   Account
+ *   column 4   Legal             Follow             the language toggle
+ *
+ * Column 3 is empty on the second and third rows on purpose. Filling it would
+ * mean moving Follow and the toggle off the edge Legal sets, and that edge is
+ * the point.
+ */
+const GRID = "grid gap-x-8 gap-y-14 md:grid-cols-2 lg:grid-cols-[1.4fr_repeat(3,1fr)]";
+
 export function Footer() {
   const { t } = useI18n();
   const year = new Date().getFullYear();
@@ -18,7 +41,6 @@ export function Footer() {
       title: t.footer.explore,
       links: [
         { href: "/studio", label: t.nav.studio },
-        { href: "/classes", label: t.nav.classes },
         { href: "/timetable", label: t.nav.timetable },
         { href: "/pricing", label: t.nav.pricing },
         { href: "/faq", label: t.nav.faq },
@@ -49,7 +71,7 @@ export function Footer() {
         className="pointer-events-none absolute -left-40 top-1/3 h-[520px] w-[520px] rounded-full bg-cream/[0.05] blur-3xl"
       />
       <div className="container-x relative py-20">
-        <div className="grid gap-14 md:grid-cols-2 lg:grid-cols-[1.4fr_repeat(3,1fr)]">
+        <div className={GRID}>
           <div>
             <Wordmark tone="cream" className="w-[196px]" />
             <p className="mt-6 max-w-xs text-sm leading-relaxed text-cream/65">
@@ -82,7 +104,7 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="mt-16 grid gap-10 border-t border-cream/[0.12] pt-10 md:grid-cols-3">
+        <div className={`${GRID} mt-16 gap-y-10 border-t border-cream/[0.12] pt-10`}>
           <div>
             <p className="mb-3 text-[10px] uppercase tracking-brand text-cream/45">
               {t.footer.visit}
@@ -99,19 +121,41 @@ export function Footer() {
             <p className="mb-3 text-[10px] uppercase tracking-brand text-cream/45">
               {t.contactPage.hoursTitle}
             </p>
-            <p className="text-sm leading-relaxed text-cream/75">
-              <span className="block">
-                {t.home.timetable.weekday}: 06:00 – 12:00 · 15:00 – 20:00
-              </span>
-              <span className="block">
-                {t.home.timetable.saturday}: 07:00 – 11:00
-              </span>
-              <span className="block text-cream/45">
+            {/* Day above hours rather than beside them.
+                
+                The column is a quarter of the footer now that all three rows
+                share one grid, and "Monday – Friday: 06:00 – 12:00 · 15:00 –
+                20:00" on one line wrapped in the middle of a time range, which
+                is the one place a line of times must not break. */}
+            <div className="space-y-2 text-sm leading-relaxed text-cream/75">
+              <p>
+                {t.home.timetable.weekday}
+                <span className="block lining-nums tabular-nums">
+                  06:00 – 12:00 · 15:00 – 20:00
+                </span>
+              </p>
+              {/* The midday hours, for the same reason they are on the home
+                  page: without them the weekday line has a three-hour hole in
+                  it that reads as the studio being shut. */}
+              <p>
+                {t.home.timetable.personalLabel}
+                <span className="block lining-nums tabular-nums">
+                  {t.home.timetable.personalHours}
+                </span>
+              </p>
+              <p>
+                {t.home.timetable.saturday}
+                <span className="block lining-nums tabular-nums">
+                  07:00 – 11:00
+                </span>
+              </p>
+              <p className="text-cream/45">
                 {t.home.timetable.sunday}: {t.home.timetable.closed}
-              </span>
-            </p>
+              </p>
+            </div>
           </div>
-          <div>
+          {/* Column 4, under Legal. */}
+          <div className="lg:col-start-4">
             <p className="mb-3 text-[10px] uppercase tracking-brand text-cream/45">
               {t.contactPage.followTitle}
             </p>
@@ -134,7 +178,7 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col items-start justify-between gap-6 border-t border-cream/[0.12] pt-8 sm:flex-row sm:items-center">
+        <div className={`${GRID} mt-12 items-center gap-y-6 border-t border-cream/[0.12] pt-8`}>
           <p className="text-[11px] text-cream/45">
             © {year} APEX pilates™. {t.footer.rights}
           </p>
@@ -147,9 +191,12 @@ export function Footer() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`${t.footer.builtBy} ErgonSite`}
-            className="group flex items-center gap-2.5 transition-opacity duration-500 hover:opacity-100 sm:opacity-70"
+            /* Column 2, under Explore and Studio hours. */
+            className="group flex flex-wrap items-center gap-x-2.5 gap-y-1 transition-opacity duration-500 hover:opacity-100 sm:opacity-70"
           >
-            <span className="text-[11px] text-cream/45 transition-colors duration-500 group-hover:text-cream/70">
+            {/* Never wrapped: it is four short words and a logo, and the two
+                halves of a credit line broken across a line read as a mistake. */}
+            <span className="whitespace-nowrap text-[11px] text-cream/45 transition-colors duration-500 group-hover:text-cream/70">
               {t.footer.builtBy}
             </span>
             <Image
@@ -157,14 +204,21 @@ export function Footer() {
               alt="ErgonSite"
               width={480}
               height={104}
-              /* Rendered at ~96px wide; without `sizes` next/image would ship
-                 the 1080w variant of a 96px logo. */
-              sizes="110px"
-              className="h-auto w-[96px]"
+              /* Rendered at ~84px wide; without `sizes` next/image would ship
+                 the 1080w variant of a small logo. 84 rather than 96 so the
+                 credit and the mark stay on one line inside the column the
+                 shared footer grid gives them. */
+              sizes="100px"
+              className="h-auto w-[84px]"
             />
           </a>
 
-          <LanguageToggle tone="dark" />
+          {/* Column 4, under Legal and Follow. `justify-start` because the
+              toggle is a flex row that would otherwise stretch across the
+              column and put its right edge somewhere arbitrary. */}
+          <div className="flex justify-start lg:col-start-4">
+            <LanguageToggle tone="dark" />
+          </div>
         </div>
       </div>
     </footer>

@@ -152,6 +152,13 @@ export const en = {
       body: "Live availability. Sign in to reserve your reformer.",
       cta: "Open live timetable",
       weekday: "Monday – Friday",
+      /* The midday hours, on the card that lists the studio's opening times.
+         They are not opening hours in the ordinary sense: the room is shut to
+         classes and open by appointment, which is worth saying plainly rather
+         than leaving a three-hour hole in the middle of every weekday. */
+      personalLabel: "Personal & Duet, weekdays",
+      personalHours: "12:00 · 13:00 · 14:00",
+      personalNote: "By appointment, booked the day before",
       saturday: "Saturday",
       sunday: "Sunday",
       closed: "Studio closed",
@@ -190,7 +197,7 @@ export const en = {
       items: [
         {
           q: "I have never done Reformer Pilates. Where do I start?",
-          a: "Book a Reformer Foundations class and leave the rest to us. Your instructor sets your springs, footbar and straps, stays beside you through the hour, and talks you through every position before you take any load. You are not expected to know anything on your first visit, only to turn up.",
+          a: "Book any class on the timetable and leave the rest to us. Your instructor sets your springs, footbar and straps, stays beside you through the hour, and talks you through every position before you take any load. You are not expected to know anything on your first visit, only to turn up.",
         },
         {
           q: "What should I bring?",
@@ -201,12 +208,16 @@ export const en = {
           a: "Arrive 5–10 minutes before class so you can settle in calmly. Booking stays open until a minute before the start, but a class already under way cannot be interrupted.",
         },
         {
+          q: "Can I train one to one, or with just a friend?",
+          a: "Yes, in the middle of the day. Personal and Duet sessions run at 12:00, 13:00 and 14:00, Monday to Friday, in the hours between the morning and evening timetable. A Personal session is the studio to yourself for an hour, €30. A Duet is the same hour shared with one other person, €45 for the two of you, bought and booked by one of you.\n\nBook by the end of the day before, so we can arrange an instructor for your hour. The same deadline applies to cancelling: after it, somebody has already been asked to come in for you, and the session counts as used. These sessions are bought on their own and are valid only for those midday hours, so they are separate from any class pack you hold.",
+        },
+        {
           q: "How does the session system work?",
           a: "Every class costs exactly one session. You buy sessions in packs, and the bigger the pack, the lower the price per class. A session is deducted the moment you book, and returned automatically if you cancel inside the free cancellation window.",
         },
         {
           q: "Do sessions expire?",
-          a: "Each pack carries a validity window, shown on the pack before you buy. Your account always shows the exact expiry date of every session you hold.",
+          a: "Each pack carries a validity window, shown on the pack before you buy, and your account always shows the exact expiry date of every session you hold. They last until the end of that day, not until the hour you bought them.\n\nThe window covers the class as well as the booking: a 30-day pack books classes in those 30 days, not classes in three months' time. That is what makes 30 days mean 30 days of training rather than 30 days of shopping.",
         },
         {
           q: "What is the cancellation policy?",
@@ -245,7 +256,21 @@ export const en = {
         t: "Recovery and warm-down",
         d: "Every session closes with mobility and breath work, so you leave taller and calmer rather than wrecked.",
       },
+      {
+        t: "The room to yourself",
+        d: "Between the morning and evening rota the studio keeps three hours free for Personal and Duet sessions, at 12:00, 13:00 and 14:00 on weekdays. Book by the end of the day before and an instructor is there for your hour. A Duet is the same hour for two, bought and booked by one of you.",
+      },
     ],
+    room: {
+      eyebrow: "In the room",
+      title: "What the hour is actually like.",
+      body: "Four things that are true of every class here, whichever hour you book.",
+    },
+    team: {
+      eyebrow: "The team",
+      title: "Meet our Pilates Instructors.",
+      body: "Small studio, and it shows: whoever is teaching knows your springs, what you are working around and what you came for.",
+    },
     values: {
       eyebrow: "What we stand for",
       title: "Standards, not slogans.",
@@ -304,25 +329,33 @@ export const en = {
         title: "3 months",
         note: "The same choice over twelve weeks, at a lower price per class. 90 days to use them.",
       },
+      personal: {
+        title: "Personal and Duet",
+        note: "The room to yourself, or to the two of you. Midday on weekdays, 30 days to use them.",
+      },
     },
     popular: "Most popular",
     bestValue: "Best value per class",
     perClassLabel: "per class",
+    perPersonLabel: "each",
+    peopleLabel: "People",
+    paceLabel: "Pace",
+    onePerDay: "One class a day",
     validity: "Valid for",
     days: "days",
     buy: "Buy pack",
     offer: "Offer",
     included: "What's included",
     includes: [
-      "60-minute Reformer class on Technogym equipment",
+      "60 minute Reformer class on Technogym equipment",
       "Five reformers, so never more than five in the room",
-      "Free cancellation up to 12 hours before",
-      "Sessions usable on any class type",
+      "Free cancellation up to 12 hours before a class",
+      "Personal and Duet sessions at 12:00, 13:00 and 14:00 on weekdays",
     ],
-    privateTitle: "Private & duet sessions",
+    privateTitle: "How the midday hours work",
     privateBody:
-      "One-to-one or two-to-one coaching, built around rehabilitation, sport-specific goals or simply faster progress. Contact the studio for availability and rates.",
-    privateCta: "Enquire about privates",
+      "Personal and Duet sessions run at 12:00, 13:00 and 14:00, Monday to Friday. Book yours by the end of the day before and we arrange an instructor for that hour. A Duet is one session for two people, bought and booked by one of you.",
+    privateCta: "See what is free",
     corporateTitle: "Gym members",
     corporateBody:
       "APEX Fitness Centre members receive preferential pricing on every session pack. Ask at reception to have member rates applied to your account.",
@@ -388,6 +421,25 @@ export const en = {
     bookedThatDay: "booked",
     noClassesThatDay: "No classes on that day.",
     nobodyBooked: "Nobody booked.",
+
+    /* ------------------------------------- personal and duet appointments */
+    appointmentsTitle: "Personal and Duet, still to come",
+    appointmentsNote: "Each of these needs an instructor asked in.",
+    personal: "Personal",
+    duet: "Duet",
+    instructorNeeded: "No instructor yet",
+    instructorLabel: "Who is teaching it",
+    instructorSet: "{name} is on it.",
+    instructorCleared: "Nobody is on it now.",
+    /* Said out loud, because a swap on a class somebody has booked writes to
+       those members, and whoever pressed it should know that it did. */
+    instructorToldMembers: "{name} is on it. {n} member(s) told.",
+    sellKind: "What these sessions buy",
+    sellKindClass: "Group classes",
+    sellKindPersonal: "Personal hour",
+    sellKindDuet: "Duet hour",
+    sellKindNote:
+      "Class sessions cannot pay for a midday appointment, and personal ones cannot pay for a class. Sell whichever the member actually paid for.",
     attended: "Came",
     noShow: "No show",
     cancelled: "Cancelled",
@@ -812,6 +864,11 @@ export const en = {
     noCreditsCta: "Buy a session pack",
     creditsNotValidHere:
       "Your free opening-week session cannot be used for this class, because it is only for the opening week. Pick a class in that week, or buy a pack to book any date.",
+    /* The other window refusal, and by far the commoner one: an ordinary pack
+       whose own expiry falls before the class. Names the last date that would
+       have worked, because a refusal that does not is a puzzle. */
+    sessionsExpireFirst:
+      "Your sessions run out before this class. The last date they can book is {date}. Top up and any date is open again.",
     alreadyBooked: "You have already booked this class.",
     classFull: "This class is full.",
     tooLate: "Booking has closed for this class.",
@@ -825,6 +882,56 @@ export const en = {
     cancelled: "Booking cancelled.",
     instructor: "Instructor",
     spots: "Spots",
+
+    /* ------------------------------------- personal and duet appointments */
+    /** On the time chip, where "1/1" would have gone. */
+    personalChip: "1 to 1",
+    /** The appointment half of the balance, shown beside the total. */
+    personalHeld: "{n} for a personal hour",
+    /* On the account balance card, under the class figure. Written as separate
+       lines rather than added into one total, because "37" that silently
+       includes one session which cannot book 36 of the classes on screen is a
+       figure that misleads. */
+    heldPersonal: "and {n} Personal session",
+    heldPersonalPlural: "and {n} Personal sessions",
+    heldDuet: "and {n} Duet session",
+    heldDuetPlural: "and {n} Duet sessions",
+    /** In place of the level, which an appointment does not have. */
+    personalTag: "Personal or Duet",
+    personalFree: "Available",
+    personalTaken: "Booked",
+    personalExplainer:
+      "An hour in the studio with nobody in it but you and an instructor. A Duet is the same hour shared with one other person, bought and booked by one of you.",
+    whoIsComing: "Who is coming",
+    /* Shown when a Duet session is the only thing they hold, so the choice is
+       already made and the field below is the only thing left to do. */
+    duetForcedNote:
+      "Your Duet session covers two people, so tell us who is coming with you.",
+    justMe: "Just me",
+    twoOfUs: "Two of us",
+    guestLabel: "Their name",
+    guestPlaceholder: "The person coming with you",
+    guestHint:
+      "So the instructor knows to expect two of you and can set the second reformer up.",
+    bookPersonal: "Book this hour",
+    personalCutoff:
+      "Bookable until the end of today for tomorrow, so an instructor can be arranged.",
+    personalBooked: "The hour is yours.",
+    personalBookedBody:
+      "The studio has been told and will have an instructor there for you.",
+    personalTooLate:
+      "This hour had to be booked by the end of the day before, so an instructor could be arranged. Pick a later day.",
+    personalCancelTooLate:
+      "Cancellation closed at the end of the day before, because an instructor has already been asked to come in for this hour.",
+    needsPersonal:
+      "This hour needs a Personal or Duet session. The sessions in your balance are for group classes and cannot be used here.",
+    needsDuet:
+      "Bringing somebody needs a Duet session, which covers both of you on one booking. A Personal session is for one.",
+    /* The other way round: they hold a Duet and asked for the hour alone. */
+    duetIsForTwo:
+      "A Duet session is for two people, so it cannot be used on your own. Either bring somebody with you, or buy a Personal session for the hour by yourself.",
+    onePerDay:
+      "Your Unlimited plan is one class a day, and you already have one booked for this day. Cancel that one first, or pick another day.",
   },
   checkout: {
     successTitle: "Sessions added.",
@@ -1088,6 +1195,9 @@ export const el: typeof en = {
       body: "Ζωντανή διαθεσιμότητα. Συνδέσου για να κρατήσεις τον reformer σου.",
       cta: "Άνοιξε το πρόγραμμα",
       weekday: "Δευτέρα – Παρασκευή",
+      personalLabel: "Ατομικές & Duet, καθημερινές",
+      personalHours: "12:00 · 13:00 · 14:00",
+      personalNote: "Με ραντεβού, κράτηση την προηγούμενη μέρα",
       saturday: "Σάββατο",
       sunday: "Κυριακή",
       closed: "Το στούντιο είναι κλειστό",
@@ -1122,7 +1232,7 @@ export const el: typeof en = {
       items: [
         {
           q: "Δεν έχω κάνει ποτέ Reformer Pilates. Από πού ξεκινώ;",
-          a: "Κλείσε ένα μάθημα Reformer Foundations και άφησε τα υπόλοιπα σε εμάς. Ο εκπαιδευτής ρυθμίζει ελατήρια, μπάρα ποδιών και λουριά, μένει δίπλα σου όλη την ώρα και σου εξηγεί κάθε θέση πριν προστεθεί φορτίο. Δεν χρειάζεται να ξέρεις κάτι στην πρώτη σου επίσκεψη, μόνο να έρθεις.",
+          a: "Κλείσε οποιοδήποτε μάθημα από το πρόγραμμα και άφησε τα υπόλοιπα σε εμάς. Ο εκπαιδευτής ρυθμίζει ελατήρια, μπάρα ποδιών και λουριά, μένει δίπλα σου όλη την ώρα και σου εξηγεί κάθε θέση πριν προστεθεί φορτίο. Δεν χρειάζεται να ξέρεις κάτι στην πρώτη σου επίσκεψη, μόνο να έρθεις.",
         },
         {
           q: "Τι να φέρω;",
@@ -1133,12 +1243,16 @@ export const el: typeof en = {
           a: "Έλα 5–10 λεπτά πριν το μάθημα, για να προσαρμοστείς με την ησυχία σου. Οι κρατήσεις μένουν ανοιχτές μέχρι ένα λεπτό πριν την έναρξη, όμως ένα μάθημα που έχει ήδη αρχίσει δεν διακόπτεται.",
         },
         {
+          q: "Μπορώ να γυμναστώ ένας προς έναν, ή μόνο με έναν φίλο;",
+          a: "Ναι, στη μέση της μέρας. Οι Ατομικές και οι Duet συνεδρίες γίνονται στις 12:00, 13:00 και 14:00, Δευτέρα με Παρασκευή, στις ώρες ανάμεσα στο πρωινό και στο απογευματινό πρόγραμμα. Η Ατομική είναι το στούντιο δικό σου για μία ώρα, €30. Η Duet είναι η ίδια ώρα μοιρασμένη με ένα ακόμη άτομο, €45 και για τους δύο, με αγορά και κράτηση από τον ένα από τους δύο.\n\nΚάνε την κράτηση μέχρι το τέλος της προηγούμενης μέρας, ώστε να κανονίσουμε εκπαιδευτή για την ώρα σου. Η ίδια προθεσμία ισχύει και για την ακύρωση: μετά από αυτή, κάποιος έχει ήδη κληθεί να έρθει για εσένα και η συνεδρία μετράει ως χρησιμοποιημένη. Αυτές οι συνεδρίες αγοράζονται ξεχωριστά και ισχύουν μόνο για αυτές τις μεσημεριανές ώρες, οπότε είναι ανεξάρτητες από όποιο πακέτο μαθημάτων έχεις.",
+        },
+        {
           q: "Πώς λειτουργούν οι συνεδρίες;",
           a: "Κάθε μάθημα κοστίζει ακριβώς μία συνεδρία. Αγοράζεις συνεδρίες σε πακέτα, και όσο μεγαλύτερο το πακέτο, τόσο χαμηλότερη η τιμή ανά μάθημα. Η συνεδρία αφαιρείται μόλις κλείσεις θέση και επιστρέφει αυτόματα αν ακυρώσεις εντός του χρόνου δωρεάν ακύρωσης.",
         },
         {
           q: "Λήγουν οι συνεδρίες;",
-          a: "Κάθε πακέτο έχει διάρκεια ισχύος, που φαίνεται πριν την αγορά. Ο λογαριασμός σου δείχνει πάντα την ακριβή ημερομηνία λήξης για κάθε συνεδρία που έχεις.",
+          a: "Κάθε πακέτο έχει διάρκεια ισχύος, που φαίνεται πριν την αγορά, και ο λογαριασμός σου δείχνει πάντα την ακριβή ημερομηνία λήξης για κάθε συνεδρία που έχεις. Ισχύουν μέχρι το τέλος εκείνης της ημέρας, όχι μέχρι την ώρα που τις αγόρασες.\n\nΗ διάρκεια καλύπτει και το μάθημα, όχι μόνο την κράτηση: ένα πακέτο 30 ημερών κλείνει μαθήματα μέσα σε αυτές τις 30 ημέρες, όχι μαθήματα σε τρεις μήνες. Αυτό κάνει τις 30 ημέρες να σημαίνουν 30 ημέρες προπόνησης και όχι 30 ημέρες αγορών.",
         },
         {
           q: "Ποια είναι η πολιτική ακυρώσεων;",
@@ -1177,7 +1291,21 @@ export const el: typeof en = {
         t: "Αποκατάσταση και χαλάρωση",
         d: "Κάθε μάθημα κλείνει με κινητικότητα και αναπνοή, οπότε φεύγεις πιο ψηλός και πιο ήρεμος αντί για διαλυμένος.",
       },
+      {
+        t: "Ο χώρος δικός σου",
+        d: "Ανάμεσα στο πρωινό και στο απογευματινό πρόγραμμα, το στούντιο κρατάει τρεις ώρες ελεύθερες για Ατομικές και Duet συνεδρίες, στις 12:00, 13:00 και 14:00 τις καθημερινές. Κάνε κράτηση μέχρι το τέλος της προηγούμενης μέρας και θα υπάρχει εκπαιδευτής για την ώρα σου. Μια Duet είναι η ίδια ώρα για δύο, με αγορά και κράτηση από τον ένα από τους δύο.",
+      },
     ],
+    room: {
+      eyebrow: "Μέσα στην αίθουσα",
+      title: "Πώς είναι πραγματικά η ώρα.",
+      body: "Τέσσερα πράγματα που ισχύουν σε κάθε μάθημα εδώ, όποια ώρα και να κλείσεις.",
+    },
+    team: {
+      eyebrow: "Η ομάδα",
+      title: "Γνώρισε τους εκπαιδευτές μας.",
+      body: "Μικρό στούντιο, και φαίνεται: όποιος κάνει το μάθημα ξέρει τα ελατήριά σου, τι αποφεύγεις και για ποιο λόγο ήρθες.",
+    },
     values: {
       eyebrow: "Σε τι πιστεύουμε",
       title: "Πρότυπα, όχι συνθήματα.",
@@ -1233,10 +1361,18 @@ export const el: typeof en = {
         title: "3 μήνες",
         note: "Η ίδια επιλογή για δώδεκα εβδομάδες, με χαμηλότερη τιμή ανά μάθημα. 90 ημέρες για να τις χρησιμοποιήσεις.",
       },
+      personal: {
+        title: "Ατομικές και Duet",
+        note: "Ο χώρος δικός σου, ή των δυο σας. Μεσημέρι, καθημερινές, 30 ημέρες για να τις χρησιμοποιήσεις.",
+      },
     },
     popular: "Πιο δημοφιλές",
     bestValue: "Καλύτερη τιμή ανά μάθημα",
     perClassLabel: "ανά μάθημα",
+    perPersonLabel: "ο καθένας",
+    peopleLabel: "Άτομα",
+    paceLabel: "Ρυθμός",
+    onePerDay: "Ένα μάθημα την ημέρα",
     validity: "Ισχύει για",
     days: "ημέρες",
     buy: "Αγορά πακέτου",
@@ -1245,13 +1381,13 @@ export const el: typeof en = {
     includes: [
       "Μάθημα Reformer 60 λεπτών σε εξοπλισμό Technogym",
       "Πέντε reformers, άρα ποτέ πάνω από πέντε στην αίθουσα",
-      "Δωρεάν ακύρωση έως 12 ώρες πριν",
-      "Οι συνεδρίες ισχύουν για κάθε τύπο μαθήματος",
+      "Δωρεάν ακύρωση έως 12 ώρες πριν από το μάθημα",
+      "Ατομικές και Duet συνεδρίες στις 12:00, 13:00 και 14:00 τις καθημερινές",
     ],
-    privateTitle: "Ιδιαίτερα & duet",
+    privateTitle: "Πώς δουλεύουν οι μεσημεριανές ώρες",
     privateBody:
-      "Καθοδήγηση ένας-προς-ένα ή δύο-προς-έναν, με έμφαση στην αποκατάσταση, σε αθλητικούς στόχους ή απλά σε πιο γρήγορη εξέλιξη. Επικοινώνησε με το στούντιο για διαθεσιμότητα και τιμές.",
-    privateCta: "Ρώτα για ιδιαίτερα",
+      "Οι Ατομικές και οι Duet συνεδρίες γίνονται στις 12:00, 13:00 και 14:00, Δευτέρα με Παρασκευή. Κάνε την κράτηση μέχρι το τέλος της προηγούμενης μέρας και κανονίζουμε εκπαιδευτή για αυτή την ώρα. Μια Duet είναι μία συνεδρία για δύο άτομα, με αγορά και κράτηση από τον ένα από τους δύο.",
+    privateCta: "Δες τι είναι ελεύθερο",
     corporateTitle: "Μέλη γυμναστηρίου",
     corporateBody:
       "Τα μέλη του APEX Fitness Centre έχουν προνομιακή τιμή σε κάθε πακέτο συνεδριών. Ζήτα στη ρεσεψιόν να ενεργοποιηθεί η τιμή μέλους στον λογαριασμό σου.",
@@ -1312,6 +1448,23 @@ export const el: typeof en = {
     bookedThatDay: "κρατήσεις",
     noClassesThatDay: "Δεν υπάρχουν μαθήματα εκείνη την ημέρα.",
     nobodyBooked: "Καμία κράτηση.",
+
+    /* ------------------------------------- ατομικές και duet συνεδρίες */
+    appointmentsTitle: "Ατομικές και Duet, επόμενες",
+    appointmentsNote: "Καθεμία χρειάζεται εκπαιδευτή που θα κληθεί.",
+    personal: "Ατομική",
+    duet: "Duet",
+    instructorNeeded: "Χωρίς εκπαιδευτή ακόμη",
+    instructorLabel: "Ποιος το κάνει",
+    instructorSet: "Ανατέθηκε στον/στην {name}.",
+    instructorCleared: "Δεν είναι κανείς σε αυτό τώρα.",
+    instructorToldMembers: "Ανατέθηκε στον/στην {name}. Ενημερώθηκαν {n} μέλη.",
+    sellKind: "Τι αγοράζουν αυτές οι συνεδρίες",
+    sellKindClass: "Ομαδικά μαθήματα",
+    sellKindPersonal: "Ατομική ώρα",
+    sellKindDuet: "Duet ώρα",
+    sellKindNote:
+      "Οι συνεδρίες μαθημάτων δεν καλύπτουν μεσημεριανή συνεδρία, και οι ατομικές δεν καλύπτουν μάθημα. Πούλα αυτό που πλήρωσε το μέλος.",
     attended: "Ήρθε",
     noShow: "Δεν ήρθε",
     cancelled: "Ακυρώθηκε",
@@ -1717,6 +1870,8 @@ export const el: typeof en = {
     noCreditsCta: "Αγόρασε πακέτο συνεδριών",
     creditsNotValidHere:
       "Η δωρεάν συνεδρία εγκαινίων δεν ισχύει για αυτό το μάθημα, γιατί αφορά μόνο την εβδομάδα των εγκαινίων. Διάλεξε μάθημα εκείνης της εβδομάδας, ή αγόρασε πακέτο για οποιαδήποτε ημερομηνία.",
+    sessionsExpireFirst:
+      "Οι συνεδρίες σου τελειώνουν πριν από αυτό το μάθημα. Η τελευταία ημερομηνία που μπορούν να κλείσουν είναι {date}. Ανανέωσε και ανοίγει ξανά κάθε ημερομηνία.",
     alreadyBooked: "Έχεις ήδη κλείσει αυτό το μάθημα.",
     classFull: "Το μάθημα είναι πλήρες.",
     tooLate: "Οι κρατήσεις για αυτό το μάθημα έκλεισαν.",
@@ -1730,6 +1885,46 @@ export const el: typeof en = {
     cancelled: "Η κράτηση ακυρώθηκε.",
     instructor: "Εκπαιδευτής",
     spots: "Θέσεις",
+
+    /* ------------------------------------- ατομικές και duet συνεδρίες */
+    personalChip: "1 προς 1",
+    personalHeld: "{n} για ατομική ώρα",
+    heldPersonal: "και {n} Ατομική συνεδρία",
+    heldPersonalPlural: "και {n} Ατομικές συνεδρίες",
+    heldDuet: "και {n} Duet συνεδρία",
+    heldDuetPlural: "και {n} Duet συνεδρίες",
+    personalTag: "Ατομική ή Duet",
+    personalFree: "Διαθέσιμη",
+    personalTaken: "Κλεισμένη",
+    personalExplainer:
+      "Μία ώρα στο στούντιο με κανέναν άλλο μέσα εκτός από εσένα και τον εκπαιδευτή. Μια Duet είναι η ίδια ώρα μοιρασμένη με ένα ακόμη άτομο, με αγορά και κράτηση από τον ένα από τους δύο.",
+    whoIsComing: "Ποιοι θα έρθετε",
+    duetForcedNote:
+      "Η Duet συνεδρία σου καλύπτει δύο άτομα, οπότε πες μας ποιος έρχεται μαζί σου.",
+    justMe: "Μόνο εγώ",
+    twoOfUs: "Δύο άτομα",
+    guestLabel: "Το όνομά του",
+    guestPlaceholder: "Το άτομο που έρχεται μαζί σου",
+    guestHint:
+      "Για να ξέρει ο εκπαιδευτής ότι θα έρθετε δύο και να ετοιμάσει το δεύτερο reformer.",
+    bookPersonal: "Κλείσε αυτή την ώρα",
+    personalCutoff:
+      "Κράτηση μέχρι το τέλος της σημερινής μέρας για αύριο, ώστε να κανονιστεί εκπαιδευτής.",
+    personalBooked: "Η ώρα είναι δική σου.",
+    personalBookedBody:
+      "Το στούντιο ενημερώθηκε και θα έχει εκπαιδευτή εκεί για εσένα.",
+    personalTooLate:
+      "Αυτή η ώρα χρειαζόταν κράτηση μέχρι το τέλος της προηγούμενης μέρας, για να κανονιστεί εκπαιδευτής. Διάλεξε μια επόμενη μέρα.",
+    personalCancelTooLate:
+      "Η ακύρωση έκλεισε στο τέλος της προηγούμενης μέρας, γιατί έχει ήδη ζητηθεί από εκπαιδευτή να έρθει για αυτή την ώρα.",
+    needsPersonal:
+      "Αυτή η ώρα χρειάζεται Ατομική ή Duet συνεδρία. Οι συνεδρίες στο υπόλοιπό σου είναι για ομαδικά μαθήματα και δεν ισχύουν εδώ.",
+    needsDuet:
+      "Για να φέρεις κάποιον χρειάζεται Duet συνεδρία, που καλύπτει και τους δύο με μία κράτηση. Η Ατομική είναι για ένα άτομο.",
+    duetIsForTwo:
+      "Η Duet συνεδρία είναι για δύο άτομα, οπότε δεν μπορεί να χρησιμοποιηθεί μόνο από εσένα. Φέρε κάποιον μαζί σου, ή αγόρασε Ατομική συνεδρία για να είσαι μόνος στην ώρα.",
+    onePerDay:
+      "Το πλάνο Unlimited είναι ένα μάθημα την ημέρα, και έχεις ήδη ένα κλεισμένο για αυτή τη μέρα. Ακύρωσε πρώτα εκείνο, ή διάλεξε άλλη μέρα.",
   },
   checkout: {
     successTitle: "Οι συνεδρίες προστέθηκαν.",

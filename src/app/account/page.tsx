@@ -59,6 +59,9 @@ export default async function AccountPage() {
       }}
       wallet={{
         available: wallet.available,
+        classCredits: wallet.classCredits,
+        soloCredits: wallet.soloCredits,
+        duetCredits: wallet.duetCredits,
         nextExpiry: wallet.nextExpiry?.toISOString() ?? null,
         nextExpiryCredits: wallet.nextExpiryCredits,
         batches: wallet.batches.map((b) => ({
@@ -116,6 +119,8 @@ function serialiseBooking(b: {
   className: { en: string; el: string };
   instructor: string | null;
   freeCancellationUntil: Date;
+  kind: string;
+  guestName: string | null;
 }) {
   return {
     id: b.id,
@@ -126,5 +131,7 @@ function serialiseBooking(b: {
     className: b.className,
     instructor: b.instructor,
     freeCancellationUntil: b.freeCancellationUntil.toISOString(),
+    kind: b.kind,
+    guestName: b.guestName,
   };
 }

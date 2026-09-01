@@ -198,24 +198,26 @@ export function reachOf(audience: Audience, includeTest = false, segment: Segmen
      * So the desk can say "4 test accounts excluded" rather than leaving somebody
      * to wonder why the count dropped.
      *
-     * Counts the ones the switch would actually put back, not every test account
-     * that exists. A dummy account that never confirmed its own address is
-     * excluded twice over and stays excluded whatever the switch says, so
-     * counting it here would make the number a small lie: tick the box, and the
-     * reach would go up by less than the figure promised.
+     * Measured rather than counted, and that is the point. This is the number the
+     * switch would actually put back, so the only honest way to work it out is to
+     * ask the same question twice and subtract: every exclusion the audience
+     * applies is applied to both halves, so none of them can be forgotten here.
+     *
+     * It was a count once, and the count drifted twice. First it counted every
+     * test account, including ones that never confirmed an address and were
+     * excluded twice over. Then it counted verified ones, and still overstated the
+     * figure by four, because a test account made before the service consent
+     * existed is not in the ALL audience either. Each fix was a second copy of a
+     * rule that lives in `recipientsFor`, and a second copy of a rule is a rule
+     * that will disagree with itself the next time the first one changes.
+     *
+     * Two extra reads on a desk screen that is already doing several. Worth it
+     * for a number that cannot be wrong.
      */
-    testAccounts: db
-      .select()
-      .from(users)
-      .where(
-        and(
-          eq(users.isTest, true),
-          isNull(users.erasedAt),
-          sql`(${users.emailVerifiedAt} is not null
-               or ${users.role} in ('STAFF', 'ADMIN'))`,
-        ),
-      )
-      .all().length,
+    testAccounts: includeTest
+      ? people.length -
+        recipientsFor(audience, false, segment).length
+      : recipientsFor(audience, true, segment).length - people.length,
     /* And the same courtesy for the other exclusion. A reach of 38 out of 41 with
        no explanation is the kind of number somebody quietly stops trusting. */
     unverifiedAccounts: db

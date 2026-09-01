@@ -96,6 +96,15 @@ export const loginSchema = z.object({
 
 export const bookSchema = z.object({
   sessionId: z.string().min(1),
+  /**
+   * The second person on a duet, typed by the member booking it.
+   *
+   * Free text and capped, not looked up: the person coming with them is usually
+   * not a member, and requiring them to be one would mean a friend has to sign
+   * up before they can be brought along once. Only read when the class is an
+   * appointment, and only kept when a duet session actually pays for it.
+   */
+  guestName: z.string().trim().min(2).max(80).optional(),
 });
 
 /**

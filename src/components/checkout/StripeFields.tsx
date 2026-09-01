@@ -30,6 +30,7 @@ export default function StripeFields({
   clientSecret,
   returnUrl,
   amountLabel,
+  email,
   onPaid,
 }: {
   publicKey: string;
@@ -37,6 +38,15 @@ export default function StripeFields({
   /** Where Stripe sends the member back if the bank demands 3-D Secure. */
   returnUrl: string;
   amountLabel: string;
+  /**
+   * The member's own address, so the form does not ask for it again.
+   *
+   * They are signed in; we know it. Passing it removes a field from the card
+   * form and, where Stripe's Link prompt is switched on in the dashboard,
+   * removes the separate email step in front of the card as well. Stripe
+   * documents this as the recommended integration for exactly that reason.
+   */
+  email?: string;
   onPaid: () => void;
 }) {
   const stripe = useMemo(() => loadStripe(publicKey), [publicKey]);
@@ -79,7 +89,12 @@ export default function StripeFields({
         },
       }}
     >
-      <Form returnUrl={returnUrl} amountLabel={amountLabel} onPaid={onPaid} />
+      <Form
+        returnUrl={returnUrl}
+        amountLabel={amountLabel}
+        email={email}
+        onPaid={onPaid}
+      />
     </Elements>
   );
 }
@@ -87,10 +102,12 @@ export default function StripeFields({
 function Form({
   returnUrl,
   amountLabel,
+  email,
   onPaid,
 }: {
   returnUrl: string;
   amountLabel: string;
+  email?: string;
   onPaid: () => void;
 }) {
   const { t } = useI18n();
@@ -147,6 +164,9 @@ function Form({
         options={{
           wallets: { applePay: "auto", googlePay: "auto" },
           layout: { type: "tabs", defaultCollapsed: false },
+          ...(email
+            ? { defaultValues: { billingDetails: { email } } }
+            : {}),
         }}
       />
 

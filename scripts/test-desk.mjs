@@ -428,8 +428,13 @@ console.log("\n3. Cancelling for a member, refund or not");
   });
 
   const sessions = await req(buyer.j, "/api/sessions?days=14");
+  /* Group classes only. Appointments are a different product with a different
+     cutoff and a different kind of session paying for them. */
   const slot = (sessions.json?.sessions ?? []).find(
-    (s) => s.spotsLeft > 0 && new Date(s.startsAt) > new Date(Date.now() + 72 * 3600e3),
+    (s) =>
+      s.classType?.kind !== "PERSONAL" &&
+      s.spotsLeft > 0 &&
+      new Date(s.startsAt) > new Date(Date.now() + 72 * 3600e3),
   );
   const booked = await req(buyer.j, "/api/bookings", {
     method: "POST",
@@ -532,7 +537,10 @@ console.log("\n5. Closing a day");
 
   const sessions = await req(buyer.j, "/api/sessions?days=20");
   const onThatDay = (sessions.json?.sessions ?? []).find(
-    (s) => s.startsAt.slice(0, 10) === day && s.spotsLeft > 0,
+    (s) =>
+      s.classType?.kind !== "PERSONAL" &&
+      s.startsAt.slice(0, 10) === day &&
+      s.spotsLeft > 0,
   );
   check("there is a class to lose", Boolean(onThatDay), day);
 

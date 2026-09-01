@@ -19,20 +19,43 @@
  * are both twelve classes and a visitor reading nine cards in a grid cannot see
  * which is which. Grouped under headings, the choice is obvious: how often do I
  * train, and for how long am I committing.
+ *
+ * `personal` is the odd one and is meant to be. Those two packs do not buy a
+ * place in a class at all, so they sit under their own heading at the foot of
+ * the list rather than competing with the plans above them on price per session,
+ * a comparison that would make a one to one look like a bad deal for something
+ * it is not selling.
  */
-export type PackGroup = "single" | "month" | "quarter";
+export type PackGroup = "single" | "month" | "quarter" | "personal";
+
+/**
+ * What a pack's sessions can be spent on.
+ *
+ *   CLASS      a place in a group class on the timetable
+ *   PERSONAL   a midday appointment, one member and one instructor
+ *   DUET       the same appointment for two people, on one session
+ *
+ * The three are not interchangeable in either direction, which is the point.
+ * See credit_batches.kind in the schema.
+ */
+export type CreditKind = "CLASS" | "PERSONAL" | "DUET";
 
 export const PACKS = [
   {
     slug: "single",
-    nameEn: "Single class",
-    nameEl: "Μονό μάθημα",
+    /* Was "Single class". A day pass says the same thing in the language people
+       already use for it, and it does not read as the runt of a list of plans. */
+    nameEn: "Day pass",
+    nameEl: "Ημερήσιο πάσο",
     credits: 1,
     priceCents: 2000,
     validityDays: 30,
     badge: null as string | null,
     sortOrder: 1,
     group: "single" as PackGroup,
+    kind: "CLASS" as CreditKind,
+    perDayLimit: null as number | null,
+    seats: 1,
   },
 
   /* ---------------------------------------------------------------- monthly
@@ -49,6 +72,9 @@ export const PACKS = [
     badge: null as string | null,
     sortOrder: 2,
     group: "month" as PackGroup,
+    kind: "CLASS" as CreditKind,
+    perDayLimit: null as number | null,
+    seats: 1,
   },
   {
     slug: "month-2",
@@ -61,6 +87,9 @@ export const PACKS = [
     badge: "POPULAR" as string | null,
     sortOrder: 3,
     group: "month" as PackGroup,
+    kind: "CLASS" as CreditKind,
+    perDayLimit: null as number | null,
+    seats: 1,
   },
   {
     slug: "month-3",
@@ -72,6 +101,9 @@ export const PACKS = [
     badge: null as string | null,
     sortOrder: 4,
     group: "month" as PackGroup,
+    kind: "CLASS" as CreditKind,
+    perDayLimit: null as number | null,
+    seats: 1,
   },
   {
     slug: "month-4",
@@ -83,12 +115,15 @@ export const PACKS = [
     badge: null as string | null,
     sortOrder: 5,
     group: "month" as PackGroup,
+    kind: "CLASS" as CreditKind,
+    perDayLimit: null as number | null,
+    seats: 1,
   },
 
   /* -------------------------------------------------------------- 3 months
-     The same four cadences over twelve weeks, at a lower rate per class for
-     the longer commitment. Ninety days to use them, so a holiday or a bad
-     week does not cost the member their money — which is the actual reason
+     The same cadences over twelve weeks, at a lower rate per class for the
+     longer commitment. Ninety days to use them, so a holiday or a bad week
+     does not cost the member their money — which is the actual reason
      somebody buys three months rather than three ones. */
   {
     slug: "quarter-1",
@@ -100,6 +135,9 @@ export const PACKS = [
     badge: null as string | null,
     sortOrder: 6,
     group: "quarter" as PackGroup,
+    kind: "CLASS" as CreditKind,
+    perDayLimit: null as number | null,
+    seats: 1,
   },
   {
     slug: "quarter-2",
@@ -111,6 +149,9 @@ export const PACKS = [
     badge: null as string | null,
     sortOrder: 7,
     group: "quarter" as PackGroup,
+    kind: "CLASS" as CreditKind,
+    perDayLimit: null as number | null,
+    seats: 1,
   },
   {
     slug: "quarter-3",
@@ -122,20 +163,86 @@ export const PACKS = [
     badge: null as string | null,
     sortOrder: 8,
     group: "quarter" as PackGroup,
+    kind: "CLASS" as CreditKind,
+    perDayLimit: null as number | null,
+    seats: 1,
   },
   {
     slug: "quarter-4",
-    nameEn: "3 months · 4 a week",
-    nameEl: "3 μήνες · 4 την εβδομάδα",
-    credits: 48,
+    /**
+     * Unlimited, and the session count is what makes the word true.
+     *
+     * **The arithmetic.** The pack runs 90 days and the studio opens six days a
+     * week, Monday to Saturday. Ninety days is twelve whole weeks and six days
+     * over, so twelve sixes plus six is 78 training days in the quarter. That is
+     * the number granted: one for every day the member could walk in.
+     *
+     * **Why it is not just a big balance.** 78 sessions with no other rule is
+     * not an unlimited plan, it is a bulk discount somebody could spend in a
+     * fortnight and then be out of sessions with ten weeks to go — which is the
+     * opposite of what the word promises. So the batch carries a cap of one
+     * class a day (`perDayLimit`), and the two together are the plan: train
+     * every day if you like, but one a day, all quarter.
+     */
+    nameEn: "3 months · Unlimited",
+    nameEl: "3 μήνες · Unlimited",
+    credits: 78,
     priceCents: 47000,
     validityDays: 90,
-    /* Under ten euro a class — the only plan that gets there. */
+    /* Six euro a class if it is used as intended. Nothing else comes close. */
     badge: "BEST_VALUE" as string | null,
     sortOrder: 9,
     group: "quarter" as PackGroup,
+    kind: "CLASS" as CreditKind,
+    perDayLimit: 1 as number | null,
+    seats: 1,
+  },
+
+  /* ------------------------------------------------- personal and duet
+     A different thing from everything above, sold in the same currency.
+
+     One reformer, one instructor, and the studio's midday hours: 12:00, 13:00
+     and 14:00, weekdays. An appointment rather than a class, so it is booked by
+     the end of the previous day — somebody has to be asked to come in and teach
+     it — and the session that pays for it cannot pay for anything else.
+
+     Thirty days rather than ninety, because these are bought for a reason that
+     has a date on it: a return after an injury, a technique that is not working,
+     a week before a wedding. A one to one still sitting in a balance in March
+     was not what anybody meant to buy in January. */
+  {
+    slug: "personal",
+    nameEn: "Personal · one to one",
+    nameEl: "Ατομική · ένας προς έναν",
+    credits: 1,
+    priceCents: 3000,
+    validityDays: 30,
+    badge: null as string | null,
+    sortOrder: 10,
+    group: "personal" as PackGroup,
+    kind: "PERSONAL" as CreditKind,
+    perDayLimit: null as number | null,
+    seats: 1,
+  },
+  {
+    slug: "duet",
+    nameEn: "Duet · for two",
+    nameEl: "Duet · για δύο",
+    /* One session, two people. Not two credits: two would let it be split
+       across two solo appointments, which is not what €45 bought. */
+    credits: 1,
+    priceCents: 4500,
+    validityDays: 30,
+    badge: null as string | null,
+    sortOrder: 11,
+    group: "personal" as PackGroup,
+    kind: "DUET" as CreditKind,
+    perDayLimit: null as number | null,
+    seats: 2,
   },
 ];
+
+export type Pack = (typeof PACKS)[number];
 
 export const OFFERED_PACK_SLUGS: ReadonlySet<string> = new Set(
   PACKS.map((p) => p.slug),
@@ -161,6 +268,8 @@ const GROUP_BY_SLUG = new Map<string, PackGroup>(
   PACKS.map((p) => [p.slug, p.group]),
 );
 
+const PACK_BY_SLUG = new Map<string, Pack>(PACKS.map((p) => [p.slug, p]));
+
 /**
  * The group for a slug.
  *
@@ -171,3 +280,13 @@ const GROUP_BY_SLUG = new Map<string, PackGroup>(
 export function groupOf(slug: string): PackGroup {
   return GROUP_BY_SLUG.get(slug) ?? "month";
 }
+
+/** The pack itself, when a caller has only its slug. */
+export function packBySlug(slug: string): Pack | undefined {
+  return PACK_BY_SLUG.get(slug);
+}
+
+/** The two packs that buy an appointment rather than a place in a class. */
+export const PERSONAL_PACK_SLUGS = PACKS.filter(
+  (p) => p.kind !== "CLASS",
+).map((p) => p.slug);

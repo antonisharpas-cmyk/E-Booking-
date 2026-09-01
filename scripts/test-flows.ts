@@ -101,12 +101,24 @@ async function main() {
   );
 
   console.log("\n2. Booking");
+  /* Group classes only. The timetable now also carries midday appointments,
+     which hold one person, close to booking at the end of the previous day and
+     are paid for with a session an ordinary pack does not contain. Picking one
+     of those here would fail three checks for reasons this suite is not
+     about. */
   const future = db
-    .select()
+    .select({ s: classSessions })
     .from(classSessions)
-    .where(gt(classSessions.startsAt, new Date(Date.now() + 3 * 86_400_000)))
+    .innerJoin(classTypes, eq(classSessions.classTypeId, classTypes.id))
+    .where(
+      and(
+        gt(classSessions.startsAt, new Date(Date.now() + 3 * 86_400_000)),
+        eq(classTypes.kind, "GROUP"),
+      ),
+    )
     .limit(4)
-    .all();
+    .all()
+    .map((r) => r.s);
   check("seeded future sessions exist", future.length >= 3, future.length);
 
   const s1 = future[0]!;
@@ -194,7 +206,14 @@ async function main() {
      which is how a suite ends up documenting a rule the app no longer has. */
   const insideHours = FREE_CANCELLATION_HOURS / 2;
   const outsideHours = FREE_CANCELLATION_HOURS + 1;
-  const ct = db.select().from(classTypes).limit(1).get()!;
+  /* A group class type, for the same reason: a session created under the
+     appointment type would obey the appointment cutoff. */
+  const ct = db
+    .select()
+    .from(classTypes)
+    .where(eq(classTypes.kind, "GROUP"))
+    .limit(1)
+    .get()!;
   const soon = new Date(Date.now() + insideHours * 3600_000);
   const lateSession = db
     .insert(classSessions)

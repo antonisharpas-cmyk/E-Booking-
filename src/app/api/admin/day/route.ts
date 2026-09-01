@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { desk } from "@/lib/api-guard";
-import { daySessions } from "@/lib/admin";
+import { activeInstructors, daySessions, upcomingAppointments } from "@/lib/admin";
 
 /**
  * One day's classes with their rosters.
@@ -24,7 +24,17 @@ export async function GET(req: Request) {
   /* Midday keeps the parse inside the intended calendar day whatever the
      server's own timezone is; studioStartOfDay then anchors it to Larnaca. */
   const day = asked ? new Date(`${asked}T12:00:00Z`) : new Date();
-  const sessions = await daySessions(day);
+  const [sessions, appointments, instructors] = await Promise.all([
+    daySessions(day),
+    /* Sent with every day, not only today. It is the same three weeks whichever
+       date is on screen, it is small, and it is the thing on this screen that
+       somebody has to act on. Making it a second request would mean a second
+       loading state for a list of four rows. */
+    upcomingAppointments(),
+    /* The picker's options, sent with the day rather than fetched separately.
+       Four names is smaller than the request that would ask for them. */
+    activeInstructors(),
+  ]);
 
   return NextResponse.json({
     date: asked,
@@ -33,5 +43,11 @@ export async function GET(req: Request) {
       startsAt: s.startsAt.toISOString(),
       endsAt: s.endsAt.toISOString(),
     })),
+    appointments: appointments.map((a) => ({
+      ...a,
+      startsAt: a.startsAt.toISOString(),
+      endsAt: a.endsAt.toISOString(),
+    })),
+    instructors,
   });
 }

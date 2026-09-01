@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { studioEndOfDay } from "@/lib/time";
 
 /**
  * Bring an existing database up to the current schema, on connect.
@@ -46,7 +47,18 @@ const COLUMNS: Record<string, Column[]> = {
   credit_batches: [
     { name: "usable_from", ddl: "integer" },
     { name: "usable_to", ddl: "integer" },
+    /* What the sessions in this batch buy, and how many a day they may buy.
+       See the columns in schema.ts for why a kind rather than a window. */
+    { name: "kind", ddl: "text default 'CLASS' not null" },
+    { name: "per_day_limit", ddl: "integer" },
   ],
+  credit_packages: [
+    { name: "kind", ddl: "text default 'CLASS' not null" },
+    { name: "per_day_limit", ddl: "integer" },
+    { name: "seats", ddl: "integer default 1 not null" },
+  ],
+  class_types: [{ name: "kind", ddl: "text default 'GROUP' not null" }],
+  bookings: [{ name: "guest_name", ddl: "text" }],
   notices: [
     { name: "channels", ddl: "text default '' not null" },
     { name: "user_id", ddl: "text references users(id) on delete cascade" },
@@ -342,6 +354,76 @@ export function ensureSchema(conn: Database.Database): string[] {
       )
       .run();
     applied.push(`index ${rule.index}`);
+  }
+
+  /**
+   * Two corrections to session batches already in the database.
+   *
+   * Both were bugs in how a batch was created, so fixing the code fixes every
+   * future purchase and leaves every existing one wrong. The studio's own test
+   * accounts and the owner's balance are existing ones, so without this the
+   * behaviour they see while testing would not be the behaviour they shipped.
+   *
+   * **The class window.** `expires_at` said when a session could be *spent* and
+   * nothing said what it could be spent *on*, so a 30-day pack could book a
+   * class in November. `usable_to` is the bound that fixes it, and for an
+   * ordinary pack it is simply the expiry. Batches with a `usable_from` are left
+   * alone: those are opening-week sessions, which carry a real window of their
+   * own and must keep it.
+   *
+   * **The hour of expiry.** A pack bought at 14:53 expired at 14:53 on its last
+   * day, while the member's account showed only the date. Rounded up to the end
+   * of that day in Larnaca, which is the date they were shown.
+   *
+   * Both are naturally idempotent: the first matches only rows with a null
+   * window, and the second only rows that are not already at the end of a day.
+   * The rounding is done in JavaScript rather than SQL because SQLite has no
+   * timezone database and "the end of the day in Nicosia" is two different UTC
+   * offsets depending on the month.
+   */
+  if (tableExists(conn, "credit_batches")) {
+    const rows = conn
+      .prepare(
+        `select id, expires_at as expiresAt, usable_to as usableTo,
+                usable_from as usableFrom
+           from credit_batches
+          where expires_at is not null`,
+      )
+      .all() as {
+      id: string;
+      expiresAt: number;
+      usableTo: number | null;
+      usableFrom: number | null;
+    }[];
+
+    const setBoth = conn.prepare(
+      "update credit_batches set expires_at = ?, usable_to = ? where id = ?",
+    );
+    const setExpiry = conn.prepare(
+      "update credit_batches set expires_at = ? where id = ?",
+    );
+
+    let rounded = 0;
+    let windowed = 0;
+    for (const row of rows) {
+      const wanted = Math.floor(
+        studioEndOfDay(new Date(row.expiresAt * 1000)).getTime() / 1000,
+      );
+      const needsRounding = row.expiresAt !== wanted;
+      /* Only an ordinary pack gets its expiry copied into the window. */
+      const needsWindow = row.usableTo === null && row.usableFrom === null;
+
+      if (needsWindow) {
+        setBoth.run(wanted, wanted, row.id);
+        windowed++;
+        if (needsRounding) rounded++;
+      } else if (needsRounding) {
+        setExpiry.run(wanted, row.id);
+        rounded++;
+      }
+    }
+    if (rounded > 0) applied.push(`credit_batches.expires_at rounded on ${rounded}`);
+    if (windowed > 0) applied.push(`credit_batches.usable_to set on ${windowed}`);
   }
 
   /* Push stopped being a preference and became a constant: the studio keeps it

@@ -37,85 +37,109 @@ export function Marquee() {
 export function Intro() {
   const { t } = useI18n();
 
-  /* Trimmed at the foot: the row below ends on a small arch and three short
-     figures, so the section's full rhythm left a band of empty cream under
-     them. */
+  /**
+   * One row, two columns, and nothing floating in the middle of either.
+   *
+   * This section has been rebuilt twice and both earlier versions left a hole.
+   * First the reformer shared a row with a ruled board of figures, which held a
+   * photograph of the one object the whole studio is built around down to about
+   * two hundred pixels. Then the arch took the full width and the figures went
+   * underneath it as a caption, which fixed the picture and opened two new gaps:
+   * empty cream to the left of the arch's curve, and empty cream under the
+   * paragraph on the right.
+   *
+   * So the two halves each carry two things now. The left is the heading, the
+   * way in, and the reformer directly beneath them. The right is the paragraph
+   * and the three figures beneath that. Both columns run to about the same
+   * depth, and there is no band of nothing anywhere in the section.
+   */
   return (
     <Section className="pb-16 md:pb-24">
-      {/* Two rows rather than two tall columns. The copy pairs off on the first
-          row and the arch pairs with the figures on the second, so neither
-          side is left holding an empty half-column. */}
-      <div className="container-x grid gap-10 lg:grid-cols-[1fr_1.05fr] lg:gap-24">
-        <Reveal>
-          <p className="eyebrow mb-5">{t.home.intro.eyebrow}</p>
-          <h2 className="h-display text-balance text-[2.4rem] leading-[1.08] sm:text-5xl">
-            {t.home.intro.title}
-          </h2>
-          <ButtonLink href="/studio" variant="outline" className="mt-9">
-            {t.home.intro.cta}
-          </ButtonLink>
-        </Reveal>
+      <div className="container-x grid gap-12 lg:grid-cols-[1fr_1.05fr] lg:gap-24">
+        {/* ------------------------------------------------------------ left */}
+        <div>
+          <Reveal>
+            <p className="eyebrow mb-5">{t.home.intro.eyebrow}</p>
+            <h2 className="h-display text-balance text-[2.4rem] leading-[1.08] sm:text-5xl">
+              {t.home.intro.title}
+            </h2>
+            <ButtonLink href="/studio" variant="outline" className="mt-9">
+              {t.home.intro.cta}
+            </ButtonLink>
+          </Reveal>
 
-        <Reveal delay={0.12} className="lg:pt-3">
-          <p className="text-[15px] leading-[1.9] text-mocha-500">
-            {t.home.intro.body}
-          </p>
-        </Reveal>
-      </div>
-
-      <div className="container-x mt-12 grid gap-10 lg:mt-10 lg:grid-cols-[1fr_1.05fr] lg:items-start lg:gap-24">
-        {/* An arch rather than a rectangle: the reformer is a long, low object,
-            and the doorway silhouette gives it a shape of its own instead of
-            one more card. No frame — the render already sits on this exact
-            cream, so the arch reads as a shape cut into the page.
-
-            Kept deliberately small, and the two sides finish level. Beside it
-            are three short figures, so a tall arch used to set the height of
-            the whole row and leave a band of empty cream under them. */}
-        <Reveal y={36}>
-          <figure className="arch-in relative aspect-[11/13] w-full max-w-[188px] overflow-hidden rounded-[999px_999px_1.5rem_1.5rem] border border-mocha-600 bg-cream sm:max-w-[212px]">
-            <Parallax strength={5} zoom={0.07}>
+          {/**
+            * The render, unframed and cropped to the machine.
+            *
+            * No arch, no outline, no card. The render's background is this exact
+            * cream, so any border drawn round it is a line describing a rectangle
+            * that is not there, and the arch that used to be here left two
+            * triangles of empty page either side of its curve.
+            *
+            * The source file was the other half of the problem. `reformer-arch.jpg`
+            * is a 1100 by 1310 portrait holding a 948 by 684 landscape object:
+            * 393 pixels of dead cream above the machine and 233 below it, baked
+            * into the asset. Whatever box it was put in, that padding reappeared
+            * as a hole in the page, which is what every version of this section
+            * has been fighting. `reformer-render.jpg` is the same render cropped
+            * to its own ink with an even margin, so the box it sits in is the size
+            * it looks.
+            *
+            * No parallax: a contained image drifting inside a clipped box loses a
+            * few pixels off an end, and this is a picture of one specific object
+            * rather than a texture.
+            */}
+          <Reveal y={36} className="mt-8 lg:mt-10">
+            <figure className="relative aspect-[1036/772] w-full">
               <Image
-                src="/media/reformer-arch.jpg"
+                src="/media/reformer-render.jpg"
                 alt="A Technogym Reform reformer, the machine used in every APEX pilates class"
                 fill
-                sizes="(min-width: 640px) 212px, 58vw"
-                quality={86}
-                className="object-cover"
+                sizes="(min-width: 1024px) 46vw, 92vw"
+                quality={88}
+                className="object-contain"
               />
-            </Parallax>
-          </figure>
-        </Reveal>
+            </figure>
+          </Reveal>
+        </div>
 
-        {/* Three across on a phone, a ruled list from lg up. The figures are
-            short and the arch is tall, so side by side as three columns they
-            finished a long way above it and left the hole this section was
-            criticised for. As rows they stand the same height as the arch and
-            the two sides end together. */}
-        <Reveal delay={0.12}>
-          <dl className="grid grid-cols-3 gap-6 border-t border-mocha-200/70 pt-8 lg:grid-cols-1 lg:gap-0 lg:border-t-0 lg:pt-0">
-            {[
-              { v: String(STUDIO.capacity), k: t.home.hero.stat1 },
-              {
-                v: `${STUDIO.classLengthMinutes}\u2009min`,
-                k: t.home.hero.stat2,
-              },
-              { v: `${STUDIO.openDays}`, k: t.home.intro.daysLabel },
-            ].map((x) => (
-              <div
-                key={x.k}
-                className="lg:flex lg:items-baseline lg:justify-between lg:gap-8 lg:border-t lg:border-mocha-200/70 lg:py-6 lg:last:border-b"
-              >
-                <dd className="font-display text-3xl font-light text-mocha-600">
-                  {x.v}
-                </dd>
-                <dt className="mt-2 text-[11px] uppercase tracking-widest text-clay lg:mt-0">
-                  {x.k}
-                </dt>
-              </div>
-            ))}
-          </dl>
-        </Reveal>
+        {/* ----------------------------------------------------------- right */}
+        <div className="lg:pt-3">
+          <Reveal delay={0.12}>
+            <p className="text-[15px] leading-[1.9] text-mocha-500">
+              {t.home.intro.body}
+            </p>
+          </Reveal>
+
+          {/* The three figures, in the space under the paragraph that was
+              otherwise empty. A ruled list rather than three columns: the
+              labels are long, the numbers are short, and a rule between each
+              pair reads as a specification instead of a graphic. */}
+          <Reveal delay={0.18}>
+            <dl className="mt-10 lg:mt-12">
+              {[
+                { v: String(STUDIO.capacity), k: t.home.hero.stat1 },
+                {
+                  v: `${STUDIO.classLengthMinutes}\u2009min`,
+                  k: t.home.hero.stat2,
+                },
+                { v: `${STUDIO.openDays}`, k: t.home.intro.daysLabel },
+              ].map((x) => (
+                <div
+                  key={x.k}
+                  className="flex items-baseline justify-between gap-8 border-t border-mocha-200/70 py-5 last:border-b"
+                >
+                  <dd className="font-display text-3xl font-light text-mocha-600">
+                    {x.v}
+                  </dd>
+                  <dt className="text-[11px] uppercase tracking-widest text-clay">
+                    {x.k}
+                  </dt>
+                </div>
+              ))}
+            </dl>
+          </Reveal>
+        </div>
       </div>
     </Section>
   );
@@ -249,13 +273,33 @@ export function Technogym() {
 export function TimetablePreview() {
   const { t } = useI18n();
 
+  /**
+   * The studio's hours, including the three in the middle of the day.
+   *
+   * The weekday line reads 06:00 to 12:00 and 15:00 to 20:00, which leaves a
+   * three-hour gap that looks like the studio is shut. It is not: those are the
+   * Personal and Duet hours, and a card that lists opening times while omitting
+   * the only part of the day somebody can have the room to themselves is a card
+   * that hides the thing worth knowing. `note` marks the row that is by
+   * appointment rather than on the timetable.
+   */
   const rows = [
     {
       label: t.home.timetable.weekday,
       blocks: ["06:00 – 12:00", "15:00 – 20:00"],
+      note: null as string | null,
     },
-    { label: t.home.timetable.saturday, blocks: ["07:00 – 11:00"] },
-    { label: t.home.timetable.sunday, blocks: [] },
+    {
+      label: t.home.timetable.personalLabel,
+      blocks: [t.home.timetable.personalHours],
+      note: t.home.timetable.personalNote,
+    },
+    {
+      label: t.home.timetable.saturday,
+      blocks: ["07:00 – 11:00"],
+      note: null as string | null,
+    },
+    { label: t.home.timetable.sunday, blocks: [], note: null as string | null },
   ];
 
   return (
@@ -321,6 +365,11 @@ export function TimetablePreview() {
                   ) : (
                     <p className="mt-3 font-display text-xl font-light text-clay/70">
                       {t.home.timetable.closed}
+                    </p>
+                  )}
+                  {r.note && (
+                    <p className="mt-1.5 text-[11px] leading-snug text-clay">
+                      {r.note}
                     </p>
                   )}
                 </div>

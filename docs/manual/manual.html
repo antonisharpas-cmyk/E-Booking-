@@ -274,6 +274,11 @@
     <figcaption>One day's classes. The count on the right of each class is booked against capacity: five is full.</figcaption>
   </figure>
 
+  <div class="note">
+    <span class="label">The gold block above the date</span>
+    <p>When somebody has booked a Personal or Duet hour, a list of them sits above the day control, however far ahead they are. Those are the ones that need a phone call: read the chapter on Personal and Duet sessions. When nothing is booked the block is not there.</p>
+  </div>
+
   <h3>Choosing the day</h3>
   <table>
     <tr><th>Control</th><th>What it does</th></tr>
@@ -282,6 +287,30 @@
     <tr><td><span class="btn">Today</span></td><td>Appears only when you are looking at another day. Jumps back</td></tr>
     <tr><td><em>n</em> booked</td><td>Everyone booked across the whole day, top right</td></tr>
   </table>
+
+  <h3>Who is teaching it</h3>
+  <p>Every class and every appointment on this screen carries a name picker on its right. Choosing a name puts that instructor on <strong>that one class</strong>, not on the weekly rota, which is the whole reason it exists: the rota says Elena has Tuesdays at 18:00, and this Tuesday Elena is ill. Fixing one Tuesday must not rewrite every Tuesday.</p>
+  <table class="wide">
+    <tr><th>What you do</th><th>What happens</th></tr>
+    <tr>
+      <td>Choose a name on a slot that had nobody</td>
+      <td>They are on it. <strong>Nothing is sent</strong>, because nobody had been promised an instructor yet. This is how every midday appointment gets staffed</td>
+    </tr>
+    <tr>
+      <td>Choose a different name on a slot that had somebody</td>
+      <td>They are on it, and <strong>everybody booked into it is told</strong>: a notification and a message in their account naming who is taking it instead of whom. The desk says how many were told</td>
+    </tr>
+    <tr>
+      <td>Choose <em>No instructor yet</em></td>
+      <td>The slot is cleared. Nothing is sent, because "your instructor is now nobody" is not a message anybody should receive</td>
+    </tr>
+  </table>
+  <p>A class that has already run can still be reassigned, and sometimes should be: <em>Elena covered that one, not Andreas</em> is a correction to the record, and the record is what the studio reads back months later. Nothing is sent for a class that has already started.</p>
+  <div class="note">
+    <span class="label">Only members can be left out of this, and they cannot</span>
+    <p>An instructor changing is one of the things a member does not get to opt out of hearing about, alongside a class being moved or cancelled. It is not marketing. Somebody who booked with a particular instructor on purpose is the one person this notice is really for.</p>
+  </div>
+  <p>An instructor who has left the studio can be taken <em>off</em> a class but not put <em>on</em> one, so the picker offers only the people currently working here.</p>
 
   <h3>Marking attendance</h3>
   <p>Each person shows their name and phone number, with two buttons.</p>
@@ -312,6 +341,52 @@
 </section>
 
 <section class="chapter">
+  <h2>Personal and Duet sessions</h2>
+  <p class="lead">Three hours in the middle of every weekday belong to one person at a time, or to two people who came together. They are booked like a class and run like an appointment, and the difference matters to you more than to anybody: each one is an hour nobody is rostered for until you ring somebody.</p>
+
+  <h3>What they are</h3>
+  <table class="wide">
+    <tr><th></th><th>Personal</th><th>Duet</th></tr>
+    <tr><td>Price</td><td>€30</td><td>€45 for the two of them, €22.50 each</td></tr>
+    <tr><td>Who comes</td><td>One member</td><td>The member and one guest, named when they book</td></tr>
+    <tr><td>When</td><td colspan="2">12:00, 13:00 and 14:00, Monday to Friday. Never at the weekend</td></tr>
+    <tr><td>How long the session lasts</td><td colspan="2">30 days from purchase, not 90</td></tr>
+  </table>
+  <p>The guest does not need an account and never has to make one. Their name is typed by the member who booked, and it exists on that booking and nowhere else, which is why it appears on your screen: you are the only person who will find out that two people are coming.</p>
+
+  <div class="note">
+    <span class="label">These sessions buy nothing else, and nothing else buys them</span>
+    <p>A Personal session cannot pay for a group class, and a class session cannot pay for a midday hour. A member holding five class sessions and one Personal has six sessions and exactly one of them books noon on Tuesday. The website says so plainly when somebody tries; if they ask you at the counter, that is the answer.</p>
+    <p><strong>A Personal and a Duet do not substitute for each other either.</strong> A Duet is priced for two people, so it cannot be spent on an hour where only one turns up, and a Personal cannot cover two. If a member has bought the wrong one, take it back with a negative entry and sell the right one: see the field below.</p>
+  </div>
+
+  <h3>Booking closes the night before</h3>
+  <p>An appointment can be booked until the <strong>end of the previous day</strong> and not a minute later. That is not caution, it is the only rule that makes the hour possible: between a booking landing and the member arriving, somebody has to ask an instructor to come in for an hour they were not working.</p>
+  <p><strong>Cancellation closes at the same moment</strong>, which is stricter than the twelve hours a class gets. Once an instructor has been asked to come in, that hour is worked and paid whether or not the member turns up, so it cannot be given back afterwards. The member is told this on the screen where they book and again in the email they receive.</p>
+
+  <h3>What lands in your inbox</h3>
+  <p>Every appointment booked or cancelled sends an email to the studio's own address the moment it happens. It carries the day and the hour in the subject line, whether one person or two are coming, the second person's name, and the member's phone number, so the two phone calls that follow can both be made from the message itself.</p>
+  <p>The message is not a courtesy copy. It is the only thing that tells the studio an unrostered hour now exists.</p>
+  <div class="note">
+    <span class="label">The member gets no email, and that is deliberate</span>
+    <p>They get a notification on their phone and a message in their account, the same as any booking, because they are looking at the screen that just confirmed it. This email exists for the one party who is <em>not</em> looking at a screen, which is you. So if somebody says they booked and asks whether it came through, the answer is on the list below, not in their inbox.</p>
+  </div>
+
+  <h3>The list on the Bookings screen</h3>
+  <p>At the top of <strong>Bookings</strong>, above the day you are looking at, is every Personal and Duet appointment still to come, however far ahead. Each row gives the day and hour, whether it is a Personal or a Duet, who is coming, their number, and either the instructor's name or <em>No instructor yet</em>.</p>
+  <p>It is above the day control on purpose. The day below answers "who is in this morning". An appointment asks the opposite question, and the way an hour gets missed is by nobody opening Thursday until Thursday. When there is nothing booked the block is not there at all.</p>
+
+  <div class="warn">
+    <span class="label">A cancelled appointment still needs a phone call</span>
+    <p>The email tells you an hour was given back. If you had already asked somebody to come in for it, they do not know that unless you tell them. Nothing on this system rings an instructor.</p>
+  </div>
+
+  <h3>Selling one at the counter</h3>
+  <p>On the member's page, under <strong>Sessions at the desk</strong>, the field <strong>What these sessions buy</strong> decides what they get: <strong>Group classes</strong>, <strong>Personal hour</strong> or <strong>Duet hour</strong>. Choosing Personal or Duet also drops the validity to 30 days, which is what those packs are sold with.</p>
+  <p>Get it wrong and the member has paid €30 for something they cannot spend on the thing they paid for. It is correctable, with a negative entry and a fresh sale, but it is easier to read the field.</p>
+</section>
+
+<section class="chapter">
   <h2>Members</h2>
   <p class="lead">Everything about one person: their balance, how to sell them sessions at the counter, their contact details, and their history.</p>
 
@@ -338,11 +413,27 @@
     <tr><th>Field</th><th>What to put in it</th></tr>
     <tr><td>How many</td><td>A positive number adds sessions. A <strong>negative</strong> number takes them away: that is how you correct a mistake</td></tr>
     <tr><td>Amount taken</td><td>What you actually took, in euro. Leave it at zero for a free adjustment</td></tr>
-    <tr><td>Valid for (days)</td><td>How long before the sessions expire</td></tr>
+    <tr><td>Valid for (days)</td><td>How long before the sessions expire. They last to the <strong>end</strong> of that day, and they can only book classes <strong>inside</strong> it: see the note below</td></tr>
     <tr><td>Paid by</td><td><strong>Cash</strong> · <strong>Card at the desk</strong> · <strong>Adjustment, no payment</strong></td></tr>
+    <tr><td>What these sessions buy</td><td><strong>Group classes</strong> · <strong>Personal hour</strong> · <strong>Duet hour</strong>. Leave it on Group classes unless they are buying a midday appointment. See the chapter on those</td></tr>
     <tr><td>Note for the ledger</td><td>Why. Write something: a year later it is the only explanation that exists</td></tr>
   </table>
   <p>Then <span class="btn">Record it</span>.</p>
+
+  <div class="note">
+    <span class="label">What "30 days" means, exactly</span>
+    <p>Two things, and members ask about both.</p>
+    <p>Sessions last until <strong>23:59 on their last day</strong>, not until the hour they were sold. A pack sold at nine in the morning is still good at eight that evening thirty days later, which is what the date on the member's account has always implied.</p>
+    <p>And the window covers the <strong>class</strong> as well as the booking. A 30-day pack books classes in those 30 days; it cannot book a class in three months even if the member is booking it today. Otherwise 30 days would limit their shopping and not their training, and seats would come out of a timetable the studio has not started selling. If somebody asks why a date is refused, the site tells them the last date that would have worked, and that is the answer.</p>
+  </div>
+
+  <div class="note">
+    <span class="label">When a member holds two packages at once</span>
+    <p>Common: they top up before the old sessions have run out. Say three expire on 18 September and five on 18 October.</p>
+    <p>Every class they book comes out of the <strong>18 September</strong> three first, because those are the ones about to be lost. The site always spends the package that dies soonest, so nobody loses sessions they paid for while newer ones sit unused. Sessions with no expiry at all are spent last.</p>
+    <p>If they cancel in time, the session goes back into <strong>the same package</strong>, on its original date. It does not move onto the later expiry, and it does not come back with a fresh 30 days on it. That holds even when it was the last session in that package: the package is refilled rather than replaced, so there is no chance for the date to change. Booking and cancelling is not a way to keep a session alive past its date, and you can say so plainly if a member asks.</p>
+    <p>The member's session history names the package behind every line, so you can always show them where a session went and where it came back to.</p>
+  </div>
 
   <div class="money">
     <span class="label">Cash and card at the desk count as revenue</span>
@@ -545,6 +636,19 @@
     <img src="fig-owner-en-pricing.png" alt="The Pricing tab">
     <figcaption>Every pack with its price, and the offer controls above them.</figcaption>
   </figure>
+
+  <h3>What is on sale</h3>
+  <table class="wide">
+    <tr><th>Pack</th><th>Sessions</th><th>Price</th><th>Valid for</th></tr>
+    <tr><td>Day pass</td><td>1</td><td>€20</td><td>30 days</td></tr>
+    <tr><td>Monthly, 1 to 4 a week</td><td>4 · 8 · 12 · 16</td><td>€60 · €110 · €150 · €180</td><td>30 days</td></tr>
+    <tr><td>3 months, 1 to 3 a week</td><td>12 · 24 · 36</td><td>€160 · €270 · €375</td><td>90 days</td></tr>
+    <tr><td>3 months, Unlimited</td><td>78, one a day</td><td>€470</td><td>90 days</td></tr>
+    <tr><td>Personal, one to one</td><td>1</td><td>€30</td><td>30 days</td></tr>
+    <tr><td>Duet, for two</td><td>1, for two people</td><td>€45</td><td>30 days</td></tr>
+  </table>
+  <p>The Unlimited plan is 78 sessions because ninety days is twelve whole weeks and six days over, and the studio opens six days a week. It carries one extra rule the others do not: <strong>one class a day</strong>. A member who has already booked a class for Tuesday is told so rather than being allowed to spend the quarter in a fortnight.</p>
+  <p>The last two are appointments rather than classes, and they have a chapter of their own.</p>
 
   <h3>Running an offer</h3>
   <table class="wide">
@@ -759,6 +863,11 @@
     <figcaption>Τα μαθήματα μιας ημέρας. Ο αριθμός δεξιά είναι κρατήσεις προς χωρητικότητα: το πέντε σημαίνει γεμάτο.</figcaption>
   </figure>
 
+  <div class="note">
+    <span class="label">Το χρυσό πλαίσιο πάνω από την ημερομηνία</span>
+    <p>Όταν κάποιος έχει κλείσει Ατομική ή Duet ώρα, μια λίστα με αυτές βρίσκεται πάνω από την επιλογή ημέρας, όσο μακριά κι αν είναι. Αυτές χρειάζονται τηλεφώνημα: διάβασε το κεφάλαιο για τις Ατομικές και Duet συνεδρίες. Όταν δεν υπάρχει τίποτε κλεισμένο, το πλαίσιο δεν εμφανίζεται.</p>
+  </div>
+
   <h3>Επιλογή ημέρας</h3>
   <table>
     <tr><th>Στοιχείο</th><th>Τι κάνει</th></tr>
@@ -768,7 +877,31 @@
     <tr><td><em>n</em> κρατήσεις</td><td>Όλες οι κρατήσεις της ημέρας, πάνω δεξιά</td></tr>
   </table>
 
-  <h3>Σημείωση παρουσίας</h3>
+  <h3>Ποιος το κάνει</h3>
+  <p>Κάθε μάθημα και κάθε ραντεβού σε αυτή την οθόνη έχει έναν επιλογέα ονόματος στα δεξιά του. Επιλέγοντας όνομα, βάζεις αυτόν τον εκπαιδευτή σε <strong>αυτό το ένα μάθημα</strong>, όχι στο εβδομαδιαίο πρόγραμμα. Αυτός είναι και ο λόγος που υπάρχει: το πρόγραμμα λέει ότι η Έλενα έχει τις Τρίτες στις 18:00, και αυτή την Τρίτη η Έλενα είναι άρρωστη. Η διόρθωση μιας Τρίτης δεν πρέπει να ξαναγράφει κάθε Τρίτη.</p>
+  <table class="wide">
+    <tr><th>Τι κάνεις</th><th>Τι συμβαίνει</th></tr>
+    <tr>
+      <td>Διαλέγεις όνομα σε ώρα που δεν είχε κανέναν</td>
+      <td>Ανατίθεται σε αυτόν. <strong>Δεν στέλνεται τίποτε</strong>, γιατί δεν είχε υποσχεθεί σε κανέναν εκπαιδευτής. Έτσι στελεχώνεται κάθε μεσημεριανό ραντεβού</td>
+    </tr>
+    <tr>
+      <td>Διαλέγεις άλλο όνομα σε ώρα που είχε κάποιον</td>
+      <td>Ανατίθεται σε αυτόν, και <strong>ενημερώνονται όλοι όσοι έχουν κράτηση</strong>: ειδοποίηση και μήνυμα στον λογαριασμό τους, με το ποιος το αναλαμβάνει και στη θέση ποιου. Η υποδοχή βλέπει πόσοι ενημερώθηκαν</td>
+    </tr>
+    <tr>
+      <td>Διαλέγεις <em>Χωρίς εκπαιδευτή ακόμη</em></td>
+      <td>Η ώρα μένει χωρίς εκπαιδευτή. Δεν στέλνεται τίποτε, γιατί «ο εκπαιδευτής σου είναι πλέον κανένας» δεν είναι μήνυμα που πρέπει να λάβει κανείς</td>
+    </tr>
+  </table>
+  <p>Ένα μάθημα που έχει ήδη γίνει μπορεί να αλλάξει εκπαιδευτή, και μερικές φορές πρέπει: το <em>αυτό το κάλυψε η Έλενα, όχι ο Αντρέας</em> είναι διόρθωση στο αρχείο, και το αρχείο είναι αυτό που διαβάζει το στούντιο μήνες μετά. Για μάθημα που έχει ήδη αρχίσει δεν στέλνεται τίποτε.</p>
+  <div class="note">
+    <span class="label">Κανένα μέλος δεν μπορεί να εξαιρεθεί από αυτό</span>
+    <p>Η αλλαγή εκπαιδευτή είναι από αυτά που ένα μέλος δεν μπορεί να επιλέξει να μην μαθαίνει, μαζί με τη μετακίνηση ή την ακύρωση μαθήματος. Δεν είναι προωθητικό μήνυμα. Όποιος έκλεισε επίτηδες με συγκεκριμένο εκπαιδευτή είναι ακριβώς το άτομο για το οποίο υπάρχει αυτή η ειδοποίηση.</p>
+  </div>
+  <p>Ένας εκπαιδευτής που έχει φύγει από το στούντιο μπορεί να <em>αφαιρεθεί</em> από μάθημα αλλά δεν μπορεί να <em>μπει</em> σε μάθημα, οπότε ο επιλογέας δείχνει μόνο όσους δουλεύουν τώρα εδώ.</p>
+
+  <h3>Σήμανση παρουσιών</h3>
   <p>Κάθε άτομο εμφανίζεται με όνομα και τηλέφωνο, και δύο κουμπιά.</p>
   <table>
     <tr><th>Κουμπί</th><th>Σημαίνει</th></tr>
@@ -794,6 +927,52 @@
     <span class="label">Γιατί μετράει η θέση</span>
     <p>Τα μαθήματα χωρούν πέντε άτομα. Η ακύρωση, με οποιονδήποτε τρόπο, ελευθερώνει αμέσως τη θέση για άλλο μέλος στον ιστότοπο, οπότε ακύρωνε μόλις το μάθεις, ακόμη κι όταν δεν επιστρέφεται η συνεδρία.</p>
   </div>
+</section>
+
+<section class="chapter" lang="el">
+  <h2>Ατομικές και Duet συνεδρίες</h2>
+  <p class="lead">Τρεις ώρες στη μέση κάθε καθημερινής ανήκουν σε ένα άτομο τη φορά, ή σε δύο άτομα που ήρθαν μαζί. Κλείνονται όπως ένα μάθημα αλλά λειτουργούν ως ραντεβού, και η διαφορά αφορά εσένα περισσότερο από οποιονδήποτε: κάθε μία είναι μια ώρα για την οποία δεν είναι κανείς στο πρόγραμμα μέχρι να πάρεις τηλέφωνο.</p>
+
+  <h3>Τι είναι</h3>
+  <table class="wide">
+    <tr><th></th><th>Ατομική</th><th>Duet</th></tr>
+    <tr><td>Τιμή</td><td>€30</td><td>€45 και για τους δύο, €22,50 ο καθένας</td></tr>
+    <tr><td>Ποιοι έρχονται</td><td>Ένα μέλος</td><td>Το μέλος και ένας καλεσμένος, με το όνομά του στην κράτηση</td></tr>
+    <tr><td>Πότε</td><td colspan="2">12:00, 13:00 και 14:00, Δευτέρα με Παρασκευή. Ποτέ Σαββατοκύριακο</td></tr>
+    <tr><td>Πόσο ισχύει η συνεδρία</td><td colspan="2">30 ημέρες από την αγορά, όχι 90</td></tr>
+  </table>
+  <p>Ο καλεσμένος δεν χρειάζεται λογαριασμό και δεν χρειάζεται να φτιάξει ποτέ. Το όνομά του το γράφει το μέλος που έκανε την κράτηση, και υπάρχει σε αυτή την κράτηση και πουθενά αλλού. Γι' αυτό εμφανίζεται στην οθόνη σου: είσαι ο μόνος που θα μάθει ότι έρχονται δύο άτομα.</p>
+
+  <div class="note">
+    <span class="label">Αυτές οι συνεδρίες δεν αγοράζουν τίποτε άλλο, και τίποτε άλλο δεν τις αγοράζει</span>
+    <p>Μια Ατομική συνεδρία δεν πληρώνει ομαδικό μάθημα, και μια συνεδρία μαθήματος δεν πληρώνει μεσημεριανή ώρα. Ένα μέλος με πέντε συνεδρίες μαθημάτων και μία Ατομική έχει έξι συνεδρίες, και ακριβώς μία από αυτές κλείνει το μεσημέρι της Τρίτης. Η ιστοσελίδα το λέει καθαρά όταν κάποιος το επιχειρήσει. Αν σε ρωτήσουν στο ταμείο, αυτή είναι η απάντηση.</p>
+    <p><strong>Η Ατομική και η Duet δεν αντικαθιστούν η μία την άλλη.</strong> Η Duet έχει τιμή για δύο άτομα, οπότε δεν μπορεί να ξοδευτεί σε ώρα όπου έρχεται μόνο ένας, και η Ατομική δεν καλύπτει δύο. Αν ένα μέλος αγόρασε το λάθος, πάρ' το πίσω με αρνητική καταχώρηση και πούλα το σωστό: δες το πεδίο παρακάτω.</p>
+  </div>
+
+  <h3>Οι κρατήσεις κλείνουν το προηγούμενο βράδυ</h3>
+  <p>Ένα ραντεβού κλείνεται μέχρι το <strong>τέλος της προηγούμενης μέρας</strong> και ούτε λεπτό αργότερα. Δεν είναι υπερβολή, είναι ο μόνος κανόνας που κάνει την ώρα εφικτή: ανάμεσα στην κράτηση και στην άφιξη του μέλους, κάποιος πρέπει να ζητήσει από εκπαιδευτή να έρθει για μια ώρα που δεν δούλευε.</p>
+  <p><strong>Η ακύρωση κλείνει την ίδια στιγμή</strong>, που είναι αυστηρότερο από τις δώδεκα ώρες ενός μαθήματος. Από τη στιγμή που ζητήθηκε από εκπαιδευτή να έρθει, η ώρα δουλεύεται και πληρώνεται είτε έρθει το μέλος είτε όχι, οπότε δεν επιστρέφεται μετά. Το μέλος το διαβάζει στην οθόνη όπου κάνει την κράτηση και ξανά στο email που λαμβάνει.</p>
+
+  <h3>Τι φτάνει στο email σας</h3>
+  <p>Κάθε ραντεβού που κλείνεται ή ακυρώνεται στέλνει email στη διεύθυνση του στούντιο τη στιγμή που συμβαίνει. Έχει την ημέρα και την ώρα στο θέμα, το αν έρχεται ένα άτομο ή δύο, το όνομα του δεύτερου ατόμου και το τηλέφωνο του μέλους, ώστε τα δύο τηλεφωνήματα που ακολουθούν να γίνονται μέσα από το ίδιο το μήνυμα.</p>
+  <p>Το μήνυμα δεν είναι αντίγραφο ευγενείας. Είναι το μόνο πράγμα που ενημερώνει το στούντιο ότι υπάρχει πλέον μια ώρα εκτός προγράμματος.</p>
+  <div class="note">
+    <span class="label">Το μέλος δεν λαμβάνει email, και αυτό είναι σκόπιμο</span>
+    <p>Λαμβάνει ειδοποίηση στο κινητό και μήνυμα στον λογαριασμό του, όπως σε κάθε κράτηση, γιατί βλέπει την οθόνη που μόλις επιβεβαίωσε την κράτηση. Αυτό το email υπάρχει για το ένα μέρος που <em>δεν</em> βλέπει οθόνη, δηλαδή για εσάς. Οπότε αν κάποιος πει ότι έκλεισε και ρωτήσει αν πέρασε, η απάντηση είναι στη λίστα παρακάτω και όχι στο email του.</p>
+  </div>
+
+  <h3>Η λίστα στην οθόνη Κρατήσεις</h3>
+  <p>Στην κορυφή των <strong>Κρατήσεων</strong>, πάνω από την ημέρα που βλέπεις, βρίσκονται όλα τα επόμενα Ατομικά και Duet ραντεβού, όσο μακριά κι αν είναι. Κάθε γραμμή δίνει την ημέρα και την ώρα, το αν είναι Ατομικό ή Duet, ποιοι έρχονται, το τηλέφωνό τους, και είτε το όνομα του εκπαιδευτή είτε <em>Χωρίς εκπαιδευτή ακόμη</em>.</p>
+  <p>Βρίσκεται πάνω από την επιλογή ημέρας σκόπιμα. Η ημέρα από κάτω απαντά στο «ποιοι είναι μέσα σήμερα το πρωί». Ένα ραντεβού θέτει το αντίθετο ερώτημα, και μια ώρα χάνεται ακριβώς επειδή κανείς δεν άνοιξε την Πέμπτη πριν από την Πέμπτη. Όταν δεν υπάρχει τίποτε κλεισμένο, το πλαίσιο δεν εμφανίζεται καθόλου.</p>
+
+  <div class="warn">
+    <span class="label">Ένα ακυρωμένο ραντεβού θέλει και αυτό τηλεφώνημα</span>
+    <p>Το email σου λέει ότι μια ώρα επέστρεψε. Αν είχες ήδη ζητήσει από κάποιον να έρθει, εκείνος δεν το ξέρει αν δεν του το πεις. Τίποτε σε αυτό το σύστημα δεν παίρνει τηλέφωνο εκπαιδευτή.</p>
+  </div>
+
+  <h3>Πώληση στο ταμείο</h3>
+  <p>Στη σελίδα του μέλους, κάτω από τις <strong>Συνεδρίες στην υποδοχή</strong>, το πεδίο <strong>Τι αγοράζουν αυτές οι συνεδρίες</strong> αποφασίζει τι παίρνουν: <strong>Ομαδικά μαθήματα</strong>, <strong>Ατομική ώρα</strong> ή <strong>Duet ώρα</strong>. Επιλέγοντας ατομική ή duet, η ισχύς πέφτει και στις 30 ημέρες, όπως πωλούνται αυτά τα πακέτα.</p>
+  <p>Αν γίνει λάθος, το μέλος πλήρωσε €30 για κάτι που δεν μπορεί να ξοδέψει σε αυτό που πλήρωσε. Διορθώνεται, με μια αρνητική καταχώρηση και μια νέα πώληση, αλλά είναι ευκολότερο να διαβάσεις το πεδίο.</p>
 </section>
 
 <section class="chapter" lang="el">
@@ -823,8 +1002,9 @@
     <tr><th>Πεδίο</th><th>Τι βάζεις</th></tr>
     <tr><td>Πόσες</td><td>Θετικός αριθμός προσθέτει. <strong>Αρνητικός</strong> αφαιρεί: έτσι διορθώνεις λάθος</td></tr>
     <tr><td>Ποσό που εισπράχθηκε</td><td>Ό,τι πραγματικά πήρες, σε ευρώ. Μηδέν για δωρεάν διόρθωση</td></tr>
-    <tr><td>Ισχύς (ημέρες)</td><td>Σε πόσες ημέρες λήγουν οι συνεδρίες</td></tr>
+    <tr><td>Ισχύς (ημέρες)</td><td>Σε πόσες ημέρες λήγουν οι συνεδρίες. Ισχύουν μέχρι το <strong>τέλος</strong> εκείνης της ημέρας, και μπορούν να κλείσουν μαθήματα μόνο <strong>μέσα</strong> σε αυτή την περίοδο: δες τη σημείωση παρακάτω</td></tr>
     <tr><td>Τρόπος πληρωμής</td><td><strong>Μετρητά</strong> · <strong>Κάρτα στην υποδοχή</strong> · <strong>Διόρθωση, χωρίς πληρωμή</strong></td></tr>
+    <tr><td>Τι αγοράζουν αυτές οι συνεδρίες</td><td><strong>Ομαδικά μαθήματα</strong> · <strong>Ατομική ώρα</strong> · <strong>Duet ώρα</strong>. Άφησέ το στα Ομαδικά μαθήματα εκτός αν αγοράζουν μεσημεριανό ραντεβού. Δες το σχετικό κεφάλαιο</td></tr>
     <tr><td>Σημείωση</td><td>Ο λόγος. Γράψε κάτι: σε έναν χρόνο θα είναι η μόνη εξήγηση που υπάρχει</td></tr>
   </table>
   <p>Και μετά <span class="btn">Καταγραφή</span>.</p>
@@ -832,6 +1012,13 @@
   <div class="warn">
     <span class="label">Ένα μέλος στο οποίο δεν μπορείς να πουλήσεις</span>
     <p>Αν το μέλος δεν έχει επιβεβαιώσει ποτέ τη διεύθυνση email του, το <span class="btn">Καταχώρηση</span> είναι απενεργοποιημένο και το πλαίσιο το εξηγεί. Δεν είναι σφάλμα. Το επόμενο κεφάλαιο εξηγεί γιατί και πώς διορθώνεται σε μισό λεπτό, όσο εκείνο στέκεται μπροστά σου. <strong>Η αφαίρεση συνεδριών λειτουργεί κανονικά</strong>, σε οποιαδήποτε κατάσταση.</p>
+  </div>
+
+  <div class="note">
+    <span class="label">Τι σημαίνει ακριβώς «30 ημέρες»</span>
+    <p>Δύο πράγματα, και τα μέλη ρωτούν και για τα δύο.</p>
+    <p>Οι συνεδρίες ισχύουν μέχρι τις <strong>23:59 της τελευταίας τους ημέρας</strong>, όχι μέχρι την ώρα που πωλήθηκαν. Ένα πακέτο που πωλήθηκε στις εννέα το πρωί ισχύει ακόμη στις οκτώ το βράδυ τριάντα ημέρες μετά, που είναι και αυτό που υπονοούσε πάντα η ημερομηνία στον λογαριασμό του μέλους.</p>
+    <p>Και η περίοδος καλύπτει το <strong>μάθημα</strong>, όχι μόνο την κράτηση. Ένα πακέτο 30 ημερών κλείνει μαθήματα μέσα σε αυτές τις 30 ημέρες, δεν μπορεί να κλείσει μάθημα σε τρεις μήνες ακόμη κι αν το μέλος κάνει την κράτηση σήμερα. Διαφορετικά οι 30 ημέρες θα περιόριζαν τις αγορές του και όχι την προπόνησή του, και θα έφευγαν θέσεις από πρόγραμμα που το στούντιο δεν έχει αρχίσει να πουλάει. Αν κάποιος ρωτήσει γιατί απορρίπτεται μια ημερομηνία, η ιστοσελίδα του λέει την τελευταία ημερομηνία που θα δούλευε, και αυτή είναι η απάντηση.</p>
   </div>
 
   <div class="money">
@@ -1030,6 +1217,20 @@
     <figcaption>Κάθε πακέτο με την τιμή του, και τα στοιχεία της προσφοράς από πάνω.</figcaption>
   </figure>
 
+  <h3>Τι πωλείται</h3>
+  <table class="wide">
+    <tr><th>Πακέτο</th><th>Συνεδρίες</th><th>Τιμή</th><th>Ισχύει για</th></tr>
+    <tr><td>Ημερήσιο πάσο</td><td>1</td><td>€20</td><td>30 ημέρες</td></tr>
+    <tr><td>Μηνιαίο, 1 έως 4 την εβδομάδα</td><td>4 · 8 · 12 · 16</td><td>€60 · €110 · €150 · €180</td><td>30 ημέρες</td></tr>
+    <tr><td>3 μήνες, 1 έως 3 την εβδομάδα</td><td>12 · 24 · 36</td><td>€160 · €270 · €375</td><td>90 ημέρες</td></tr>
+    <tr><td>3 μήνες, Unlimited</td><td>78, μία την ημέρα</td><td>€470</td><td>90 ημέρες</td></tr>
+    <tr><td>Ατομική, ένας προς έναν</td><td>1</td><td>€30</td><td>30 ημέρες</td></tr>
+    <tr><td>Duet, για δύο</td><td>1, για δύο άτομα</td><td>€45</td><td>30 ημέρες</td></tr>
+  </table>
+  <p>Το πλάνο Unlimited έχει 78 συνεδρίες επειδή οι ενενήντα ημέρες είναι δώδεκα ολόκληρες εβδομάδες και έξι ημέρες ακόμη, και το στούντιο ανοίγει έξι ημέρες την εβδομάδα. Έχει έναν κανόνα που τα άλλα δεν έχουν: <strong>ένα μάθημα την ημέρα</strong>. Ένα μέλος που έχει ήδη κλείσει μάθημα για την Τρίτη το βλέπει γραμμένο, αντί να μπορεί να ξοδέψει το τρίμηνο μέσα σε δεκαπέντε μέρες.</p>
+  <p>Τα δύο τελευταία είναι ραντεβού και όχι μαθήματα, και έχουν δικό τους κεφάλαιο.</p>
+
+  <h3>Πώς τρέχει μια προσφορά</h3>
   <table class="wide">
     <tr><th>Πεδίο</th><th>Σημασία</th></tr>
     <tr><td>Ισχύει για</td><td>Όλη τη λίστα, ή ένα πακέτο</td></tr>

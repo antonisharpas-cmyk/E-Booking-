@@ -227,6 +227,21 @@ export const classTypes = sqliteTable(
     intensity: integer("intensity").notNull().default(2),
     focusEn: text("focus_en").notNull().default(""),
     focusEl: text("focus_el").notNull().default(""),
+    /**
+     * GROUP or PERSONAL, and the difference is not cosmetic.
+     *
+     * A GROUP class is the timetable as it has always been: five reformers, five
+     * places, booked with an ordinary session, bookable up to a minute before it
+     * starts. A PERSONAL class is one reformer and one appointment, held in the
+     * midday gap, paid for with a personal or duet session, and closed to new
+     * bookings at the end of the previous day because somebody has to be asked
+     * to come in and teach it.
+     *
+     * So it decides three separate rules — which sessions can pay for it, when
+     * booking closes, and how many people the room holds — and every one of them
+     * reads this column rather than guessing from the hour or the capacity.
+     */
+    kind: text("kind").notNull().default("GROUP"),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
   },
@@ -245,6 +260,25 @@ export const creditPackages = sqliteTable(
     validityDays: integer("validity_days").notNull().default(90),
     /** POPULAR | BEST_VALUE | null */
     badge: text("badge"),
+    /**
+     * What the sessions in this pack can be spent on: CLASS, PERSONAL or DUET.
+     *
+     * Copied onto the batch when the pack is bought, because the pack can be
+     * withdrawn or repriced afterwards and a member's balance must not change
+     * meaning when it is. See credit_batches.kind.
+     */
+    kind: text("kind").notNull().default("CLASS"),
+    /**
+     * The most classes a day these sessions may be spent on. Null means no cap.
+     *
+     * Exists for one pack: the three-month Unlimited plan hands over enough
+     * sessions to train every day the studio is open, and "unlimited" has to
+     * mean one a day rather than seventy-eight in a fortnight. Kept as a number
+     * rather than a flag so a future pack can say two.
+     */
+    perDayLimit: integer("per_day_limit"),
+    /** How many people one session admits. 1 for everything except a duet. */
+    seats: integer("seats").notNull().default(1),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
   },
@@ -314,6 +348,17 @@ export const bookings = sqliteTable(
     creditRefunded: integer("credit_refunded", { mode: "boolean" })
       .notNull()
       .default(false),
+    /**
+     * The second person on a duet, named by the member who booked it.
+     *
+     * Null on every ordinary booking. Set only when a duet session paid for the
+     * appointment, and it is not decoration: the instructor arriving at noon
+     * needs to know whether one person or two are walking in, and the studio has
+     * no other way of learning the second name. Kept as free text because the
+     * partner is usually not a member and should not have to become one for
+     * somebody to bring a friend.
+     */
+    guestName: text("guest_name"),
     createdAt: now().notNull(),
     cancelledAt: integer("cancelled_at", { mode: "timestamp" }),
   },
@@ -366,6 +411,39 @@ export const creditBatches = sqliteTable(
     /** PURCHASE | GRANT | COMPENSATION */
     source: text("source").notNull().default("PURCHASE"),
     expiresAt: integer("expires_at", { mode: "timestamp" }),
+
+    /**
+     * What these sessions buy: CLASS, PERSONAL or DUET.
+     *
+     * The studio sells two things that are both counted in sessions and are not
+     * interchangeable in either direction. A member holding five class sessions
+     * and one personal cannot spend a class session on a noon appointment, and
+     * cannot spend the personal one on the 18:00 Reformer Flow. A window would
+     * only express half of that, which is why this is a kind and not a date
+     * range: it says what the session is *for*, not when.
+     *
+     * DUET is a kind rather than a quantity of two. One duet session is one
+     * appointment for two people, so it spends like a personal one and the
+     * second person is a name on the booking. Making it two credits would let
+     * somebody split it across two solo appointments, which is not what €45
+     * bought.
+     *
+     * CLASS is the default, so every batch granted before any of this existed
+     * keeps behaving exactly as it did.
+     */
+    kind: text("kind").notNull().default("CLASS"),
+
+    /**
+     * The most classes a day this batch may pay for. Null means no cap.
+     *
+     * The three-month Unlimited plan grants a session for every day the studio
+     * opens in the quarter, and the cap is what makes "unlimited" mean what a
+     * member reading the word expects: one a day, all quarter, rather than the
+     * whole lot inside a fortnight. It sits on the batch rather than the pack
+     * because the pack can be repriced or withdrawn while somebody is still
+     * training on it.
+     */
+    perDayLimit: integer("per_day_limit"),
 
     /**
      * Which class dates this batch may be spent on. Null means any.

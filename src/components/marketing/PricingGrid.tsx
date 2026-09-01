@@ -22,7 +22,11 @@ export type PackageCard = {
   validityDays: number;
   badge: string | null;
   /** Which commitment it belongs to, so the page can group the cards. */
-  group?: "single" | "month" | "quarter" | null;
+  group?: "single" | "month" | "quarter" | "personal" | null;
+  /** How many people one session admits. 2 on a duet, 1 on everything else. */
+  seats?: number;
+  /** Set when the plan allows only so many classes a day. */
+  perDayLimit?: number | null;
 };
 
 export function PricingGrid({
@@ -56,7 +60,7 @@ export function PricingGrid({
      by side in a plain grid nobody can tell what separates them. Under a heading
      that says how long you are committing and how long you have to use them, the
      choice reads as two questions — how often, and for how long. */
-  const GROUPS = ["single", "month", "quarter"] as const;
+  const GROUPS = ["single", "month", "quarter", "personal"] as const;
   const grouped = GROUPS.map((g) => ({
     key: g,
     heading: t.pricingPage.groups[g],
@@ -80,7 +84,17 @@ export function PricingGrid({
         )}
       >
         {section.packs.map((p) => {
-          const perClass = Math.round(p.priceCents / p.credits);
+          const seats = p.seats ?? 1;
+          /* Per class on a plan; per person on a duet, where "€45 a class" is
+             true and useless and "€22.50 each" is the number the two people
+             standing there are actually working out. Hidden altogether when a
+             pack is one session for one person, because repeating the price
+             underneath itself tells nobody anything. */
+          const unitCents =
+            seats > 1
+              ? Math.round(p.priceCents / seats)
+              : Math.round(p.priceCents / p.credits);
+          const showUnit = p.credits > 1 || seats > 1;
           const highlight = p.badge === "POPULAR";
           return (
             <RevealItem key={p.id}>
@@ -152,14 +166,19 @@ export function PricingGrid({
                   </p>
                 ) : null}
 
-                <p
-                  className={cn(
-                    "mt-2 text-[12px]",
-                    highlight ? "text-cream/60" : "text-mocha-500",
-                  )}
-                >
-                  {fmtMoney(perClass)} {t.pricingPage.perClassLabel}
-                </p>
+                {showUnit && (
+                  <p
+                    className={cn(
+                      "mt-2 text-[12px]",
+                      highlight ? "text-cream/60" : "text-mocha-500",
+                    )}
+                  >
+                    {fmtMoney(unitCents)}{" "}
+                    {seats > 1
+                      ? t.pricingPage.perPersonLabel
+                      : t.pricingPage.perClassLabel}
+                  </p>
+                )}
 
                 <div
                   className={cn(
@@ -186,6 +205,25 @@ export function PricingGrid({
                       {p.validityDays} {t.pricingPage.days}
                     </span>
                   </p>
+                  {seats > 1 && (
+                    <p className="flex items-center justify-between">
+                      <span>{t.pricingPage.peopleLabel}</span>
+                      <span
+                        className={cn(
+                          "font-display text-xl",
+                          highlight ? "text-cream" : "text-mocha-600",
+                        )}
+                      >
+                        {seats}
+                      </span>
+                    </p>
+                  )}
+                  {p.perDayLimit ? (
+                    <p className="flex items-center justify-between gap-4">
+                      <span>{t.pricingPage.paceLabel}</span>
+                      <span className="text-right">{t.pricingPage.onePerDay}</span>
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="mt-auto pt-8">
@@ -232,8 +270,11 @@ export function PricingGrid({
               <p className="mt-3 text-sm leading-relaxed text-mocha-500">
                 {t.pricingPage.privateBody}
               </p>
+              {/* Sends them to the timetable rather than the contact form: the
+                  studio sells these now, so the answer to "is noon free on
+                  Thursday" is a page and not an email. */}
               <ButtonLink
-                href="/contact"
+                href="/timetable"
                 variant="outline"
                 size="sm"
                 className="mt-5"

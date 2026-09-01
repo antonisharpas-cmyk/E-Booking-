@@ -110,7 +110,9 @@ check('the photo can be removed', (await r.json()).ok===true);
 console.log('\n5. Reminders');
 await req('/api/profile',{method:'PATCH',body:{name:'Prof Test',marketingOptIn:false,notifyEmail:true,notifySms:false,notifyPush:false,reminderMinutes:120}});
 const sess=await req('/api/sessions?days=20');
-const target=(sess.json?.sessions??[]).find(s=>s.spotsLeft>0 && new Date(s.startsAt)>new Date(Date.now()+72*3600e3));
+/* Group classes only: a midday appointment holds one person, closes the
+   night before and needs a session this pack does not contain. */
+const target=(sess.json?.sessions??[]).find(s=>s.classType?.kind!=="PERSONAL" && s.spotsLeft>0 && new Date(s.startsAt)>new Date(Date.now()+72*3600e3));
 const opened=await req('/api/checkout',{method:'POST',body:{packSlug:'month-2'}});
 check('a payment opens for the monthly 2-a-week pack', Boolean(opened.json?.purchaseId), opened.json);
 const grant=await req('/api/payments/settle',{method:'POST',body:{purchaseId:opened.json?.purchaseId}});

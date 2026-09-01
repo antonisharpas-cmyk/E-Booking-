@@ -6,12 +6,15 @@ import {
   classTypes,
   creditBatches,
   creditLedger,
+  instructors,
   purchases,
   users,
 } from "@/db/schema";
 import { hashPassword, isVerified } from "@/lib/auth";
 import { toE164 } from "@/lib/messaging/sms";
 import { getCreditSummary, grantCredits, refundOneCredit } from "@/lib/credits";
+import { notifyInstructorChanged } from "@/lib/messaging/events";
+import type { CreditKind } from "@/lib/packs";
 
 /**
  * What somebody at the desk can do on a member's behalf.
@@ -267,6 +270,15 @@ export async function sellSessions(args: {
   note?: string;
   staffId: string;
   staffName: string;
+  /**
+   * What the sessions buy: CLASS, PERSONAL or DUET.
+   *
+   * The desk takes cash for a one to one as often as the website takes a card
+   * for one, and a personal session sold as a class session is €30 the member
+   * cannot spend on the thing they paid for. Defaults to CLASS, so every
+   * existing caller sells what it always sold.
+   */
+  kind?: CreditKind;
 }): Promise<SellResult> {
   const {
     userId,
@@ -277,6 +289,7 @@ export async function sellSessions(args: {
     note,
     staffId,
     staffName,
+    kind = "CLASS",
   } = args;
 
   if (!Number.isInteger(credits) || credits === 0 || Math.abs(credits) > 100) {
@@ -323,6 +336,7 @@ export async function sellSessions(args: {
         source: method === "adjustment" ? "GRANT" : "PURCHASE",
         reason: method === "adjustment" ? "ADMIN_GRANT" : "PURCHASE",
         note: reason,
+        kind,
       });
     });
 
@@ -526,4 +540,132 @@ export async function resetPassword(userId: string, plain: string) {
     .run();
 
   return { ok: true as const };
+}
+
+/* ------------------------------------------------------- who is teaching it */
+
+export type AssignResult =
+  | {
+      ok: true;
+      /** Who is teaching it now, or null if the slot was cleared. */
+      instructor: string | null;
+      /** Who was teaching it before. */
+      previous: string | null;
+      /** Members told about the change. Zero unless it was a real swap. */
+      told: number;
+    }
+  | {
+      ok: false;
+      code: "SESSION_NOT_FOUND" | "INSTRUCTOR_NOT_FOUND" | "INSTRUCTOR_INACTIVE";
+    };
+
+/**
+ * Put an instructor on one class, or take them off it.
+ *
+ * One class, not the weekly template. That is the whole reason this exists: the
+ * rota says Elena teaches Tuesdays at 18:00, and this morning Elena is ill. What
+ * the studio needs to change is Tuesday the 8th, not every Tuesday, and a tool
+ * that could only edit the template would either be useless for the actual
+ * problem or would quietly rewrite the rota to solve one day of it.
+ *
+ * It is also how a midday appointment gets staffed at all. Those slots are
+ * generated with nobody on them on purpose, because who teaches an hour that
+ * nobody was rostered for is decided by a phone call after the booking lands.
+ * This is where the answer to that phone call is written down.
+ *
+ * ---
+ *
+ * **Past classes can still be edited, and deliberately.**
+ *
+ * "Elena covered that one, not Andreas" is a correction to the record, and the
+ * record is what the studio looks at months later. Refusing it would keep the
+ * history tidy-looking and wrong. Nothing is sent for a class that has already
+ * started, though: see below.
+ *
+ * **When the members are told.**
+ *
+ * Only on a real swap: a named instructor replaced by a different named
+ * instructor, on a class still to come, with somebody booked into it. Filling an
+ * empty slot is not a swap and nobody was promised anything, so it sends
+ * nothing; nor does clearing one, because "your instructor is now nobody" is not
+ * a message anybody should receive. An instructor changing is one of the things
+ * a member cannot opt out of hearing about, which is the studio's own rule and
+ * the reason `serviceOptInAt` exists.
+ */
+export async function assignInstructor(args: {
+  sessionId: string;
+  /** Null clears the slot. */
+  instructorId: string | null;
+  staffName: string;
+  now?: Date;
+}): Promise<AssignResult> {
+  const { sessionId, instructorId, staffName } = args;
+  const now = args.now ?? new Date();
+
+  const session = db
+    .select()
+    .from(classSessions)
+    .where(eq(classSessions.id, sessionId))
+    .get();
+  if (!session) return { ok: false, code: "SESSION_NOT_FOUND" };
+
+  const before = session.instructorId
+    ? (db
+        .select()
+        .from(instructors)
+        .where(eq(instructors.id, session.instructorId))
+        .get() ?? null)
+    : null;
+
+  let after: typeof before = null;
+  if (instructorId) {
+    after =
+      db
+        .select()
+        .from(instructors)
+        .where(eq(instructors.id, instructorId))
+        .get() ?? null;
+    if (!after) return { ok: false, code: "INSTRUCTOR_NOT_FOUND" };
+    /* An instructor who has left the studio can be taken off a class but not
+       put on one. Otherwise the rota can be filled with somebody who is not
+       coming in. */
+    if (!after.active) return { ok: false, code: "INSTRUCTOR_INACTIVE" };
+  }
+
+  /* Nothing to do, and nothing to announce. */
+  if ((session.instructorId ?? null) === (instructorId ?? null)) {
+    return {
+      ok: true,
+      instructor: after?.name ?? null,
+      previous: before?.name ?? null,
+      told: 0,
+    };
+  }
+
+  db.update(classSessions)
+    .set({ instructorId: instructorId ?? null })
+    .where(eq(classSessions.id, sessionId))
+    .run();
+
+  const isSwap =
+    Boolean(before) && Boolean(after) && before!.id !== after!.id;
+  const stillToCome = session.startsAt.getTime() > now.getTime();
+
+  let told = 0;
+  if (isSwap && stillToCome) {
+    /* Not awaited into the caller's error path: a message that fails to send
+       must not read as a change that failed to save. It has saved. */
+    told = await notifyInstructorChanged(sessionId, {
+      from: before!.name,
+      to: after!.name,
+      by: staffName,
+    }).catch(() => 0);
+  }
+
+  return {
+    ok: true,
+    instructor: after?.name ?? null,
+    previous: before?.name ?? null,
+    told,
+  };
 }

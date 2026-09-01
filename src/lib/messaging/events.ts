@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { db } from "@/db";
 import {
   bookings,
@@ -14,14 +14,19 @@ import { emailTransport } from "./email";
 import { sendPush, subscriptionsFor } from "./push";
 import { smsTransport, toE164 } from "./sms";
 import type { Channel, Outgoing } from "./types";
+import { STUDIO_OPS_EMAIL } from "@/lib/personal";
 import {
   bookedWords,
   cancelledWords,
   forEmail,
+  instructorChangedWords,
   leadWords,
+  personalBookedWords,
+  personalCancelledWords,
   promoWords,
   purchasedWords,
   reminderWords,
+  studioAppointmentWords,
   verifyWords,
   whenWords,
   type Bilingual,
@@ -43,7 +48,12 @@ import {
 
 /** Where each automatic message is allowed to go. The studio's own spec. */
 const SENDS: Record<
-  "booked" | "cancelled" | "purchased" | "reminder",
+  | "booked"
+  | "cancelled"
+  | "purchased"
+  | "reminder"
+  | "appointment"
+  | "instructor",
   { email: boolean; push: boolean; sms: boolean }
 > = {
   /* A member who has just pressed Book is looking at the screen that told them
@@ -63,7 +73,40 @@ const SENDS: Record<
      diary entry. Push costs nothing and needs no provider, so this is the one
      place the free channel earns its keep. */
   reminder: { email: false, push: true, sms: false },
+
+  /**
+   * An appointment, to the member: the buzz and the in-app copy, no email.
+   *
+   * It briefly sent an email as well, on the reasoning that a stricter
+   * cancellation rule deserves a copy that survives outside the app. The
+   * studio's answer was simpler and it is right: the member is looking at the
+   * screen that just confirmed the booking, exactly as with a class. The one
+   * party who is *not* looking at a screen is the studio, which has to find an
+   * instructor, so the email goes there and only there. The hour and the rule
+   * are on the member's own booking in their account, which is where they would
+   * look for them anyway.
+   */
+  appointment: { email: false, push: true, sms: false },
+
+  /**
+   * An instructor swapped on a class somebody has booked.
+   *
+   * Push, because this is the one kind of change a member may want to know about
+   * before they arrive, and they are not looking at the site when it happens: the
+   * decision is made at the desk, hours or days after they booked. No email,
+   * because it is not a receipt and nothing about it needs to survive outside the
+   * app. It is also one of the things the studio's own consent rule says a member
+   * cannot opt out of, alongside a class being moved or cancelled.
+   */
+  instructor: { email: false, push: true, sms: false },
 };
+
+/**
+ * The appointment row, exported so the test suite asserts the decision rather
+ * than a copy of it. A table like this is only a decision while something
+ * checks it is still the one that was taken.
+ */
+export const APPOINTMENT_SENDS = SENDS.appointment;
 
 /**
  * The in-app copy is not in that table because it is not a channel. It is
@@ -97,6 +140,10 @@ type BookingFacts = {
   startsAt: Date;
   classEn: string;
   classEl: string;
+  /** GROUP or PERSONAL. Decides which of two entirely different messages goes. */
+  classKind: string;
+  /** The second person on a duet, when there is one. */
+  guestName: string | null;
 };
 
 function factsFor(bookingId: string): BookingFacts | null {
@@ -111,6 +158,8 @@ function factsFor(bookingId: string): BookingFacts | null {
       startsAt: classSessions.startsAt,
       classEn: classTypes.nameEn,
       classEl: classTypes.nameEl,
+      classKind: classTypes.kind,
+      guestName: bookings.guestName,
     })
     .from(bookings)
     .innerJoin(users, eq(bookings.userId, users.id))
@@ -159,6 +208,15 @@ function inbox(userId: string, words: Bilingual) {
 export async function notifyBooked(bookingId: string) {
   const f = factsFor(bookingId);
   if (!f) return 0;
+
+  /* An appointment is a different message to a different set of people, so the
+     branch is here rather than in the four callers. Whoever books it — the
+     member on the site, the desk on their behalf — the studio gets told. */
+  if (f.classKind === "PERSONAL") {
+    void tellStudio(f, false);
+    return deliverPersonal(f, personalBookedWords(f), SENDS.appointment);
+  }
+
   return deliverPersonal(f, bookedWords(f), SENDS.booked);
 }
 
@@ -166,11 +224,59 @@ export async function notifyBooked(bookingId: string) {
 export async function notifyCancelled(bookingId: string, refunded: boolean) {
   const f = factsFor(bookingId);
   if (!f) return 0;
+
+  if (f.classKind === "PERSONAL") {
+    /* The studio has to hear about this one as loudly as it heard about the
+       booking. Somebody has been asked to come in at noon, and an appointment
+       that quietly disappears from a screen nobody is watching is an instructor
+       driving in for nothing. */
+    void tellStudio(f, true);
+    return deliverPersonal(
+      f,
+      personalCancelledWords({ startsAt: f.startsAt, refunded }),
+      SENDS.appointment,
+    );
+  }
+
   return deliverPersonal(
     f,
     cancelledWords({ ...f, refunded }),
     SENDS.cancelled,
   );
+}
+
+/**
+ * The studio's own copy of an appointment, emailed to the operations address.
+ *
+ * Never awaited by anything that books or cancels, and never allowed to throw
+ * outward: a mail server being down must not turn a completed booking into an
+ * error on somebody's screen. It is logged instead, because a failure here is
+ * the one failure in this file that costs money — an hour nobody was told about.
+ */
+async function tellStudio(f: BookingFacts, cancelled: boolean) {
+  const words = studioAppointmentWords({
+    startsAt: f.startsAt,
+    memberName: f.name,
+    memberEmail: f.email,
+    memberPhone: f.phone,
+    guestName: f.guestName,
+    cancelled,
+  });
+  try {
+    const res = await emailTransport().send(
+      STUDIO_OPS_EMAIL,
+      forEmail(words),
+    );
+    if (!res.ok) {
+      console.error(
+        `[appointment] could not tell the studio about ${f.startsAt.toISOString()}: ${res.error}`,
+      );
+    }
+    return res.ok;
+  } catch (err) {
+    console.error("[appointment] could not tell the studio", err);
+    return false;
+  }
 }
 
 /**
@@ -217,6 +323,8 @@ export async function notifyPurchased(purchaseId: string) {
       startsAt: new Date(),
       classEn: "",
       classEl: "",
+      classKind: "GROUP",
+      guestName: null,
     },
     purchasedWords({
       credits: row.credits,
@@ -256,7 +364,14 @@ export async function notifyPromoGranted(
   if (!row) return 0;
 
   return deliverPersonal(
-    { ...row, startsAt: new Date(), classEn: "", classEl: "" },
+    {
+      ...row,
+      startsAt: new Date(),
+      classEn: "",
+      classEl: "",
+      classKind: "GROUP",
+      guestName: null,
+    },
     promoWords({
       credits: promo.credits,
       from: promo.spendFrom,
@@ -265,6 +380,59 @@ export async function notifyPromoGranted(
     }),
     { email: true, push: false, sms: false },
   );
+}
+
+/**
+ * Everybody booked into one class, told their instructor has changed.
+ *
+ * Returns how many members were written to, which the desk shows back so the
+ * person who made the change knows it went somewhere. Cancelled bookings are
+ * skipped: somebody who dropped the class has no interest in who is teaching it.
+ *
+ * Never throws outward. The change to the rota has already been saved by the
+ * time this runs, and a push service being slow must not make a saved change
+ * look like a failed one.
+ */
+export async function notifyInstructorChanged(
+  sessionId: string,
+  change: { from: string; to: string; by: string },
+) {
+  const rows = db
+    .select({
+      userId: users.id,
+      startsAt: classSessions.startsAt,
+      classEn: classTypes.nameEn,
+      classEl: classTypes.nameEl,
+    })
+    .from(bookings)
+    .innerJoin(users, eq(bookings.userId, users.id))
+    .innerJoin(classSessions, eq(bookings.sessionId, classSessions.id))
+    .innerJoin(classTypes, eq(classSessions.classTypeId, classTypes.id))
+    .where(and(eq(bookings.sessionId, sessionId), ne(bookings.status, "CANCELLED")))
+    .all();
+
+  let told = 0;
+  for (const row of rows) {
+    const words = instructorChangedWords({
+      classEn: row.classEn,
+      classEl: row.classEl || row.classEn,
+      startsAt: row.startsAt,
+      from: change.from,
+      to: change.to,
+    });
+    inbox(row.userId, words);
+    if (SENDS.instructor.push) {
+      await pushToUser(row.userId, words.en).catch(() => 0);
+    }
+    told++;
+  }
+
+  if (told > 0) {
+    console.log(
+      `[rota] ${change.from} to ${change.to} on ${sessionId}, ${told} member(s) told by ${change.by}`,
+    );
+  }
+  return told;
 }
 
 /**

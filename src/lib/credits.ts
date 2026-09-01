@@ -1,16 +1,64 @@
-import { and, asc, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { creditBatches, creditLedger } from "@/db/schema";
+import { bookings, classSessions, creditBatches, creditLedger } from "@/db/schema";
+import type { CreditKind } from "./packs";
 import { windowAllows } from "./promo";
+import { studioDateKey, studioEndOfDay } from "./time";
+
+/**
+ * What a class needs paying with.
+ *
+ * A group class takes a CLASS session and nothing else. A midday appointment
+ * takes a PERSONAL one, or a DUET one when a second person is coming. Neither
+ * can be paid for with the other's, in either direction: a member holding five
+ * class sessions and one personal has six sessions and exactly one of them can
+ * book noon on Tuesday.
+ */
+export function kindsThatPayFor(
+  classKind: "GROUP" | "PERSONAL",
+  seats = 1,
+): CreditKind[] {
+  if (classKind === "GROUP") return ["CLASS"];
+  /**
+   * Three kinds, and each buys exactly one thing.
+   *
+   * A Duet session admits two people and is priced for two, so it cannot be
+   * spent on an hour where only one turns up: that would be the studio charging
+   * €45 for a €30 hour, and it would leave a second reformer set up for nobody.
+   * A Personal session cannot cover two for the mirror-image reason.
+   *
+   * This was briefly forgiving in the other direction, with a solo booking
+   * falling back to a Duet session when no Personal one was held. It read as a
+   * kindness and it was a hole: a member with a Duet in their balance could book
+   * the hour alone, and the studio would have sold the pair rate for one person.
+   */
+  return seats > 1 ? ["DUET"] : ["PERSONAL"];
+}
 
 export type CreditSummary = {
   available: number;
+  /** Only the sessions that buy a place in a group class. */
+  classCredits: number;
+  /** Sessions that buy a midday appointment, personal or duet. */
+  personalCredits: number;
+  /** Of those, the ones that admit a second person. */
+  duetCredits: number;
+  /**
+   * Of those, the ones for one person alone.
+   *
+   * Reported apart from `duetCredits` rather than left to be subtracted,
+   * because the two are not interchangeable and the screens that offer a
+   * choice need to know which of them the member actually holds.
+   */
+  soloCredits: number;
   batches: {
     id: string;
     creditsRemaining: number;
     creditsTotal: number;
     expiresAt: Date | null;
     source: string;
+    kind: string;
+    perDayLimit: number | null;
     /** Set when these sessions may only be spent on classes in a date range. */
     usableFrom: Date | null;
     usableTo: Date | null;
@@ -49,14 +97,29 @@ export async function getCreditSummary(
         .reduce((n, b) => n + b.creditsRemaining, 0)
     : 0;
 
+  const sum = (kinds: string[]) =>
+    batches
+      .filter((b) => kinds.includes(b.kind))
+      .reduce((n, b) => n + b.creditsRemaining, 0);
+
   return {
     available,
+    /* Counted apart because they are not one balance. A member with five class
+       sessions and one personal reading "6 sessions" and finding they cannot
+       book two of the classes they were looking at is a site that lied to them
+       in its own headline figure. */
+    classCredits: sum(["CLASS"]),
+    personalCredits: sum(["PERSONAL", "DUET"]),
+    duetCredits: sum(["DUET"]),
+    soloCredits: sum(["PERSONAL"]),
     batches: batches.map((b) => ({
       id: b.id,
       creditsRemaining: b.creditsRemaining,
       creditsTotal: b.creditsTotal,
       expiresAt: b.expiresAt,
       source: b.source,
+      kind: b.kind,
+      perDayLimit: b.perDayLimit,
       usableFrom: b.usableFrom,
       usableTo: b.usableTo,
     })),
@@ -73,7 +136,11 @@ export async function getCreditSummary(
  * screen, and a member with a visible balance of 1 being told they have none is
  * how a site loses somebody's trust in one sentence.
  */
-export function spendableAnywhere(userId: string, now = new Date()) {
+export function spendableAnywhere(
+  userId: string,
+  now = new Date(),
+  kinds?: CreditKind[],
+) {
   return (
     db
       .select()
@@ -85,13 +152,135 @@ export function spendableAnywhere(userId: string, now = new Date()) {
           or(isNull(creditBatches.expiresAt), gt(creditBatches.expiresAt, now)),
         ),
       )
-      .all().length > 0
+      .all()
+      .filter((b) => !kinds || kinds.includes(b.kind as CreditKind)).length > 0
   );
 }
 
 export async function getAvailableCredits(userId: string, now = new Date()) {
   const rows = await liveBatches(userId, now);
   return rows.reduce((n, b) => n + b.creditsRemaining, 0);
+}
+
+/**
+ * How many classes this member has already booked on a given studio day.
+ *
+ * Cancelled bookings do not count: somebody who booked 07:00, thought better of
+ * it and cancelled in time has used nothing, and telling them they have had
+ * their class for the day would be punishing them for changing their mind.
+ *
+ * Written as SQL against the studio's own calendar day rather than a range of
+ * instants, because "one class a day" is a statement about days in Larnaca.
+ */
+export function bookingsOnStudioDay(
+  userId: string,
+  day: Date,
+  /** A session to leave out, used when the member is re-booking one. */
+  exceptSessionId?: string,
+) {
+  const key = studioDateKey(day);
+  return db
+    .select({ sessionId: bookings.sessionId, startsAt: classSessions.startsAt })
+    .from(bookings)
+    .innerJoin(classSessions, eq(bookings.sessionId, classSessions.id))
+    .where(and(eq(bookings.userId, userId), ne(bookings.status, "CANCELLED")))
+    .all()
+    .filter(
+      (r) =>
+        studioDateKey(r.startsAt) === key && r.sessionId !== exceptSessionId,
+    ).length;
+}
+
+/**
+ * Why a member holding sessions still cannot pay for this class.
+ *
+ * Worked out from the same three filters `spendOneCredit` applies, in the same
+ * order, so the reason on screen is the reason the spend failed rather than a
+ * guess made afterwards. Five outcomes and each needs its own sentence:
+ *
+ *   NONE        they hold nothing at all
+ *   WRONG_KIND  they hold sessions, but not the kind this class takes
+ *   WINDOW      the right kind, restricted to other dates (the opening week)
+ *   PER_DAY     the right kind, but they have already trained today
+ *   NOT_BLOCKED nothing here explains it, so the caller should not claim to
+ */
+export function spendBlockReason(
+  userId: string,
+  opts: { classStartsAt: Date; kinds?: CreditKind[]; sessionId?: string },
+  now = new Date(),
+): "NONE" | "WRONG_KIND" | "WINDOW" | "PER_DAY" | "NOT_BLOCKED" {
+  const all = db
+    .select()
+    .from(creditBatches)
+    .where(
+      and(
+        eq(creditBatches.userId, userId),
+        gt(creditBatches.creditsRemaining, 0),
+        or(isNull(creditBatches.expiresAt), gt(creditBatches.expiresAt, now)),
+      ),
+    )
+    .all();
+
+  if (all.length === 0) return "NONE";
+
+  const rightKind = opts.kinds
+    ? all.filter((b) => opts.kinds!.includes(b.kind as CreditKind))
+    : all;
+  if (rightKind.length === 0) return "WRONG_KIND";
+
+  const inWindow = rightKind.filter((b) => windowAllows(b, opts.classStartsAt));
+  if (inWindow.length === 0) return "WINDOW";
+
+  const already = bookingsOnStudioDay(
+    userId,
+    opts.classStartsAt,
+    opts.sessionId,
+  );
+  const underCap = inWindow.filter(
+    (b) => b.perDayLimit === null || already < b.perDayLimit,
+  );
+  if (underCap.length === 0) return "PER_DAY";
+
+  return "NOT_BLOCKED";
+}
+
+/**
+ * The last class date the member's own sessions can reach, of a given kind.
+ *
+ * Only batches with no `usableFrom`, which is what separates an ordinary pack
+ * from the opening-week offer: a promo session is restricted to a week in the
+ * middle of the calendar and needs a different sentence on screen than "your
+ * sessions expire before then". Returns null when nothing applies, which the
+ * caller reads as "do not claim a date you cannot name".
+ */
+export function lastClassDateFor(
+  userId: string,
+  kinds: CreditKind[],
+  now = new Date(),
+): Date | null {
+  const rows = db
+    .select()
+    .from(creditBatches)
+    .where(
+      and(
+        eq(creditBatches.userId, userId),
+        gt(creditBatches.creditsRemaining, 0),
+        or(isNull(creditBatches.expiresAt), gt(creditBatches.expiresAt, now)),
+      ),
+    )
+    .all()
+    .filter(
+      (b) =>
+        kinds.includes(b.kind as CreditKind) &&
+        b.usableFrom === null &&
+        b.usableTo !== null,
+    );
+
+  if (rows.length === 0) return null;
+  return rows.reduce<Date>(
+    (latest, b) => (b.usableTo! > latest ? b.usableTo! : latest),
+    rows[0]!.usableTo!,
+  );
 }
 
 /**
@@ -114,7 +303,18 @@ export async function getAvailableCredits(userId: string, now = new Date()) {
  */
 export function spendOneCredit(
   userId: string,
-  opts: { bookingId?: string; note?: string; classStartsAt?: Date } = {},
+  opts: {
+    bookingId?: string;
+    note?: string;
+    classStartsAt?: Date;
+    /**
+     * Which kinds of session may pay for this class, best first. Omitted means
+     * any, which is what a desk adjustment or a test wants.
+     */
+    kinds?: CreditKind[];
+    /** The session being booked, so re-booking it does not count against a cap. */
+    sessionId?: string;
+  } = {},
   now = new Date(),
 ): string | null {
   const all = db
@@ -130,9 +330,50 @@ export function spendOneCredit(
     .orderBy(asc(creditBatches.expiresAt), asc(creditBatches.createdAt))
     .all();
 
-  const batches = opts.classStartsAt
+  let batches = opts.classStartsAt
     ? all.filter((b) => windowAllows(b, opts.classStartsAt!))
     : all;
+
+  /**
+   * The kind filter, and the order it imposes.
+   *
+   * `kinds` is a preference list, not a set: a solo appointment says
+   * ["PERSONAL", "DUET"] because a personal session should be used up before a
+   * duet one is spent on one person. Sorting by the position in that list and
+   * then by expiry gives both rules in the right order of priority — spend the
+   * right kind first, and within a kind spend what dies soonest.
+   */
+  if (opts.kinds) {
+    const rank = new Map(opts.kinds.map((k, i) => [k as string, i]));
+    batches = batches
+      .filter((b) => rank.has(b.kind))
+      .sort((a, b) => {
+        const byKind = rank.get(a.kind)! - rank.get(b.kind)!;
+        if (byKind !== 0) return byKind;
+        const ax = a.expiresAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        const bx = b.expiresAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        return ax - bx || a.createdAt.getTime() - b.createdAt.getTime();
+      });
+  }
+
+  /**
+   * The daily cap, checked only if a capped batch is in the running.
+   *
+   * An Unlimited plan grants one session for every day the studio opens in the
+   * quarter, and this is the half of the plan that makes the word honest. The
+   * count is taken once and only when it can matter, so an ordinary booking
+   * pays nothing for a rule that does not apply to it.
+   */
+  if (opts.classStartsAt && batches.some((b) => b.perDayLimit !== null)) {
+    const already = bookingsOnStudioDay(
+      userId,
+      opts.classStartsAt,
+      opts.sessionId,
+    );
+    batches = batches.filter(
+      (b) => b.perDayLimit === null || already < b.perDayLimit,
+    );
+  }
 
   for (const batch of batches) {
     const res = db
@@ -164,7 +405,19 @@ export function spendOneCredit(
 export function refundOneCredit(
   userId: string,
   batchId: string | null,
-  opts: { bookingId?: string; note?: string } = {},
+  opts: {
+    bookingId?: string;
+    note?: string;
+    /**
+     * What to replace it with if the original batch has gone.
+     *
+     * Only reached in the fallback below, and it matters there: a cancelled
+     * noon appointment refunded as an ordinary class session would quietly turn
+     * €30 of one to one into €20 of group class, and the member would find out
+     * the next time they tried to book noon.
+     */
+    kind?: CreditKind;
+  } = {},
 ) {
   if (batchId) {
     const res = db
@@ -189,7 +442,76 @@ export function refundOneCredit(
     }
   }
 
-  /* Batch is gone (or expired away) — issue a compensation credit instead. */
+  /**
+   * No batch recorded, or the row has gone. Two steps, and neither of them may
+   * hand back more than was taken.
+   *
+   * This fallback used to mint a fresh batch with **ninety days** on it, which is
+   * a hole in two directions at once. A member whose session expired in a week
+   * would have got three months back for cancelling, so booking and cancelling
+   * became a way to reset an expiry; and a booking with no batch on it at all
+   * would have produced a session out of nothing, which the member may never
+   * have paid for.
+   *
+   * So the first move is to reconstruct where it came from. By the spending rule
+   * a credit is always taken from the soonest-expiring batch, so the soonest
+   * batch with room in it is the best available answer, and putting it there can
+   * never extend an expiry. `creditsRemaining < creditsTotal` is what "with room"
+   * means: a batch nothing was spent from cannot be the one this came from, and
+   * topping it up past its own total would create a session.
+   */
+  const home = db
+    .select()
+    .from(creditBatches)
+    .where(eq(creditBatches.userId, userId))
+    .all()
+    .filter(
+      (b) =>
+        b.creditsRemaining < b.creditsTotal &&
+        (opts.kind ? b.kind === opts.kind : b.kind === "CLASS"),
+    )
+    .sort((a, b) => {
+      const ax = a.expiresAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const bx = b.expiresAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      return ax - bx || a.createdAt.getTime() - b.createdAt.getTime();
+    })[0];
+
+  if (home) {
+    db.update(creditBatches)
+      .set({ creditsRemaining: home.creditsRemaining + 1 })
+      .where(eq(creditBatches.id, home.id))
+      .run();
+    db.insert(creditLedger)
+      .values({
+        userId,
+        delta: 1,
+        reason: "CANCELLATION_REFUND",
+        note: opts.note
+          ? `${opts.note} (batch not recorded, returned to the soonest one)`
+          : "Batch not recorded, returned to the soonest one",
+        batchId: home.id,
+        bookingId: opts.bookingId,
+      })
+      .run();
+    return true;
+  }
+
+  /**
+   * Nothing to put it back into at all.
+   *
+   * Reached only when the member holds no batch that anything was ever spent
+   * from, which means either the record is broken or every batch has been
+   * cleared away. A cancellation that takes a session and returns nothing is
+   * worse than a short compensation, so one is written, and it is deliberately
+   * *short* rather than the ninety days this used to give: goodwill the studio
+   * did not authorise is not the same thing as a refund. It is marked
+   * COMPENSATION, which Analytics already keeps out of revenue and which shows
+   * plainly in the member's own session history.
+   */
+  const until = studioEndOfDay(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+  console.error(
+    `[credits] refund for ${userId} had no batch to return to; wrote a 30-day compensation session`,
+  );
   const batch = db
     .insert(creditBatches)
     .values({
@@ -197,7 +519,9 @@ export function refundOneCredit(
       creditsTotal: 1,
       creditsRemaining: 1,
       source: "COMPENSATION",
-      expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+      expiresAt: until,
+      usableTo: until,
+      kind: opts.kind ?? "CLASS",
     })
     .returning()
     .get();
@@ -233,6 +557,14 @@ export function grantCredits(args: {
    */
   usableFrom?: Date | null;
   usableTo?: Date | null;
+  /**
+   * What these sessions buy. Defaults to CLASS, so every existing caller —
+   * the webhook, the desk, the promo, the tests — keeps granting exactly what
+   * it granted before.
+   */
+  kind?: CreditKind;
+  /** The most classes a day they may pay for. Null means no cap. */
+  perDayLimit?: number | null;
 }) {
   const {
     userId,
@@ -244,12 +576,49 @@ export function grantCredits(args: {
     note,
   } = args;
 
+  /**
+   * Expiry lands at the end of the last day, not at the minute of purchase.
+   *
+   * It used to be `now + 30 × 24h` to the millisecond, which meant a pack bought
+   * at 14:53 died at 14:53 on the thirtieth day. The member's account shows only
+   * the date, so somebody who bought at nine in the morning and came back at
+   * eight in the evening on their last day saw a date that was still today and a
+   * balance that had already gone. Two people buying the same pack on the same
+   * day had expiry times hours apart, for no reason either of them could see.
+   *
+   * Rounding up to 23:59:59.999 in Larnaca makes the date on screen exactly
+   * true, and hands the member the rest of their last day. An explicit
+   * `expiresAt` is left alone: the promo passes a real date and means it.
+   */
   const expiresAt =
     args.expiresAt !== undefined
       ? args.expiresAt
       : validityDays && validityDays > 0
-        ? new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000)
+        ? studioEndOfDay(
+            new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000),
+          )
         : null;
+
+  /**
+   * And the class has to fall inside the window too, not just the booking.
+   *
+   * This was the bug underneath the bug. `expiresAt` governed when a session
+   * could be *spent* and nothing governed what it could be spent *on*, so a
+   * member could buy a 30-day pack, wait until day 29, and book classes across
+   * November and December. Thirty days then constrained the shopping and not the
+   * training: the pack became unlimited in horizon, and seats came out of a
+   * timetable the studio had not started selling.
+   *
+   * The mechanism already existed for the opening-week offer, which is exactly
+   * this question asked about a promotion. So an ordinary pack now carries the
+   * same upper bound as its own expiry, and `usableFrom` stays null because
+   * there is no lower one: a session bought today is good for a class tonight.
+   *
+   * A batch with no expiry keeps no window either, which is right. Nothing
+   * limits a session that never dies.
+   */
+  const usableTo =
+    args.usableTo !== undefined ? args.usableTo : expiresAt;
 
   const batch = db
     .insert(creditBatches)
@@ -261,7 +630,9 @@ export function grantCredits(args: {
       source,
       expiresAt,
       usableFrom: args.usableFrom ?? null,
-      usableTo: args.usableTo ?? null,
+      usableTo,
+      kind: args.kind ?? "CLASS",
+      perDayLimit: args.perDayLimit ?? null,
     })
     .returning()
     .get();

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { useI18n } from "@/i18n/LanguageProvider";
+import { isPersonalCancellable } from "@/lib/personal";
 import { studioAddDays, studioDateKey, studioStartOfDay } from "@/lib/time";
 import { cn, FREE_CANCELLATION_HOURS } from "@/lib/utils";
 
@@ -20,6 +21,8 @@ export type ScheduleClassType = {
   level: string;
   intensity: number;
   durationMin: number;
+  /** GROUP or PERSONAL. Changes the chip, the panel and both cutoffs. */
+  kind: string;
 };
 
 export type ScheduleSession = {
@@ -60,6 +63,9 @@ export function ScheduleClient({
   types,
   signedIn,
   credits,
+  duetCredits = 0,
+  soloCredits = 0,
+  personalCredits = 0,
   days,
   closedDays,
 }: {
@@ -67,6 +73,12 @@ export function ScheduleClient({
   types: Record<string, ScheduleClassType>;
   signedIn: boolean;
   credits: number;
+  /** Sessions in hand that admit a second person. */
+  duetCredits?: number;
+  /** Sessions in hand for the hour alone. */
+  soloCredits?: number;
+  /** Both kinds together, for the balance line. */
+  personalCredits?: number;
   days: string[]; // ISO date strings, one per day shown
   closedDays: Set<string>;
 }) {
@@ -91,6 +103,30 @@ export function ScheduleClient({
      swaps in place. */
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  /**
+   * The appointment panel's two questions: how many of you, and who is the
+   * second one.
+   *
+   * Kept here rather than inside the panel because the panel is re-keyed on
+   * every change of class, which would wipe a half-typed name the moment the
+   * member glanced at another hour. Reset when the day changes, which is the one
+   * moment the answer is certainly stale.
+   */
+  const [twoOfUs, setTwoOfUs] = useState(false);
+  const [guestName, setGuestName] = useState("");
+  /**
+   * A Duet is for two, so holding only a Duet decides the question.
+   *
+   * The two kinds do not substitute for each other in either direction, which
+   * means the honest version of this control is not always a choice. Somebody
+   * holding a Duet and nothing else is booking for two people whatever they
+   * click, so the choice disappears and the name field is simply the next thing
+   * to fill in. Somebody holding both gets the toggle. Somebody holding only a
+   * Personal session is never asked.
+   */
+  const mustBringSomebody = duetCredits > 0 && soloCredits === 0;
+  const canChoose = duetCredits > 0 && soloCredits > 0;
+  const bringing = mustBringSomebody || (canChoose && twoOfUs);
   const strip = useRef<HTMLDivElement | null>(null);
   const [toast, setToast] = useState<{
     kind: "ok" | "warn" | "error";
@@ -120,6 +156,10 @@ export function ScheduleClient({
     null;
 
   useEffect(() => setPickedId(null), [activeDay, onlyAvailable]);
+  useEffect(() => {
+    setTwoOfUs(false);
+    setGuestName("");
+  }, [activeDay]);
 
   /* The date strip holds four weeks, so it scrolls horizontally. The arrows
      move it a week at a time and keep the active chip in view. */
@@ -147,9 +187,18 @@ export function ScheduleClient({
   }
 
   const dayIndex = days.indexOf(activeDay);
+  const isPersonal = (s: ScheduleSession) =>
+    types[s.type]?.kind === "PERSONAL";
+  const pickedPersonal = picked ? isPersonal(picked) : false;
+
+  /* The same split as the server: an appointment closes to cancellation at the
+     end of the previous day, a class twelve hours before it starts. Getting
+     this wrong would offer a Cancel button the API then refuses. */
   const canCancelPicked = picked
-    ? new Date(picked.startsAt).getTime() - Date.now() >
-      FREE_CANCELLATION_HOURS * 3600_000
+    ? pickedPersonal
+      ? isPersonalCancellable(new Date(picked.startsAt))
+      : new Date(picked.startsAt).getTime() - Date.now() >
+        FREE_CANCELLATION_HOURS * 3600_000
     : false;
 
   function flash(next: NonNullable<typeof toast>) {
@@ -167,13 +216,23 @@ export function ScheduleClient({
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: s.id }),
+        body: JSON.stringify({
+          sessionId: s.id,
+          /* Only when it is an appointment and they said two. Sending it for a
+             group class would be meaningless, and sending an empty string would
+             fail validation. */
+          ...(isPersonal(s) && bringing && guestName.trim().length >= 2
+            ? { guestName: guestName.trim() }
+            : {}),
+        }),
       });
       const data = (await res.json()) as {
         ok?: boolean;
         bookingId?: string;
         credits?: number;
         error?: string;
+        /** The last class date their sessions reach, on SESSIONS_EXPIRE_FIRST. */
+        until?: string;
       };
 
       if (data.ok && data.bookingId) {
@@ -192,8 +251,12 @@ export function ScheduleClient({
         if (typeof data.credits === "number") setBalance(data.credits);
         flash({
           kind: "ok",
-          text: `${t.booking.successTitle} ${t.booking.successBody}`,
+          text: isPersonal(s)
+            ? `${t.booking.personalBooked} ${t.booking.personalBookedBody}`
+            : `${t.booking.successTitle} ${t.booking.successBody}`,
         });
+        setTwoOfUs(false);
+        setGuestName("");
         router.refresh();
         return;
       }
@@ -202,6 +265,21 @@ export function ScheduleClient({
         flash({
           kind: "warn",
           text: t.booking.noCredits,
+          cta: { href: "/pricing", label: t.booking.noCreditsCta },
+        });
+        return;
+      }
+
+      /* Their sessions die before this class runs. Names the last date that
+         would have worked, because a refusal that does not is a puzzle: the
+         member can see a balance and cannot see why it will not reach. */
+      if (data.error === "SESSIONS_EXPIRE_FIRST") {
+        flash({
+          kind: "warn",
+          text: t.booking.sessionsExpireFirst.replace(
+            "{date}",
+            data.until ? fmtLongDate(new Date(data.until)) : "",
+          ),
           cta: { href: "/pricing", label: t.booking.noCreditsCta },
         });
         return;
@@ -218,6 +296,27 @@ export function ScheduleClient({
         });
         return;
       }
+      /* Holding class sessions and asking for a midday hour, or asking for two
+         people on a session that admits one. Both send them to the price list,
+         because in both cases the fix is a purchase and not an explanation. */
+      if (
+        data.error === "NEEDS_PERSONAL_CREDIT" ||
+        data.error === "NEEDS_DUET_CREDIT" ||
+        data.error === "DUET_IS_FOR_TWO"
+      ) {
+        flash({
+          kind: "warn",
+          text:
+            data.error === "NEEDS_DUET_CREDIT"
+              ? t.booking.needsDuet
+              : data.error === "DUET_IS_FOR_TWO"
+                ? t.booking.duetIsForTwo
+                : t.booking.needsPersonal,
+          cta: { href: "/pricing", label: t.booking.noCreditsCta },
+        });
+        return;
+      }
+
       /* An account that never confirmed its email. Given a way forward rather
          than a refusal: the code box is one press away, and the alternative is
          somebody staring at "you cannot book" with no idea why. */
@@ -234,6 +333,8 @@ export function ScheduleClient({
         CLASS_FULL: t.booking.classFull,
         ALREADY_BOOKED: t.booking.alreadyBooked,
         TOO_LATE: t.booking.tooLate,
+        PERSONAL_TOO_LATE: t.booking.personalTooLate,
+        ONE_PER_DAY: t.booking.onePerDay,
         UNAUTHENTICATED: t.timetablePage.signedOut,
       };
       flash({
@@ -300,13 +401,22 @@ export function ScheduleClient({
           page, which keeps the eye on the dates below. */}
       <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
         {signedIn ? (
-          <p className="flex items-baseline gap-2.5">
+          <p className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
             <span className="font-display text-3xl leading-none text-mocha-600">
               {balance}
             </span>
             <span className="text-[10px] uppercase tracking-widest text-clay">
               {t.common.creditsLeft}
             </span>
+            {/* Broken out because the total is not one balance. A member
+                holding five class sessions and one personal who reads "6" and
+                then cannot book two of the classes in front of them has been
+                misled by the headline figure on this very page. */}
+            {personalCredits > 0 && (
+              <span className="rounded-full border border-gold/50 bg-[#FBF6E7]/70 px-2.5 py-1 text-[10px] uppercase tracking-widest text-[#8a6f1a]">
+                {t.booking.personalHeld.replace("{n}", String(personalCredits))}
+              </span>
+            )}
           </p>
         ) : (
           <p className="text-[13px] text-mocha-500">
@@ -316,7 +426,11 @@ export function ScheduleClient({
 
         <div className="flex flex-wrap items-center gap-3">
           {signedIn ? (
-            <ButtonLink href="/pricing" size="sm" variant="outline">
+            /* Filled rather than outlined. It is the one thing on this row a
+               member ever needs to act on, and beside a hairline filter pill it
+               was the same weight as a control that does nothing but hide
+               classes. */
+            <ButtonLink href="/pricing" size="sm">
               {t.account.walletTopUp}
             </ButtonLink>
           ) : (
@@ -471,6 +585,7 @@ export function ScheduleClient({
                   const on = picked?.id === s.id;
                   const full = s.spotsLeft <= 0;
                   const mine = Boolean(s.myBookingId);
+                  const solo = isPersonal(s);
                   return (
                     <button
                       key={s.id}
@@ -482,7 +597,14 @@ export function ScheduleClient({
                           ? "border-mocha-600 bg-mocha-600 text-cream"
                           : full || !s.bookable
                             ? "border-mocha-200/60 bg-white/40 text-mocha-400"
-                            : "border-mocha-200/70 bg-white/60 text-mocha-600 hover:border-mocha-500",
+                            : /* Appointments carry the studio's gold rather than
+                                 the ordinary hairline. They are a different
+                                 thing at a different price, and three chips in
+                                 the middle of a column of fourteen identical
+                                 ones would otherwise be found by accident. */
+                              solo
+                              ? "border-gold/60 bg-[#FBF6E7]/70 text-mocha-600 hover:border-gold"
+                              : "border-mocha-200/70 bg-white/60 text-mocha-600 hover:border-mocha-500",
                       )}
                     >
                       <span className="block font-display text-lg leading-none lining-nums tabular-nums">
@@ -491,10 +613,18 @@ export function ScheduleClient({
                       <span
                         className={cn(
                           "mt-1 block text-[9px] uppercase tracking-widest",
-                          on ? "text-cream/60" : "text-clay/80",
+                          on ? "text-cream/60" : solo ? "text-[#8a6f1a]" : "text-clay/80",
                         )}
                       >
-                        {full ? t.common.full : `${s.spotsLeft}/${s.capacity}`}
+                        {/* "1/1" is not a number anybody needs. One reformer is
+                            either free or it is not. */}
+                        {solo
+                          ? full
+                            ? t.common.full
+                            : t.booking.personalChip
+                          : full
+                            ? t.common.full
+                            : `${s.spotsLeft}/${s.capacity}`}
                       </span>
                       {mine && (
                         <span
@@ -529,13 +659,19 @@ export function ScheduleClient({
                           : types[picked.type].nameEn}
                       </p>
                       <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-clay">
-                        <span className="uppercase tracking-widest">
-                          {el
-                            ? (LEVEL[types[picked.type].level]?.el ??
-                              types[picked.type].level)
-                            : (LEVEL[types[picked.type].level]?.en ??
-                              types[picked.type].level)}
-                        </span>
+                        {pickedPersonal ? (
+                          <span className="uppercase tracking-widest text-[#8a6f1a]">
+                            {t.booking.personalTag}
+                          </span>
+                        ) : (
+                          <span className="uppercase tracking-widest">
+                            {el
+                              ? (LEVEL[types[picked.type].level]?.el ??
+                                types[picked.type].level)
+                              : (LEVEL[types[picked.type].level]?.en ??
+                                types[picked.type].level)}
+                          </span>
+                        )}
                         {picked.instructor && (
                           <>
                             <span className="h-1 w-1 rounded-full bg-clay/50" />
@@ -552,24 +688,113 @@ export function ScheduleClient({
                           )}
                         >
                           {picked.spotsLeft <= 0
-                            ? t.common.full
-                            : `${picked.spotsLeft}/${picked.capacity} ${t.common.spotsLeft}`}
+                            ? pickedPersonal
+                              ? t.booking.personalTaken
+                              : t.common.full
+                            : pickedPersonal
+                              ? t.booking.personalFree
+                              : `${picked.spotsLeft}/${picked.capacity} ${t.common.spotsLeft}`}
                         </span>
                       </p>
+
+                      {/* What the hour is, and what it costs, said once. A
+                          member who has never bought one of these has no idea
+                          from the chip alone that it is not an ordinary class
+                          at an odd time. */}
+                      {pickedPersonal && (
+                        <p className="mt-4 rounded-2xl border border-gold/40 bg-[#FBF6E7]/60 px-4 py-3 text-[12px] leading-relaxed text-mocha-600">
+                          {t.booking.personalExplainer}
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex flex-col items-stretch gap-3 border-t border-mocha-200/70 pt-5">
-                      <span
-                        aria-hidden
-                        className="h-1 w-full overflow-hidden rounded-full bg-mocha-200"
-                      >
+                      {/* A fill bar over one reformer is either empty or full,
+                          which is a graph of a boolean. Only drawn for classes,
+                          where it says something. */}
+                      {!pickedPersonal && (
                         <span
-                          className="block h-full rounded-full bg-mocha-500 transition-all duration-700 ease-silk"
-                          style={{
-                            width: `${(picked.booked / picked.capacity) * 100}%`,
-                          }}
-                        />
-                      </span>
+                          aria-hidden
+                          className="h-1 w-full overflow-hidden rounded-full bg-mocha-200"
+                        >
+                          <span
+                            className="block h-full rounded-full bg-mocha-500 transition-all duration-700 ease-silk"
+                            style={{
+                              width: `${(picked.booked / picked.capacity) * 100}%`,
+                            }}
+                          />
+                        </span>
+                      )}
+
+                      {/**
+                        * How many of you, asked before the button and not after.
+                        *
+                        * Only shown to somebody holding a duet session. Offering
+                        * "two of us" to a member who cannot pay for two is an
+                        * invitation to type a friend's name and be told no, and
+                        * the refusal would arrive after the decision rather than
+                        * before it. Somebody who has not bought one yet reads the
+                        * explainer above instead, which says what a duet is.
+                        */}
+                      {pickedPersonal &&
+                        !picked.myBookingId &&
+                        picked.bookable &&
+                        picked.spotsLeft > 0 &&
+                        duetCredits > 0 && (
+                          <div className="rounded-2xl border border-mocha-200/70 bg-white/70 p-4">
+                            <p className="text-[10px] uppercase tracking-widest text-clay">
+                              {t.booking.whoIsComing}
+                            </p>
+
+                            {canChoose ? (
+                              <div className="mt-3 flex gap-2">
+                                {[false, true].map((two) => (
+                                  <button
+                                    key={String(two)}
+                                    type="button"
+                                    onClick={() => setTwoOfUs(two)}
+                                    aria-pressed={twoOfUs === two}
+                                    className={cn(
+                                      "flex-1 rounded-xl border px-3 py-2 text-[12px] transition-all duration-400",
+                                      twoOfUs === two
+                                        ? "border-mocha-600 bg-mocha-600 text-cream"
+                                        : "border-mocha-200/70 bg-white/60 text-mocha-600 hover:border-mocha-400",
+                                    )}
+                                  >
+                                    {two ? t.booking.twoOfUs : t.booking.justMe}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : (
+                              /* No choice to offer: a Duet is what they hold, a
+                                 Duet is for two. Say so instead of showing a
+                                 toggle where one option would be refused. */
+                              <p className="mt-2 text-[12px] leading-relaxed text-mocha-600">
+                                {t.booking.duetForcedNote}
+                              </p>
+                            )}
+
+                            {bringing && (
+                              <div className="mt-3">
+                                <label className="label" htmlFor="guest">
+                                  {t.booking.guestLabel}
+                                </label>
+                                <input
+                                  id="guest"
+                                  className="input"
+                                  value={guestName}
+                                  maxLength={80}
+                                  autoComplete="off"
+                                  onChange={(e) => setGuestName(e.target.value)}
+                                  placeholder={t.booking.guestPlaceholder}
+                                />
+                                <p className="mt-2 text-[10px] leading-snug text-clay">
+                                  {t.booking.guestHint}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                       {picked.myBookingId ? (
                         <>
@@ -585,27 +810,49 @@ export function ScheduleClient({
                           </Button>
                           {!canCancelPicked && (
                             <span className="text-[10px] leading-snug text-clay">
-                              {t.booking.cancelTooLate}
+                              {pickedPersonal
+                                ? t.booking.personalCancelTooLate
+                                : t.booking.cancelTooLate}
                             </span>
                           )}
                         </>
                       ) : !picked.bookable ? (
                         <span className="text-[10px] uppercase tracking-widest text-clay/70">
-                          {t.booking.tooLate}
+                          {pickedPersonal
+                            ? t.booking.personalTooLate
+                            : t.booking.tooLate}
                         </span>
                       ) : picked.spotsLeft <= 0 ? (
                         <span className="text-[10px] uppercase tracking-widest text-clay/70">
-                          {t.common.full}
+                          {pickedPersonal
+                            ? t.booking.personalTaken
+                            : t.common.full}
                         </span>
                       ) : (
-                        <Button
-                          disabled={busy === picked.id}
-                          onClick={() => book(picked)}
-                        >
-                          {busy === picked.id
-                            ? t.booking.booking
-                            : t.booking.bookNow}
-                        </Button>
+                        <>
+                          <Button
+                            disabled={
+                              busy === picked.id ||
+                              /* A duet with nobody named is a booking the
+                                 instructor cannot prepare for. */
+                              (pickedPersonal &&
+                                bringing &&
+                                guestName.trim().length < 2)
+                            }
+                            onClick={() => book(picked)}
+                          >
+                            {busy === picked.id
+                              ? t.booking.booking
+                              : pickedPersonal
+                                ? t.booking.bookPersonal
+                                : t.booking.bookNow}
+                          </Button>
+                          {pickedPersonal && (
+                            <span className="text-[10px] leading-snug text-clay">
+                              {t.booking.personalCutoff}
+                            </span>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>

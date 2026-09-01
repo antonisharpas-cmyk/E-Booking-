@@ -115,6 +115,14 @@ export async function fulfilPurchase(args: {
       purchaseId: purchase.id,
       reason: "PURCHASE",
       note: note ?? `${purchase.provider} ${ref ?? purchase.id}`,
+      /* Read from the pack as it was sold, like the validity above it, and for
+         the same reason: what these sessions can buy is part of what was paid
+         for. A personal session granted as a class one would be €30 turned into
+         something the member did not order. Falls back to CLASS if the pack has
+         since left the catalogue, which is the behaviour every purchase before
+         this had. */
+      kind: pkg?.kind === "PERSONAL" || pkg?.kind === "DUET" ? pkg.kind : "CLASS",
+      perDayLimit: pkg?.perDayLimit ?? null,
     });
     granted = true;
   });

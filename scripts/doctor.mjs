@@ -341,9 +341,15 @@ console.log("\nGetting a message out");
 
 console.log("\nThe room, as the timetable has it");
 if (tables.has("class_sessions")) {
+  /* Group classes only. A personal or duet hour holds one person by design, so
+     checking it against five would report the feature as a fault for ever. */
   const wrong = conn
     .prepare(
-      "select count(*) as n from class_sessions where starts_at >= ? and (capacity != 5 or (ends_at - starts_at) != 3600)",
+      `select count(*) as n from class_sessions cs
+         join class_types ct on ct.id = cs.class_type_id
+        where cs.starts_at >= ?
+          and ct.kind = 'GROUP'
+          and (cs.capacity != 5 or (cs.ends_at - cs.starts_at) != 3600)`,
     )
     .get(Math.floor(Date.now() / 1000)).n;
   wrong === 0
@@ -351,9 +357,51 @@ if (tables.has("class_sessions")) {
     : bad(`${wrong} upcoming classes are on an older rota`, "restart the server, or npm run db:seed");
 
   const upcoming = conn
-    .prepare("select count(*) as n from class_sessions where starts_at >= ?")
+    .prepare(
+      `select count(*) as n from class_sessions cs
+         join class_types ct on ct.id = cs.class_type_id
+        where cs.starts_at >= ? and ct.kind = 'GROUP'`,
+    )
     .get(Math.floor(Date.now() / 1000)).n;
   upcoming > 0 ? ok(`${upcoming} classes scheduled ahead`) : bad("no classes scheduled", "npm run db:seed");
+
+  /**
+   * And the midday hours, which are the ones that fail quietly.
+   *
+   * Nothing on the website says the appointment slots are missing: they simply
+   * do not appear, and the studio concludes that a feature it was told is live
+   * does not work. Fifteen a week, so a fortnight ahead should hold about thirty.
+   */
+  const appts = conn
+    .prepare(
+      `select count(*) as n from class_sessions cs
+         join class_types ct on ct.id = cs.class_type_id
+        where cs.starts_at >= ? and ct.kind = 'PERSONAL'`,
+    )
+    .get(Math.floor(Date.now() / 1000)).n;
+  appts > 0
+    ? ok(`${appts} personal and duet hours open for booking`)
+    : bad(
+        "no personal or duet hours are on the timetable",
+        "load any page to let the timetable repair run, or npm run db:seed",
+      );
+
+  /* One class name. Six was the old rota, and members reading six names were
+     being asked to choose between distinctions the room does not make. */
+  const names = conn
+    .prepare(
+      `select distinct ct.name_en as n from class_sessions cs
+         join class_types ct on ct.id = cs.class_type_id
+        where cs.starts_at >= ? and ct.kind = 'GROUP'`,
+    )
+    .all(Math.floor(Date.now() / 1000))
+    .map((r) => r.n);
+  names.length <= 1
+    ? ok(`every class ahead is called ${names[0] ?? "nothing yet"}`)
+    : warn(
+        `classes ahead carry ${names.length} different names: ${names.join(", ")}`,
+        "restart the server so the timetable repair can run",
+      );
 }
 
 console.log("\nWhat is on sale");
@@ -366,6 +414,8 @@ if (tables.has("credit_packages")) {
     "single",
     "month-1", "month-2", "month-3", "month-4",
     "quarter-1", "quarter-2", "quarter-3", "quarter-4",
+    /* The two that buy an hour rather than a place in a class. */
+    "personal", "duet",
   ];
   const same = active.length === expected.length && active.every((s, i) => s === expected[i]);
   same

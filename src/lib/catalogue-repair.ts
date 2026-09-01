@@ -72,6 +72,9 @@ export function repairCatalogue(): CatalogueSync {
       validity_days: number;
       badge: string | null;
       sort_order: number;
+      kind: string;
+      per_day_limit: number | null;
+      seats: number;
       active: number;
     }
   >(
@@ -79,7 +82,8 @@ export function repairCatalogue(): CatalogueSync {
       sqlite
         .prepare(
           `select id, slug, name_en, name_el, credits, price_cents,
-                  validity_days, badge, sort_order, active
+                  validity_days, badge, sort_order, kind, per_day_limit,
+                  seats, active
              from credit_packages`,
         )
         .all() as ({ slug: string } & Record<string, never>)[]
@@ -89,13 +93,14 @@ export function repairCatalogue(): CatalogueSync {
   const insert = sqlite.prepare(
     `insert into credit_packages
        (id, slug, name_en, name_el, credits, price_cents, validity_days,
-        badge, sort_order, active)
-     values (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+        badge, sort_order, kind, per_day_limit, seats, active)
+     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
   );
   const update = sqlite.prepare(
     `update credit_packages
         set name_en = ?, name_el = ?, credits = ?, price_cents = ?,
-            validity_days = ?, badge = ?, sort_order = ?, active = 1
+            validity_days = ?, badge = ?, sort_order = ?, kind = ?,
+            per_day_limit = ?, seats = ?, active = 1
       where id = ?`,
   );
 
@@ -112,6 +117,9 @@ export function repairCatalogue(): CatalogueSync {
         p.validityDays,
         p.badge,
         p.sortOrder,
+        p.kind,
+        p.perDayLimit,
+        p.seats,
       );
       out.added++;
       continue;
@@ -126,6 +134,9 @@ export function repairCatalogue(): CatalogueSync {
       row.validity_days === p.validityDays &&
       (row.badge ?? null) === (p.badge ?? null) &&
       row.sort_order === p.sortOrder &&
+      row.kind === p.kind &&
+      (row.per_day_limit ?? null) === (p.perDayLimit ?? null) &&
+      row.seats === p.seats &&
       row.active === 1;
     if (same) continue;
     update.run(
@@ -136,6 +147,9 @@ export function repairCatalogue(): CatalogueSync {
       p.validityDays,
       p.badge,
       p.sortOrder,
+      p.kind,
+      p.perDayLimit,
+      p.seats,
       row.id,
     );
     out.updated++;

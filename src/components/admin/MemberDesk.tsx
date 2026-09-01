@@ -95,6 +95,17 @@ export function MemberDesk({
     "cash",
   );
   const [note, setNote] = useState("");
+  /**
+   * What the desk is selling, not just how many.
+   *
+   * The studio takes cash for a one to one as often as the website takes a card
+   * for one, and until this existed the desk could only ever hand over class
+   * sessions. Somebody who paid €30 at the counter would have found their
+   * session refused by the only slot it was bought for.
+   */
+  const [sellKind, setSellKind] = useState<"CLASS" | "PERSONAL" | "DUET">(
+    "CLASS",
+  );
 
   /* Contact form */
   const [email, setEmail] = useState("");
@@ -435,6 +446,47 @@ export function MemberDesk({
                 />
               </Field>
               <div className="sm:col-span-2">
+                <Field label={d.sellKind}>
+                  <div className="flex flex-wrap gap-2">
+                    {(
+                      [
+                        ["CLASS", d.sellKindClass],
+                        ["PERSONAL", d.sellKindPersonal],
+                        ["DUET", d.sellKindDuet],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => {
+                          setSellKind(value);
+                          /* An appointment session lives thirty days, like the
+                             pack it is sold as. Moved with the choice rather
+                             than left at ninety, because the default that is
+                             right for a class pack is wrong here and nobody
+                             remembers to change two fields. */
+                          setValidity(value === "CLASS" ? 90 : 30);
+                        }}
+                        aria-pressed={sellKind === value}
+                        className={cn(
+                          "rounded-full border px-4 py-2 text-[11px] uppercase tracking-widest transition-colors",
+                          sellKind === value
+                            ? "border-mocha-600 bg-mocha-600 text-cream"
+                            : "border-mocha-300 text-mocha-500 hover:border-mocha-500",
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+                {sellKind !== "CLASS" && (
+                  <p className="mt-2 text-[11px] leading-relaxed text-clay">
+                    {d.sellKindNote}
+                  </p>
+                )}
+              </div>
+              <div className="sm:col-span-2">
                 <Field label={d.sellNote}>
                   <input
                     value={note}
@@ -468,6 +520,7 @@ export function MemberDesk({
                         : Math.round(Number(amount.replace(",", ".")) * 100) || 0,
                     method,
                     note: note || undefined,
+                    kind: sellKind,
                   },
                   "sell",
                 );

@@ -1,6 +1,7 @@
 import { sqlite } from "@/db";
 import { STUDIO } from "./studio";
 import { studioStartOfDay } from "./time";
+import { repairTimetableOnce } from "./timetable-repair";
 
 /**
  * Bring the generated timetable in line with the studio's actual room.
@@ -31,6 +32,10 @@ let done = false;
 export function repairScheduleOnce() {
   if (done) return;
   done = true;
+  /* Shape first, numbers second. The structural repair can move classes onto
+     the single class name and write in the appointment slots, and correcting
+     capacities before that would only have to be done again. */
+  repairTimetableOnce();
   repairSchedule();
 }
 
@@ -39,6 +44,14 @@ export function repairSchedule(now = new Date()) {
   const cutoff = Math.floor(studioStartOfDay(now).getTime() / 1000);
   const length = STUDIO.classLengthMinutes * 60;
 
+  /**
+   * Group classes only.
+   *
+   * An appointment is one reformer and one booking, so five is exactly the
+   * wrong number for it. Without this clause the repair would widen every noon
+   * slot to five places on the first read after boot and the studio would be
+   * selling four seats in a one to one.
+   */
   const info = sqlite
     .prepare(
       `update class_sessions
@@ -50,6 +63,7 @@ export function repairSchedule(now = new Date()) {
                     and b.status = 'CONFIRMED')
               )
         where starts_at >= ?
+          and class_type_id in (select id from class_types where kind = 'GROUP')
           and (capacity != ? or (ends_at - starts_at) != ?)`,
     )
     .run(length, STUDIO.capacity, cutoff, STUDIO.capacity, length);

@@ -34,11 +34,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "BAD_REQUEST" }, { status: 400 });
   }
 
-  const result = bookClass(user.id, parsed.data.sessionId);
+  const result = bookClass(user.id, parsed.data.sessionId, {
+    guestName: parsed.data.guestName ?? null,
+  });
   if (!result.ok) {
+    /* The three "you are holding the wrong kind of session" answers are 402
+       alongside NO_CREDITS, because from the client's point of view they are the
+       same class of problem: something has to be bought before this can work. */
+    const needsPayment =
+      result.code === "NO_CREDITS" ||
+      result.code === "NEEDS_PERSONAL_CREDIT" ||
+      result.code === "NEEDS_DUET_CREDIT" ||
+      result.code === "DUET_IS_FOR_TWO";
     return NextResponse.json(
-      { error: result.code, credits: await getAvailableCredits(user.id) },
-      { status: result.code === "NO_CREDITS" ? 402 : 409 },
+      {
+        error: result.code,
+        credits: await getAvailableCredits(user.id),
+        /* Only ever set on SESSIONS_EXPIRE_FIRST, where the refusal is only
+           useful if it can name the last date that would have worked. */
+        until: result.until?.toISOString(),
+      },
+      { status: needsPayment ? 402 : 409 },
     );
   }
 

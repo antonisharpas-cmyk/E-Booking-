@@ -308,7 +308,14 @@ export async function daySessions(day = new Date()) {
     capacity: s.capacity,
     status: s.status,
     className: { en: ct.nameEn, el: ct.nameEl },
+    /* GROUP or PERSONAL. The desk needs it visible: a noon appointment on the
+       same list as the 18:00 class looks like a class with four empty places
+       until somebody notices the capacity is one. */
+    kind: ct.kind,
     instructor: inst?.name ?? null,
+    /* The id as well as the name, so the desk's picker knows which of its
+       options is the one already chosen. */
+    instructorId: s.instructorId,
     attendees: roster
       .filter((r) => r.b.sessionId === s.id)
       .map((r) => ({
@@ -317,8 +324,83 @@ export async function daySessions(day = new Date()) {
         name: r.u.name,
         email: r.u.email,
         phone: r.u.phone,
+        /* The second person on a duet, who is not a member and has no row of
+           their own anywhere else. */
+        guestName: r.b.guestName,
       })),
   }));
+}
+
+/**
+ * Every personal and duet appointment still to come.
+ *
+ * A separate query from `daySessions`, and it has to be: the day panel answers
+ * "who is in this morning", and the question an appointment raises is the
+ * opposite one. Somebody has to be asked to come in and teach an hour nobody was
+ * rostered for, and the studio finds out by looking forward, not by opening
+ * tomorrow and then the day after.
+ *
+ * So this is the whole forward list in one read, oldest first, with the member's
+ * number on it. The desk is going to make two phone calls off the back of each
+ * row and both of them are easier with the number already on screen.
+ *
+ * Only future appointments, and only live bookings. A cancelled one belongs in
+ * the email the studio was sent when it was cancelled, not on the list of hours
+ * somebody still has to staff.
+ */
+export async function upcomingAppointments(now = new Date(), days = 21) {
+  const to = studioAddDays(studioStartOfDay(now), days + 1);
+
+  const rows = await db
+    .select({
+      bookingId: bookings.id,
+      startsAt: classSessions.startsAt,
+      endsAt: classSessions.endsAt,
+      guestName: bookings.guestName,
+      name: users.name,
+      email: users.email,
+      phone: users.phone,
+      instructor: instructors.name,
+      instructorId: classSessions.instructorId,
+      sessionId: classSessions.id,
+    })
+    .from(bookings)
+    .innerJoin(classSessions, eq(bookings.sessionId, classSessions.id))
+    .innerJoin(classTypes, eq(classSessions.classTypeId, classTypes.id))
+    .innerJoin(users, eq(bookings.userId, users.id))
+    .leftJoin(instructors, eq(classSessions.instructorId, instructors.id))
+    .where(
+      and(
+        eq(classTypes.kind, "PERSONAL"),
+        ne(bookings.status, "CANCELLED"),
+        eq(classSessions.status, "SCHEDULED"),
+        gte(classSessions.startsAt, now),
+        lte(classSessions.startsAt, to),
+      ),
+    )
+    .orderBy(asc(classSessions.startsAt));
+
+  return rows.map((r) => ({
+    ...r,
+    /* Two people or one, decided by whether a duet session paid for it. */
+    seats: r.guestName ? 2 : 1,
+  }));
+}
+
+/**
+ * The instructors the desk may put on a class.
+ *
+ * Active only. Somebody who has left the studio can be taken off a class they
+ * were on, so their name still resolves in history, but they cannot be put on a
+ * new one, because a rota filled with people who are not coming in is worse than
+ * a blank.
+ */
+export async function activeInstructors() {
+  return db
+    .select({ id: instructors.id, name: instructors.name })
+    .from(instructors)
+    .where(eq(instructors.active, true))
+    .orderBy(asc(instructors.sortOrder), asc(instructors.name));
 }
 
 export async function memberList(limit = 100) {

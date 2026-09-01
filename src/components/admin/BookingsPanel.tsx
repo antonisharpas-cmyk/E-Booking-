@@ -23,6 +23,8 @@ type Attendee = {
   name: string;
   email: string;
   phone: string | null;
+  /** The second person on a duet. Not a member, so this is the only record. */
+  guestName: string | null;
 };
 
 type SessionRow = {
@@ -32,18 +34,46 @@ type SessionRow = {
   capacity: number;
   status: string;
   className: { en: string; el: string };
+  /** GROUP or PERSONAL. */
+  kind: string;
   instructor: string | null;
+  instructorId: string | null;
   attendees: Attendee[];
 };
 
+/** One name the desk may put on a class. */
+type Teacher = { id: string; name: string };
+
+/** One personal or duet hour somebody still has to be found to teach. */
+type Appointment = {
+  bookingId: string;
+  startsAt: string;
+  endsAt: string;
+  guestName: string | null;
+  name: string;
+  email: string;
+  phone: string | null;
+  instructor: string | null;
+  instructorId: string | null;
+  sessionId: string;
+  seats: number;
+};
+
 export function BookingsPanel({ onNotice }: { onNotice: (s: string) => void }) {
-  const { t, locale, fmtTime } = useI18n();
+  const { t, locale, fmtTime, fmtLongDate } = useI18n();
   const d = t.desk;
   const el = locale === "el";
+
+  /* "Tuesday 2 September, 12:00" in one string. The appointment list spans
+     three weeks, so a bare time would be ambiguous on every row of it. */
+  const fmtDayTime = (iso: string) =>
+    `${fmtLongDate(new Date(iso))}, ${fmtTime(iso)}`;
 
   const today = dayKey(new Date());
   const [day, setDay] = useState(today);
   const [sessions, setSessions] = useState<SessionRow[] | null>(null);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async (date: string) => {
@@ -53,8 +83,14 @@ export function BookingsPanel({ onNotice }: { onNotice: (s: string) => void }) {
       setSessions([]);
       return;
     }
-    const data = (await res.json()) as { sessions: SessionRow[] };
+    const data = (await res.json()) as {
+      sessions: SessionRow[];
+      appointments?: Appointment[];
+      instructors?: Teacher[];
+    };
     setSessions(data.sessions ?? []);
+    setAppointments(data.appointments ?? []);
+    setTeachers(data.instructors ?? []);
   }, []);
 
   useEffect(() => {
@@ -65,6 +101,54 @@ export function BookingsPanel({ onNotice }: { onNotice: (s: string) => void }) {
     const next = new Date(`${day}T12:00:00`);
     next.setDate(next.getDate() + days);
     setDay(dayKey(next));
+  }
+
+  /**
+   * Put somebody on a class, or take them off it.
+   *
+   * One class, never the weekly rota: the reason this control exists is that an
+   * instructor is ill *today*, and a tool that edited the template would fix one
+   * Tuesday by rewriting every Tuesday.
+   *
+   * The whole day is reloaded afterwards rather than the one row patched, because
+   * the answer includes how many members were told, and that number depends on
+   * what the server decided rather than on what was clicked.
+   */
+  async function assign(sessionId: string, instructorId: string | null) {
+    setBusy(sessionId);
+    try {
+      const res = await fetch("/api/admin/instructor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, instructorId }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        instructor?: string | null;
+        previous?: string | null;
+        told?: number;
+      };
+      if (!res.ok) {
+        onNotice(t.common.somethingWrong);
+        return;
+      }
+      /* Said out loud, because a swap on a booked class writes to members and
+         whoever pressed it should know that it did. */
+      const told = data.told ?? 0;
+      onNotice(
+        told > 0
+          ? d.instructorToldMembers
+              .replace("{name}", data.instructor ?? "")
+              .replace("{n}", String(told))
+          : data.instructor
+            ? d.instructorSet.replace("{name}", data.instructor)
+            : d.instructorCleared,
+      );
+      await load(day);
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function mark(
@@ -93,8 +177,106 @@ export function BookingsPanel({ onNotice }: { onNotice: (s: string) => void }) {
     0,
   );
 
+  /**
+   * The picker.
+   *
+   * A plain select and not a modal or a search box. There are four instructors,
+   * the desk is often being used one-handed at a counter with somebody waiting,
+   * and the fastest possible version of "who is taking this" is a list of four
+   * names that opens where the finger already is.
+   */
+  function TeacherPicker({
+    sessionId,
+    current,
+  }: {
+    sessionId: string;
+    current: string | null;
+  }) {
+    return (
+      <select
+        aria-label={d.instructorLabel}
+        value={current ?? ""}
+        disabled={busy === sessionId || teachers.length === 0}
+        onChange={(e) => void assign(sessionId, e.target.value || null)}
+        className={cn(
+          "rounded-full border bg-white/80 px-3 py-1.5 text-[11px] text-mocha-600 transition-colors",
+          current
+            ? "border-mocha-300"
+            : /* Nobody on it yet, which on an appointment is the thing somebody
+                 has to act on. Gold, like the block it sits in. */
+              "border-gold/60 bg-[#FBF6E7] text-[#8a6f1a]",
+          "disabled:opacity-50",
+        )}
+      >
+        <option value="">{d.instructorNeeded}</option>
+        {teachers.map((x) => (
+          <option key={x.id} value={x.id}>
+            {x.name}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
   return (
     <div className="mt-10">
+      {/**
+        * Appointments first, and above the day control on purpose.
+        *
+        * This panel answers "who is in today". An appointment asks the opposite
+        * question: an hour in the middle of a weekday that nobody is rostered
+        * for, which somebody has to ring an instructor about before it arrives.
+        * Answering that by opening tomorrow, then the day after, then Thursday,
+        * is exactly how an hour gets missed.
+        *
+        * Not a tab of its own. Reception opens this screen first, so the thing
+        * that needs a phone call is the first thing on it, and nothing new has
+        * to be learned or remembered to find it. It disappears entirely when
+        * there is nothing booked, which is most of the time.
+        */}
+      {appointments.length > 0 && (
+        <section className="mb-6 rounded-3xl border border-gold/50 bg-[#FBF6E7]/70 p-6">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h3 className="text-[13px] uppercase tracking-widest text-mocha-600">
+              {d.appointmentsTitle}
+            </h3>
+            <p className="text-[11px] text-clay">{d.appointmentsNote}</p>
+          </div>
+
+          <ul className="mt-5 divide-y divide-gold/30">
+            {appointments.map((a) => (
+              <li
+                key={a.bookingId}
+                className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-3"
+              >
+                <span className="flex flex-wrap items-baseline gap-x-3">
+                  <span className="font-display text-lg text-mocha-600 lining-nums tabular-nums">
+                    {fmtDayTime(a.startsAt)}
+                  </span>
+                  <span className="rounded-full bg-mocha-600/90 px-2 py-0.5 text-[9px] uppercase tracking-widest text-cream">
+                    {a.seats > 1 ? d.duet : d.personal}
+                  </span>
+                </span>
+
+                <span className="flex flex-1 flex-wrap items-baseline gap-x-3">
+                  <span className="text-[14px] text-mocha-600">
+                    {a.guestName ? `${a.name} + ${a.guestName}` : a.name}
+                  </span>
+                  <span className="text-[12px] text-clay">
+                    {a.phone ?? a.email}
+                  </span>
+                </span>
+
+                <TeacherPicker
+                  sessionId={a.sessionId}
+                  current={a.instructorId}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* the day */}
       <div className="flex flex-wrap items-center gap-3 rounded-3xl border border-mocha-200/70 bg-white/60 p-4">
         <button
@@ -160,15 +342,29 @@ export function BookingsPanel({ onNotice }: { onNotice: (s: string) => void }) {
                     <p className="font-display text-2xl text-mocha-600 lining-nums tabular-nums">
                       {fmtTime(s.startsAt)} – {fmtTime(s.endsAt)}
                     </p>
-                    <p className="mt-1 text-[12px] text-clay">
-                      {el ? s.className.el : s.className.en}
-                      {s.instructor ? ` · ${s.instructor}` : ""}
-                      {s.status === "CANCELLED" ? ` · ${d.cancelled}` : ""}
+                    <p className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-clay">
+                      {s.kind === "PERSONAL" && (
+                        <span className="rounded-full bg-gold/25 px-2 py-0.5 text-[9px] uppercase tracking-widest text-[#8a6f1a]">
+                          {d.personal}
+                        </span>
+                      )}
+                      <span>
+                        {el ? s.className.el : s.className.en}
+                        {s.status === "CANCELLED" ? ` · ${d.cancelled}` : ""}
+                      </span>
                     </p>
                   </div>
-                  <p className="text-[11px] uppercase tracking-widest text-clay lining-nums tabular-nums">
-                    {live.length}/{s.capacity}
-                  </p>
+                  <div className="flex items-center gap-4">
+                    {/* Reassignable on a class as well as an appointment: an
+                        instructor calling in ill is the ordinary case, and it
+                        needs fixing on one day rather than on the rota. */}
+                    {s.status !== "CANCELLED" && (
+                      <TeacherPicker sessionId={s.id} current={s.instructorId} />
+                    )}
+                    <p className="text-[11px] uppercase tracking-widest text-clay lining-nums tabular-nums">
+                      {live.length}/{s.capacity}
+                    </p>
+                  </div>
                 </div>
 
                 {live.length === 0 ? (
@@ -184,6 +380,14 @@ export function BookingsPanel({ onNotice }: { onNotice: (s: string) => void }) {
                           <span className="text-[14px] text-mocha-600">
                             {a.name}
                           </span>
+                          {/* The second person, who has no account and no other
+                              record anywhere. Whoever opens the door needs to be
+                              expecting two. */}
+                          {a.guestName && (
+                            <span className="ml-2 rounded-full bg-gold/25 px-2 py-0.5 text-[10px] text-[#8a6f1a]">
+                              + {a.guestName}
+                            </span>
+                          )}
                           <span className="ml-3 text-[12px] text-clay">
                             {a.phone ?? a.email}
                           </span>

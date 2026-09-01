@@ -70,7 +70,6 @@ console.log("\n1. Public pages");
 for (const p of [
   "/",
   "/studio",
-  "/classes",
   "/timetable",
   "/pricing",
   "/contact",
@@ -320,10 +319,22 @@ for (const [tab, needle] of [
   );
 }
 
+/* The Classes page is gone: one class type, so a page telling six of them
+   apart was answering a question nobody had. Its team cards moved to /studio,
+   which is checked in 12c. */
+check("the Classes page is retired", (await req("/classes")).status === 404);
+
 console.log("\n5. Booking without credits");
 const sess = await req("/api/sessions?days=10");
-const list = sess.json?.sessions ?? [];
+const all = sess.json?.sessions ?? [];
+/* Group classes only, throughout this section. A midday appointment holds one
+   person, closes to booking at the end of the previous day and is paid for with
+   a session an ordinary pack does not contain, so mixing them in here would
+   test three rules at once and report the wrong one. */
+const list = all.filter((s) => s.classType?.kind !== "PERSONAL");
+const appointments = all.filter((s) => s.classType?.kind === "PERSONAL");
 check("timetable API returns classes", list.length > 0, list.length);
+check("and appointments alongside them", appointments.length > 0, appointments.length);
 /* Comfortably outside the 24-hour cancellation window, so the cancel step
    below exercises the refund path rather than the lock-out. */
 const target = list.find(
@@ -378,9 +389,39 @@ const cancelled = await req("/api/bookings/cancel", { method: "POST", body: { bo
 check("cancel succeeds and refunds", cancelled.json?.ok && cancelled.json?.refunded, cancelled.json);
 check("balance back to 8", cancelled.json?.credits === 8, cancelled.json);
 
-/* Every class the studio runs is 60 minutes with five places. */
+/* Every group class the studio runs is 60 minutes with five places. */
 const cap = list.every((s) => s.capacity === 5);
 check("every class has five places", cap, list.find((s) => s.capacity !== 5)?.capacity);
+/* And every appointment holds exactly one, which is the whole point of it. */
+check(
+  "every appointment holds one person",
+  appointments.every((s) => s.capacity === 1),
+  appointments.find((s) => s.capacity !== 1)?.capacity,
+);
+check(
+  "and sits at 12:00, 13:00 or 14:00 on a weekday",
+  appointments.every((s) => {
+    const at = new Date(s.startsAt);
+    const hour = Number(
+      new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Asia/Nicosia",
+        hour: "2-digit",
+        hour12: false,
+      }).format(at),
+    );
+    const dow = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Nicosia",
+      weekday: "short",
+    }).format(at);
+    return [12, 13, 14].includes(hour) && !["Sat", "Sun"].includes(dow);
+  }),
+),
+check(
+  "the timetable calls every group class Reformer Flow",
+  new Set(list.map((s) => s.classType?.nameEn)).size === 1 &&
+    list[0]?.classType?.nameEn === "Reformer Flow",
+  [...new Set(list.map((s) => s.classType?.nameEn))],
+);
 const oneHour = list.every(
   (s) => !s.endsAt || new Date(s.endsAt).getTime() - new Date(s.startsAt).getTime() === 3600_000,
 );
@@ -548,10 +589,21 @@ check(
 check("contact promises a reply back soon", contactPage.text.includes("reply back soon"));
 
 console.log("\n12c. Instructor portraits");
-const classesPage = await req("/classes");
+/* The team moved off the retired Classes page and onto the studio page, where
+   it sits between Powered by Technogym and Standards not slogans. */
+const studioPage = await req("/studio");
 for (const slug of ["maria-k", "elena-s", "andreas-p", "chris-m"]) {
-  check(`team card shows ${slug}`, classesPage.text.includes(`${slug}.jpg`));
+  check(`team card shows ${slug}`, studioPage.text.includes(`${slug}.jpg`));
 }
+check(
+  "and it is between Technogym and the standards",
+  (() => {
+    const gym = studioPage.text.indexOf("technogym.svg");
+    const team = studioPage.text.indexOf("maria-k.jpg");
+    const standards = studioPage.text.search(/Standards|Πρότυπα/);
+    return gym > -1 && team > gym && standards > team;
+  })(),
+);
 
 console.log("\n13. Stripe webhook is protected");
 const hook = await req("/api/stripe/webhook", { method: "POST", body: { type: "checkout.session.completed" } });

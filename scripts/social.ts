@@ -175,6 +175,7 @@ function timetable(): Slot[] {
            from class_templates t
            join class_types ct on ct.id = t.class_type_id
           where t.active = 1
+            and ct.kind = 'GROUP'
           order by t.day_of_week, t.start_minutes`,
       )
       .all() as Slot[]
@@ -278,10 +279,14 @@ const T = {
     facts: [
       ["Five places", "Never a class you disappear into"],
       ["60 minutes", "Every class, six days a week"],
-      ["All levels", "Foundations for a first time, Athletic when you are ready"],
+      ["All levels", "One class, built around the five people in it"],
       ["Bring", "A towel, water, and gripped socks"],
     ],
-    classesHead: "The classes",
+    classesHead: "What we run",
+    /* Named here rather than read off the price list, because these two are a
+       shape of session and not a class type: they have no row in the timetable
+       to take a name from. */
+    offerChips: ["Reformer Flow", "Personal 1 to 1", "Duet, for two"],
     promoKicker: "Opening week",
     promoTitle: "Your first\nsession is\non us.",
     promoBody: (from: string, to: string) =>
@@ -315,10 +320,11 @@ const T = {
     facts: [
       ["Πέντε θέσεις", "Ποτέ μάθημα μέσα στο οποίο χάνεσαι"],
       ["60 λεπτά", "Κάθε μάθημα, έξι ημέρες την εβδομάδα"],
-      ["Όλα τα επίπεδα", "Foundations για την πρώτη φορά, Athletic όταν είσαι έτοιμος"],
+      ["Όλα τα επίπεδα", "Ένα μάθημα, φτιαγμένο γύρω από τα πέντε άτομα μέσα"],
       ["Φέρε", "Πετσέτα, νερό και αντιολισθητικές κάλτσες"],
     ],
-    classesHead: "Τα μαθήματα",
+    classesHead: "Τι κάνουμε",
+    offerChips: ["Reformer Flow", "Ατομική 1 προς 1", "Duet, για δύο"],
     promoKicker: "Εβδομάδα εγκαινίων",
     promoTitle: "Η πρώτη σου\nσυνεδρία\nκερασμένη.",
     promoBody: (from: string, to: string) =>
@@ -549,13 +555,6 @@ function timetableCard(lang: Lang, fmt: Fmt) {
 function infoCard(lang: Lang, fmt: Fmt) {
   const f = FORMATS[fmt];
   const t = T[lang];
-  const types = sqlite
-    .prepare(
-      `select name_en as en, name_el as el from class_types
-        where active = 1 order by sort_order`,
-    )
-    .all() as { en: string; el: string }[];
-
   /* The one card with a photograph, so the one card whose height has to be
      watched: the frame is a fixed 1350 with overflow hidden, and anything that
      runs past it is simply gone, footer included. Everything below is sized to
@@ -589,7 +588,7 @@ function infoCard(lang: Lang, fmt: Fmt) {
       <h3 style="font-size:calc(18px * var(--fs));letter-spacing:.22em;text-transform:uppercase;
         font-weight:600;color:#A08D85;margin-bottom:14px">${t.classesHead}</h3>
       <div class="chips">
-        ${types.map((c) => `<span class="chip" style="font-size:calc(18px * var(--fs));padding:9px 19px">${lang === "el" ? c.el || c.en : c.en}</span>`).join("")}
+        ${t.offerChips.map((c) => `<span class="chip" style="font-size:calc(18px * var(--fs));padding:9px 19px">${c}</span>`).join("")}
       </div>
     </div>
     <div style="margin-top:auto"></div>

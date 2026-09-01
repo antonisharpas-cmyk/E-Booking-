@@ -1,12 +1,26 @@
-import { and, asc, eq, gte, lte, ne, sql } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   bookings,
   classSessions,
   classTypes,
+  creditBatches,
+  creditLedger,
   instructors,
 } from "@/db/schema";
-import { refundOneCredit, spendableAnywhere, spendOneCredit } from "./credits";
+import {
+  kindsThatPayFor,
+  lastClassDateFor,
+  refundOneCredit,
+  spendableAnywhere,
+  spendBlockReason,
+  spendOneCredit,
+} from "./credits";
+import {
+  isPersonalBookable,
+  isPersonalCancellable,
+  personalBookingClosesAt,
+} from "./personal";
 import { repairScheduleOnce } from "./schedule-repair";
 import {
   FREE_CANCELLATION_HOURS,
@@ -23,11 +37,39 @@ export type BookingResultCode =
   | "ALREADY_BOOKED"
   | "NO_CREDITS"
   /** They hold sessions, but none of them may pay for a class on this date. */
-  | "CREDITS_NOT_VALID_HERE";
+  | "CREDITS_NOT_VALID_HERE"
+  /** Their sessions expire before this class runs. Carries the last date. */
+  | "SESSIONS_EXPIRE_FIRST"
+  /** An appointment, asked for after the end of the day before. */
+  | "PERSONAL_TOO_LATE"
+  /** They hold class sessions but nothing that buys an appointment. */
+  | "NEEDS_PERSONAL_CREDIT"
+  /** Two people are coming and they hold no duet session. */
+  | "NEEDS_DUET_CREDIT"
+  /** They hold a duet session and asked for the hour on their own. */
+  | "DUET_IS_FOR_TWO"
+  /** An Unlimited plan, and this is the second class they have asked for today. */
+  | "ONE_PER_DAY";
 
 export type BookingResult =
-  | { ok: true; bookingId: string; creditBatchId: string | null }
-  | { ok: false; code: Exclude<BookingResultCode, "OK"> };
+  | {
+      ok: true;
+      bookingId: string;
+      creditBatchId: string | null;
+      /** Set when a duet session paid for it, so the caller can say so. */
+      guestName: string | null;
+    }
+  | {
+      ok: false;
+      code: Exclude<BookingResultCode, "OK">;
+      /**
+       * The last class date their sessions reach. Set only on
+       * SESSIONS_EXPIRE_FIRST, so the refusal can name a date instead of
+       * telling somebody their sessions are no good and leaving them to guess
+       * which date would have worked.
+       */
+      until?: Date;
+    };
 
 /**
  * Book a class for one credit.
@@ -40,19 +82,42 @@ export type BookingResult =
 export function bookClass(
   userId: string,
   sessionId: string,
-  now = new Date(),
+  optsOrNow: { guestName?: string | null; now?: Date } | Date = {},
 ): BookingResult {
+  /* The old two-argument form is still in use by the desk and by four test
+     suites, and there is no reason to make them all change to gain a parameter
+     none of them needs. */
+  const opts = optsOrNow instanceof Date ? { now: optsOrNow } : optsOrNow;
+  const now = opts.now ?? new Date();
+  const guestName = opts.guestName?.trim() || null;
+
   return db.transaction((): BookingResult => {
     const session = db
-      .select()
+      .select({ s: classSessions, kind: classTypes.kind })
       .from(classSessions)
+      .innerJoin(classTypes, eq(classSessions.classTypeId, classTypes.id))
       .where(eq(classSessions.id, sessionId))
       .get();
 
     if (!session) return { ok: false, code: "SESSION_NOT_FOUND" };
-    if (session.status !== "SCHEDULED")
+    const classKind = session.kind === "PERSONAL" ? "PERSONAL" : "GROUP";
+    const personal = classKind === "PERSONAL";
+    const seats = personal && guestName ? 2 : 1;
+
+    if (session.s.status !== "SCHEDULED")
       return { ok: false, code: "SESSION_CANCELLED" };
-    if (!isBookable(session.startsAt, now)) return { ok: false, code: "TOO_LATE" };
+
+    /* Two different cutoffs, because they answer two different questions. A
+       group class closes a minute before it starts: the room is already open and
+       the instructor is already there. An appointment closes at the end of the
+       previous day, because between now and noon somebody has to be asked to
+       come in and work an hour they were not rostered for. */
+    if (personal) {
+      if (!isPersonalBookable(session.s.startsAt, now))
+        return { ok: false, code: "PERSONAL_TOO_LATE" };
+    } else if (!isBookable(session.s.startsAt, now)) {
+      return { ok: false, code: "TOO_LATE" };
+    }
 
     const existing = db
       .select()
@@ -76,25 +141,77 @@ export function bookClass(
         )
         .get()?.n ?? 0;
 
-    if (taken >= session.capacity) return { ok: false, code: "CLASS_FULL" };
+    if (taken >= session.s.capacity) return { ok: false, code: "CLASS_FULL" };
 
     /* The class date goes in, so a session that may only be spent on the
-       opening week cannot be burned on a class in November. */
+       opening week cannot be burned on a class in November, and the kinds go in
+       so a group session cannot buy an appointment or the other way round. */
+    const kinds = kindsThatPayFor(classKind, seats);
     const batchId = spendOneCredit(
       userId,
-      { note: session.id, classStartsAt: session.startsAt },
+      {
+        note: session.s.id,
+        classStartsAt: session.s.startsAt,
+        kinds,
+        sessionId,
+      },
       now,
     );
     if (!batchId) {
-      /* Distinguish "you have nothing" from "you have something that cannot pay
-         for this class". A member looking at a balance of 1 and being told they
-         have no sessions would reasonably think the site was broken. */
-      const anyLeft = spendableAnywhere(userId, now);
-      return {
-        ok: false,
-        code: anyLeft ? "CREDITS_NOT_VALID_HERE" : "NO_CREDITS",
-      };
+      /**
+       * Six different reasons a member with a visible balance cannot book, and
+       * each needs its own sentence. "You have no sessions" said to somebody
+       * looking at a balance of six is how a site loses their trust in one line,
+       * and it was wrong that way once already over the opening week.
+       */
+      const why = spendBlockReason(
+        userId,
+        { classStartsAt: session.s.startsAt, kinds, sessionId },
+        now,
+      );
+      if (why === "NONE") return { ok: false, code: "NO_CREDITS" };
+      /**
+       * Out past the end of the window, and there are two quite different
+       * reasons for that.
+       *
+       * An ordinary pack's window is its own expiry: the sessions die before
+       * this class runs, and the useful sentence names the last date that would
+       * have worked. The opening-week offer is the other kind, a week in the
+       * middle of the calendar with a start as well as an end, and it needs the
+       * sentence it already has. `lastClassDateFor` looks only at batches with
+       * no start date, which is exactly what separates the two.
+       */
+      if (why === "WINDOW") {
+        const until = lastClassDateFor(userId, kinds, now);
+        if (until) return { ok: false, code: "SESSIONS_EXPIRE_FIRST", until };
+        return { ok: false, code: "CREDITS_NOT_VALID_HERE" };
+      }
+      if (why === "PER_DAY") return { ok: false, code: "ONE_PER_DAY" };
+      if (why === "WRONG_KIND") {
+        if (!personal) return { ok: false, code: "CREDITS_NOT_VALID_HERE" };
+        if (seats > 1) return { ok: false, code: "NEEDS_DUET_CREDIT" };
+        /* Asking for the hour alone. If a duet session is what they are
+           holding, saying "you need a personal session" is true and unhelpful;
+           the useful sentence is that a duet is for two. */
+        return {
+          ok: false,
+          code: spendableAnywhere(userId, now, ["DUET"])
+            ? "DUET_IS_FOR_TWO"
+            : "NEEDS_PERSONAL_CREDIT",
+        };
+      }
+      return { ok: false, code: "CREDITS_NOT_VALID_HERE" };
     }
+
+    /* Only recorded when a duet session actually paid. Somebody who typed a
+       name and was served by a personal session is one person coming, and the
+       instructor should not be told to set up two reformers. */
+    const paidKind = db
+      .select({ kind: creditBatches.kind })
+      .from(creditBatches)
+      .where(eq(creditBatches.id, batchId))
+      .get()?.kind;
+    const guest = paidKind === "DUET" ? guestName : null;
 
     let bookingId: string;
     if (existing) {
@@ -106,6 +223,7 @@ export function bookClass(
           creditRefunded: false,
           cancelledAt: null,
           createdAt: now,
+          guestName: guest,
         })
         .where(eq(bookings.id, existing.id))
         .run();
@@ -118,13 +236,33 @@ export function bookClass(
           sessionId,
           status: "CONFIRMED",
           creditBatchId: batchId,
+          guestName: guest,
         })
         .returning()
         .get();
       bookingId = created.id;
     }
 
-    return { ok: true, bookingId, creditBatchId: batchId };
+    /* Tie the spend to the booking it paid for. The session has to be taken
+       before the booking row exists, so the ledger line is written without a
+       booking on it and is given one here. Without this the ledger can say
+       which package a session came out of but not which booking spent it, and
+       "which package paid for this class?" is the first question asked when a
+       member disputes a balance. */
+    db.update(creditLedger)
+      .set({ bookingId })
+      .where(
+        and(
+          eq(creditLedger.userId, userId),
+          eq(creditLedger.batchId, batchId),
+          eq(creditLedger.reason, "BOOKING"),
+          eq(creditLedger.note, session.s.id),
+          isNull(creditLedger.bookingId),
+        ),
+      )
+      .run();
+
+    return { ok: true, bookingId, creditBatchId: batchId, guestName: guest };
   });
 }
 
@@ -170,20 +308,30 @@ export function cancelBooking(
       return { ok: false, code: "ALREADY_CANCELLED" };
 
     const session = db
-      .select()
+      .select({ s: classSessions, kind: classTypes.kind })
       .from(classSessions)
+      .innerJoin(classTypes, eq(classSessions.classTypeId, classTypes.id))
       .where(eq(classSessions.id, booking.sessionId))
       .get();
     if (!session) return { ok: false, code: "NOT_FOUND" };
-    if (session.startsAt.getTime() <= now.getTime())
+    const personal = session.kind === "PERSONAL";
+    if (session.s.startsAt.getTime() <= now.getTime())
       return { ok: false, code: "PAST" };
 
-    if (!isFreeCancellation(session.startsAt, now))
-      return { ok: false, code: "TOO_LATE_TO_CANCEL" };
+    /* An appointment closes to cancellation on the same line it closes to
+       booking, at the end of the previous day. See lib/personal.ts: once an
+       instructor has been called in, that hour is worked either way. */
+    const open = personal
+      ? isPersonalCancellable(session.s.startsAt, now)
+      : isFreeCancellation(session.s.startsAt, now);
+    if (!open) return { ok: false, code: "TOO_LATE_TO_CANCEL" };
 
     refundOneCredit(userId, booking.creditBatchId, {
       bookingId: booking.id,
       note: "Cancelled inside the free window",
+      /* Only reached if the original batch has gone, and then it matters:
+         €30 of one to one must not come back as €20 of group class. */
+      kind: personal ? (booking.guestName ? "DUET" : "PERSONAL") : "CLASS",
     });
 
     db.update(bookings)
@@ -218,6 +366,8 @@ export type SessionView = {
     intensity: number;
     descEn: string;
     descEl: string;
+    /** GROUP or PERSONAL. Decides the cutoff and what can pay for it. */
+    kind: string;
   };
   instructor: { name: string } | null;
   /** Set when a user id is supplied */
@@ -298,6 +448,7 @@ export async function listSessions(opts: {
       intensity: ct.intensity,
       descEn: ct.descEn,
       descEl: ct.descEl,
+      kind: ct.kind,
     },
     instructor: inst ? { name: inst.name } : null,
     myBookingId: mine ?? null,
@@ -313,6 +464,10 @@ export type MyBooking = {
   className: { en: string; el: string };
   instructor: string | null;
   freeCancellationUntil: Date;
+  /** GROUP or PERSONAL. */
+  kind: string;
+  /** The second person on a duet, when there is one. */
+  guestName: string | null;
 };
 
 export async function listMyBookings(userId: string) {
@@ -333,9 +488,18 @@ export async function listMyBookings(userId: string) {
     endsAt: s.endsAt,
     className: { en: ct.nameEn, el: ct.nameEl },
     instructor: inst?.name ?? null,
-    freeCancellationUntil: new Date(
-      s.startsAt.getTime() - FREE_CANCELLATION_HOURS * 60 * 60 * 1000,
-    ),
+    /* An appointment closes at the end of the previous day rather than twelve
+       hours before, so the date shown to the member is the date the rule
+       actually uses. Two different rules meant two different dates, and the one
+       on screen has to be the one the Cancel button obeys. */
+    freeCancellationUntil:
+      ct.kind === "PERSONAL"
+        ? personalBookingClosesAt(s.startsAt)
+        : new Date(
+            s.startsAt.getTime() - FREE_CANCELLATION_HOURS * 60 * 60 * 1000,
+          ),
+    kind: ct.kind,
+    guestName: b.guestName,
   }));
 
   const now = Date.now();

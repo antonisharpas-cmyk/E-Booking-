@@ -30,6 +30,10 @@ type BookingRow = {
   className: { en: string; el: string };
   instructor: string | null;
   freeCancellationUntil: string;
+  /** GROUP or PERSONAL. */
+  kind: string;
+  /** The second person on a duet, when there is one. */
+  guestName: string | null;
 };
 
 type Props = {
@@ -42,6 +46,12 @@ type Props = {
   };
   wallet: {
     available: number;
+    /** Only the sessions that buy a place in a group class. */
+    classCredits: number;
+    /** Appointment sessions for the hour alone. */
+    soloCredits: number;
+    /** Appointment sessions that admit a second person. */
+    duetCredits: number;
     nextExpiry: string | null;
     nextExpiryCredits: number;
     batches: {
@@ -111,9 +121,6 @@ export function AccountBody(props: Props) {
      under the face in the header links straight into each one. */
   const params = useSearchParams();
   const requested = params.get("tab");
-  /* "I asked for this section" as opposed to "I asked for my account".
-     See the jump effect below for why the tab name alone cannot say it. */
-  const jump = params.get("jump") === "1";
   const [tab, setTab] = useState<AccountTab>(
     isAccountTab(requested) ? requested : "profile",
   );
@@ -131,55 +138,111 @@ export function AccountBody(props: Props) {
   }, [requested]);
 
   /**
-   * Asked for a section by name: take them to it, rather than leaving the right
-   * pill selected somewhere below the fold.
+   * Where the page lands, and it is one rule with two halves.
    *
-   * Plain `/account` — clicking the photograph — deliberately does not jump. That
-   * is somebody coming to look at their balance, and the balance is at the top.
-   * A named section is somebody who asked for that section.
+   * **Profile lands at the top.** Profile is not really a section somebody goes
+   * looking for: it is the default, and it is what the member's own photograph
+   * points at. Somebody opening their account came to see their balance, and the
+   * balance is above everything. So Profile and plain `/account` behave
+   * identically, which is what they mean identically.
    *
-   * Profile is the one section that cannot be told apart by its name, because it
-   * is also the default: `?tab=profile` is both "take me to Profile" and "take me
-   * to my account, where Profile happens to be showing". So the header's Profile
-   * menu item carries `&jump=1` and the member's face does not, and the two land
-   * where each is asking to land. Every other section is unambiguous and needs no
-   * marker, which keeps a link somebody pastes to a friend — `?tab=payments` —
-   * arriving on the payments it names.
+   * **Every other section puts the pill bar at the top of the screen**, directly
+   * under the header, with the panel they asked for beneath it. Anything else
+   * leaves the right pill highlighted below the fold, and the member concludes
+   * the menu item did nothing.
    *
-   * Keyed on which section was asked for rather than a once-ever flag. It used
-   * to be a boolean, which meant the *first* menu item a member clicked took
-   * them to its section and every one after it silently did not — the right pill
-   * highlighted, hundreds of pixels below what they were looking at. Working
-   * once and then not is worse than never working, because it reads as the page
-   * being unreliable rather than as a missing feature.
+   * ---
    *
-   * The header links now pass `scroll={false}`, so Next no longer resets the
-   * scroll position to the top underneath this. That removes the race the old
-   * 180ms timeout existed to lose.
+   * **Why it places itself twice.**
+   *
+   * One `requestAnimationFrame` and a smooth `scrollIntoView` was the old
+   * version, and it was right in principle and unreliable in practice. The
+   * target's position is measured one frame after mount, and things above it are
+   * still settling: a web font swapping in, an avatar arriving, a reveal
+   * animation finishing. The scroll then glides to a position that was true when
+   * it started and is not true when it stops, landing tens or hundreds of pixels
+   * off, and always by an amount that depends on how much history the member has,
+   * which is why it can look fine on one account and wrong on another.
+   *
+   * So the placement is instant and then checked twice. Instant, because a
+   * smooth scroll cannot be corrected while it is still gliding: measuring
+   * mid-flight gives a number that is wrong in a different way. It is also the
+   * better behaviour on a page the member is arriving at rather than already
+   * reading, since animating down a page they never saw is theatre. Two later
+   * passes measure where the bar actually ended up and nudge it if it has drifted
+   * more than a few pixels, which is invisible when nothing moved.
+   *
+   * One known drift, and the reason the later passes exist at all: the header is
+   * sticky and shrinks from 103 pixels to 71 once the page is scrolled, over a
+   * CSS transition of about four tenths of a second. The document moves up by
+   * those 32 pixels while the transition runs, so a measurement taken at the
+   * start of it is wrong by up to 32 and a measurement taken during it is wrong
+   * by some fraction of 32. The last pass is deliberately after the transition
+   * has finished rather than inside it.
+   *
+   * The offset comes from the element's own `scroll-margin-top` rather than a
+   * number repeated here, so the CSS that clears the sticky header stays the one
+   * place that decides how much room the header needs.
    */
-  const jumpedTo = useRef<string | null>(null);
+  const placedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!isAccountTab(requested)) return;
-    if (requested === "profile" && !jump) return;
-    const key = `${requested}:${jump}`;
-    if (jumpedTo.current === key) return;
-    jumpedTo.current = key;
+    const key = requested ?? "";
+    if (placedFor.current === key) return;
+    placedFor.current = key;
 
-    /* One frame, so the section exists and has its height before we measure. */
-    const raf = requestAnimationFrame(() => {
-      document
-        .getElementById("account-sections")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    /* Profile, and anything unrecognised, means "my account": start at the top. */
+    if (!isAccountTab(requested) || requested === "profile") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    const place = (smooth: boolean) => {
+      const el = document.getElementById("account-sections");
+      if (!el) return;
+      const clearance = parseFloat(
+        getComputedStyle(el).scrollMarginTop || "0",
+      );
+      const top = el.getBoundingClientRect().top + window.scrollY - clearance;
+      window.scrollTo({
+        top: Math.max(0, top),
+        /* "instant" and not "auto". `auto` means "defer to CSS", and this site
+           sets `scroll-behavior: smooth` on the root, so `auto` produced the
+           very animation this code is trying not to have — and then measured
+           its own position mid-glide. */
+        behavior: smooth ? "smooth" : "instant",
+      });
+    };
+
+    const correct = () => {
+      const el = document.getElementById("account-sections");
+      if (!el) return;
+      const clearance = parseFloat(getComputedStyle(el).scrollMarginTop || "0");
+      if (Math.abs(el.getBoundingClientRect().top - clearance) > 6) place(false);
+    };
+
+    /* Two frames: one for the section to exist, one for its height to be real. */
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => place(false));
     });
-    return () => cancelAnimationFrame(raf);
-  }, [requested, jump]);
+
+    /* Through the header's shrink transition and out the other side of it. Each
+       pass is a no-op unless something actually moved, so three cost nothing. */
+    const timers = [120, 550, 950].map((ms) => window.setTimeout(correct, ms));
+
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+      for (const t of timers) window.clearTimeout(t);
+    };
+  }, [requested]);
 
   function chooseTab(next: AccountTab) {
     setTab(next);
     /* Switching sections from the pills means the member is already looking at
-       them, so no jump — but the *next* request from the header menu should jump
-       again, even if it names the section that is already open. */
-    jumpedTo.current = null;
+       them, so nothing moves — but the *next* request from the header menu
+       should place the page again, even if it names the section already open. */
+    placedFor.current = null;
     /* Keeps the address bar honest — and the section shareable — without a
        server round trip for a click that only changes what is already here. */
     window.history.replaceState(
@@ -284,14 +347,50 @@ export function AccountBody(props: Props) {
                 <p className="text-[10px] uppercase tracking-brand text-cream/50">
                   {t.account.walletTitle}
                 </p>
+                {/**
+                  * The class balance, and the appointment sessions named under
+                  * it rather than folded into it.
+                  *
+                  * The figure used to be the sum of everything held, which read
+                  * as a lie the moment a member bought one Personal session:
+                  * "37 sessions" above a timetable where one of the 37 cannot
+                  * book 36 of the classes on screen. Nobody could tell from that
+                  * number whether it was 37 plus a Personal or 37 including one.
+                  *
+                  * So the big number is group classes and nothing else, and each
+                  * appointment kind gets its own line beneath. The words carry
+                  * the meaning, which is the only way to make it unambiguous.
+                  */}
                 <p className="mt-6 flex items-baseline gap-3">
                   <span className="font-display text-6xl leading-none text-cream">
-                    {props.wallet.available}
+                    {props.wallet.classCredits}
                   </span>
                   <span className="text-[11px] uppercase tracking-widest text-cream/60">
                     {t.common.credits}
                   </span>
                 </p>
+
+                {(props.wallet.soloCredits > 0 ||
+                  props.wallet.duetCredits > 0) && (
+                  <p className="mt-3 space-x-1 text-[13px] leading-relaxed text-cream/75">
+                    {props.wallet.soloCredits > 0 && (
+                      <span>
+                        {(props.wallet.soloCredits === 1
+                          ? t.booking.heldPersonal
+                          : t.booking.heldPersonalPlural
+                        ).replace("{n}", String(props.wallet.soloCredits))}
+                      </span>
+                    )}
+                    {props.wallet.duetCredits > 0 && (
+                      <span>
+                        {(props.wallet.duetCredits === 1
+                          ? t.booking.heldDuet
+                          : t.booking.heldDuetPlural
+                        ).replace("{n}", String(props.wallet.duetCredits))}
+                      </span>
+                    )}
+                  </p>
+                )}
 
                 {/* A session that may only be spent on one week is worth less
                     than the number suggests, and a member who does not know that
@@ -309,7 +408,13 @@ export function AccountBody(props: Props) {
 
                 {props.wallet.nextExpiry ? (
                   <p className="mt-6 text-[12px] text-cream/60">
-                    {props.wallet.nextExpiryCredits} {t.common.credits}{" "}
+                    {/* "1 sessions expires" was the plural of a count that is
+                        very often exactly one, because an appointment session is
+                        bought singly. */}
+                    {props.wallet.nextExpiryCredits}{" "}
+                    {props.wallet.nextExpiryCredits === 1
+                      ? t.common.credit
+                      : t.common.credits}{" "}
                     {t.account.expiringOn}{" "}
                     {fmtFullDate(props.wallet.nextExpiry)}
                   </p>
@@ -387,13 +492,26 @@ export function AccountBody(props: Props) {
                     className="grid gap-4 py-6 sm:grid-cols-[1fr_auto] sm:items-center"
                   >
                     <div>
-                      <p className="text-[15px] text-mocha-600">
-                        {el ? b.className.el : b.className.en}
+                      <p className="flex flex-wrap items-center gap-2 text-[15px] text-mocha-600">
+                        {b.kind === "PERSONAL" && (
+                          <span className="rounded-full border border-gold/50 bg-[#FBF6E7] px-2 py-0.5 text-[9px] uppercase tracking-widest text-[#8a6f1a]">
+                            {b.guestName ? t.desk.duet : t.desk.personal}
+                          </span>
+                        )}
+                        <span>{el ? b.className.el : b.className.en}</span>
                       </p>
                       <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-clay">
                         <span className="lining-nums tabular-nums text-mocha-500">
                           {fmtShortDate(b.startsAt)} · {fmtTime(b.startsAt)}
                         </span>
+                        {/* Whoever is coming with them, because a name typed
+                            days ago is worth a chance to notice a typo in. */}
+                        {b.guestName && (
+                          <>
+                            <span className="h-1 w-1 rounded-full bg-clay/50" />
+                            <span>{`+ ${b.guestName}`}</span>
+                          </>
+                        )}
                         {b.instructor && (
                           <>
                             <span className="h-1 w-1 rounded-full bg-clay/50" />
@@ -411,7 +529,9 @@ export function AccountBody(props: Props) {
                           ? `${t.account.cancelFree} ${fmtDayMonth(
                               b.freeCancellationUntil,
                             )} ${fmtTime(b.freeCancellationUntil)}`
-                          : t.account.cancelLate}
+                          : b.kind === "PERSONAL"
+                            ? t.booking.personalCancelTooLate
+                            : t.account.cancelLate}
                       </p>
                     </div>
                     <div className="sm:justify-self-end">

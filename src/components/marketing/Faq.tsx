@@ -7,7 +7,17 @@ import { cn } from "@/lib/utils";
 
 export function Faq() {
   const { t } = useI18n();
-  const [open, setOpen] = useState<number | null>(0);
+  /**
+   * Everything shut until somebody asks.
+   *
+   * The first answer used to be open. It was a reasonable idea and wrong in
+   * practice: the first question is "I have never done Reformer Pilates, where
+   * do I start", so every visitor arrived to a paragraph aimed at complete
+   * beginners whether or not they were one, and it pushed the other questions
+   * down the page. A list of questions where none is open reads as a list of
+   * questions; one with an answer hanging out of it reads as an article.
+   */
+  const [open, setOpen] = useState<number | null>(null);
 
   return (
     <div className="divide-y divide-mocha-200/70 border-y border-mocha-200/70">
