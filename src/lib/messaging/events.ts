@@ -1,4 +1,4 @@
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { db } from "@/db";
 import {
   bookings,
@@ -27,6 +27,7 @@ import {
   purchasedWords,
   reminderWords,
   studioAppointmentWords,
+  verifySentWords,
   verifyWords,
   whenWords,
   type Bilingual,
@@ -56,16 +57,29 @@ const SENDS: Record<
   | "instructor",
   { email: boolean; push: boolean; sms: boolean }
 > = {
-  /* A member who has just pressed Book is looking at the screen that told them
-     it worked. The badge goes up and the message is in their list; anything
-     more is the app talking over itself. */
-  booked: { email: false, push: false, sms: false },
-  cancelled: { email: false, push: false, sms: false },
+  /**
+   * Booking and cancelling: the buzz as well as the in-app copy.
+   *
+   * This was push-off for a while, on the reasoning that a member who has just
+   * pressed Book is looking at the screen that told them it worked, so a
+   * notification is the app talking over itself. The studio's decision went the
+   * other way and there is a good argument for it: the phone notification is
+   * the thing that survives leaving the site, and a member who books on the bus
+   * has something to look at later without opening anything. It is also the
+   * only channel the studio pays nothing for.
+   *
+   * Still no email. A booking is not a receipt, and an inbox full of "you
+   * booked a class" is how a studio teaches its members to filter its mail —
+   * which is a problem the day it needs to tell them a class is cancelled.
+   */
+  booked: { email: false, push: true, sms: false },
+  cancelled: { email: false, push: true, sms: false },
 
-  /* Money is the exception. A payment is the one thing a member may need to
-     produce later — to check what they were charged, or when it expires — and
-     an email is the copy that survives outside the app. */
-  purchased: { email: true, push: false, sms: false },
+  /* Money gets all three. A payment is the one thing a member may need to
+     produce later — to check what they were charged, or when it expires — so
+     the email is the copy that survives outside the app, and the push is the
+     acknowledgement that arrives before they have put the phone down. */
+  purchased: { email: true, push: true, sms: false },
 
   /* The one that buzzes the phone, and the only one that should. It exists
      precisely because the member is *not* looking at the site: an inbox message
@@ -262,6 +276,30 @@ async function tellStudio(f: BookingFacts, cancelled: boolean) {
     guestName: f.guestName,
     cancelled,
   });
+  /**
+   * The desk, on their own screens as well as in the mailbox.
+   *
+   * The email alone was a single point of failure with a person at the end of
+   * it: somebody has to notice it, and an appointment nobody notices is an hour
+   * with no instructor booked for it. So every staff account also gets the
+   * in-app copy — the number on their photograph when they next open the
+   * console — and a notification on whatever devices they have allowed.
+   *
+   * Written to the accounts rather than to a studio-wide inbox because there is
+   * no such thing: the console is signed into as a person, and a notice has to
+   * belong to somebody to be readable at all.
+   */
+  const staff = db
+    .select({ id: users.id })
+    .from(users)
+    .where(inArray(users.role, ["STAFF", "ADMIN"]))
+    .all();
+
+  for (const person of staff) {
+    inbox(person.id, words);
+    void pushToUser(person.id, words.en).catch(() => {});
+  }
+
   try {
     const res = await emailTransport().send(
       STUDIO_OPS_EMAIL,
@@ -456,8 +494,32 @@ export async function sendVerificationCode(
   to: string,
   code: string,
   minutes: number,
+  /**
+   * The account, when there is one to write to.
+   *
+   * Optional so the resend route and anything else can keep calling this with
+   * three arguments. Given it, the member also gets the in-app copy and the
+   * phone notification the studio asked for — carrying the *fact* of the code
+   * and not the code itself, for the reasons in `verifySentWords`.
+   */
+  userId?: string,
 ) {
-  return emailTransport().send(to, forEmail(verifyWords({ code, minutes })));
+  const res = await emailTransport().send(
+    to,
+    forEmail(verifyWords({ code, minutes })),
+  );
+
+  if (userId) {
+    const heads_up = verifySentWords({ minutes });
+    inbox(userId, heads_up);
+    /* Almost always reaches nobody, and that is fine. A member registering has
+       not been asked for notification permission yet, so there is no device to
+       send to; this earns its keep on a resend, and on the second device of
+       somebody who already allowed it. */
+    void pushToUser(userId, heads_up.en).catch(() => {});
+  }
+
+  return res;
 }
 
 /**

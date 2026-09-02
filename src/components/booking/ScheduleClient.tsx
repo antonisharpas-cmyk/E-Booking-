@@ -329,22 +329,6 @@ export function ScheduleClient({
         return;
       }
 
-      /* Signed up after the studio started asking, and has not answered yet.
-         Same shape as the unverified case above and for the same reason: this
-         is a step to finish, not a refusal, so it comes with the way to finish
-         it rather than an explanation of why the button did nothing. */
-      if (data.error === "INTAKE_REQUIRED") {
-        flash({
-          kind: "warn",
-          text: t.booking.intakeNeeded,
-          cta: {
-            href: "/welcome?next=/timetable",
-            label: t.booking.intakeNeededCta,
-          },
-        });
-        return;
-      }
-
       const messages: Record<string, string> = {
         CLASS_FULL: t.booking.classFull,
         ALREADY_BOOKED: t.booking.alreadyBooked,

@@ -9,6 +9,12 @@ import { studioWallTimeToInstant } from "./time";
  * one instructor means whoever is teaching has to know who is new and who has a
  * shoulder before the class starts, not during it.
  *
+ * **They are asked, never required.** For a day they blocked booking, and the
+ * shape of that was wrong: a member could read the whole site and then be
+ * refused at the one moment they were trying to give the studio money. The
+ * emailed code is the only mandatory step. These come with a way past them, and
+ * skipping records nothing.
+ *
  * The answers are the member's own and they can change them whenever they want,
  * which is the other reason they live on the account rather than in a form the
  * studio fills in: a condition that cleared up six months ago should not follow
@@ -50,26 +56,31 @@ export function isPilatesExperience(v: unknown): v is PilatesExperience {
 export const CONDITION_MAX_CHARS = 600;
 
 /**
- * When the question started being asked.
+ * When the studio started asking.
  *
- * The studio's instruction was that this is for new sign-ups: members who
- * already had accounts are not to be stopped at a new gate on their next visit.
- * A date does that on its own, and does it better than a flag would — an account
- * created before this moment is never required to answer, an account created
- * after it always is, and there is no list of exceptions to maintain.
+ * The instruction was that this is for new sign-ups: members who already had
+ * accounts are not to be shown a new screen on their next visit. A date does
+ * that on its own, and better than a flag would — an account created before this
+ * moment is never sent to the welcome step, an account created after it is, and
+ * there is no list of exceptions to maintain.
  *
- * They can all still answer voluntarily from their profile, and the desk can
- * fill it in for anybody over the counter. This constant governs only who is
- * *made* to.
+ * Everybody can answer from their profile whenever they like, and the desk can
+ * fill it in for anybody over the counter.
  */
 export const INTAKE_REQUIRED_FROM = studioWallTimeToInstant(2026, 9, 2, 0, 0);
 
 /**
- * Whether this account still owes the studio its answers.
+ * Whether this account should still be *offered* the questions.
+ *
+ * Offered, not required. Answering them is optional: the emailed code is the
+ * only mandatory step in signing up, and a member who skips these can book, pay
+ * and cancel like anybody else. This decides who sees the welcome screen once,
+ * and nothing else.
  *
  * Deliberately not "is `intakeAt` null". A member from July with no answers on
  * file is not in an incomplete state; they are in the state everybody was in
- * before the question existed.
+ * before the questions existed, and putting a new screen in front of them on
+ * their next visit would be a change they never asked for.
  */
 export function intakeRequired(user: {
   intakeAt?: Date | null;

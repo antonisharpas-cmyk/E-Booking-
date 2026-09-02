@@ -118,6 +118,10 @@ export function IntakeForm({
     }
   }
 
+  /** The box one question sits in. */
+  const QUESTION =
+    "rounded-2xl border border-mocha-200 bg-white/50 px-5 py-4 sm:px-6 sm:py-5";
+
   /* One shape for both, so a control cannot look like a button here and a radio
      there. These are choices, so they read as choices. */
   const chip = (active: boolean) =>
@@ -130,10 +134,15 @@ export function IntakeForm({
 
   const body = (
     <form onSubmit={submit} className={embedded ? "" : "mt-9"}>
-      <fieldset className="border-0 p-0">
-        <legend className="label mb-3">{w.levelLabel}</legend>
-        <p className="mb-3 text-[12px] text-clay">{w.levelWhy}</p>
-        <div className="flex flex-wrap gap-2">
+      {/* Each question in its own box.
+          Three questions running together read as one long form and it is not
+          obvious where one ends and the next begins, particularly on a phone
+          where only part of it is on screen at a time. A border per question
+          makes the shape of the thing visible: three of these, and then a
+          button. */}
+      <fieldset className={QUESTION}>
+        <legend className="label px-1">{w.levelLabel}</legend>
+        <div className="mt-3 flex flex-wrap gap-2">
           {PILATES_LEVELS.map((option) => (
             <button
               key={option}
@@ -148,9 +157,9 @@ export function IntakeForm({
         </div>
       </fieldset>
 
-      <fieldset className="mt-8 border-0 p-0">
-        <legend className="label mb-3">{w.experienceLabel}</legend>
-        <div className="flex flex-wrap gap-2">
+      <fieldset className={cn(QUESTION, "mt-4")}>
+        <legend className="label px-1">{w.experienceLabel}</legend>
+        <div className="mt-3 flex flex-wrap gap-2">
           {PILATES_EXPERIENCE.map((option) => (
             <button
               key={option}
@@ -165,10 +174,10 @@ export function IntakeForm({
         </div>
       </fieldset>
 
-      <fieldset className="mt-8 border-0 p-0">
-        <legend className="label mb-3">{w.conditionLabel}</legend>
-        <p className="mb-3 text-[12px] text-clay">{w.conditionWhy}</p>
-        <div className="flex flex-wrap gap-2">
+      <fieldset className={cn(QUESTION, "mt-4")}>
+        <legend className="label px-1">{w.conditionLabel}</legend>
+        <p className="mt-3 text-[12px] text-clay">{w.conditionWhy}</p>
+        <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
             aria-pressed={hasCondition === false}
@@ -226,9 +235,30 @@ export function IntakeForm({
       </Button>
 
       {!embedded && (
-        <p className="mt-5 text-center text-[12px] text-clay">
-          {w.changeLater}
-        </p>
+        <>
+          {/**
+            * A way past it, said plainly.
+            *
+            * These questions are not a requirement and it would be dishonest to
+            * present them as one: a screen with a single disabled button and no
+            * exit is a wall whether or not anything enforces it, and somebody
+            * who does not want to answer will close the tab rather than hunt for
+            * a way out. The emailed code is the only mandatory step.
+            *
+            * An ordinary link rather than a fetch, because skipping records
+            * nothing. Nothing is written, nothing is marked as done, and the
+            * questions are still there in their account whenever they want them.
+            */}
+          <a
+            href={next && /^\/[^/\\]/.test(next) ? next : "/timetable"}
+            className="mt-5 block text-center text-[13px] text-clay underline decoration-clay/40 underline-offset-4 transition-colors hover:text-mocha-700"
+          >
+            {w.skip}
+          </a>
+          <p className="mt-4 text-center text-[12px] text-clay">
+            {w.changeLater}
+          </p>
+        </>
       )}
     </form>
   );

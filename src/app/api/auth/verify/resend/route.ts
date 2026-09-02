@@ -42,6 +42,7 @@ export async function POST() {
     gate.user.email,
     result.challenge.code,
     OTP_TTL_MINUTES,
+    gate.user.id,
   ).catch((e) => {
     console.error("[verify] resend threw for", gate.user.email, e);
     return { ok: false as const, error: "THREW" };

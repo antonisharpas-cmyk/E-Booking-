@@ -204,6 +204,12 @@ console.log("\n1b. The numbers, and any day's bookings");
       "bookings",
       "sessionsOutstanding",
       "sessionsBooked",
+      /* The four money cards. Split by where the payment physically went,
+         because "what did we take" and "what is in the till" are different
+         questions and the owner has to answer both. */
+      "revenueOnlineCents",
+      "revenueCashCents",
+      "revenueCardDeskCents",
       "revenueCents",
     ].every((k) => typeof s?.[k] === "number"),
     Object.keys(s ?? {}),
@@ -211,6 +217,16 @@ console.log("\n1b. The numbers, and any day's bookings");
   check(
     "members with sessions is never more than members",
     s.membersWithSessions <= s.members,
+    s,
+  );
+  /* The total is added from the three, not queried separately, so it can never
+     disagree with the numbers printed beside it. Asserted because a fourth
+     query would be the obvious "tidy-up" for somebody later, and it would
+     reintroduce exactly that possibility. */
+  check(
+    "the revenue total is the three parts added up",
+    s.revenueCents ===
+      s.revenueOnlineCents + s.revenueCashCents + s.revenueCardDeskCents,
     s,
   );
   /* Cancellations are reported beside the bookings, not subtracted from them:
@@ -307,7 +323,7 @@ const desk = jar();
   );
   check(
     "nothing of the takings is on the page",
-    !/REVENUE|Revenue \(paid\)|revenueCents/.test(page.text),
+    !/REVENUE|Total revenue|Revenue online|revenueCents/.test(page.text),
     "a revenue figure reached reception's screen",
   );
 

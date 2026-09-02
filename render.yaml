@@ -90,14 +90,38 @@ services:
         generateValue: true
 
       # ------------------------------------------------------------------ email
-      # `log` writes the email to the console instead of sending it, which means
-      # nobody can finish registering: the confirmation code never arrives. This
-      # is the one setting that has to change before the site is announced.
+      #
+      # Without this the confirmation code never arrives and nobody can finish
+      # registering, so it is the first thing to get right.
+      #
+      # `smtp` signs in to a mailbox the studio already owns and sends as it.
+      # Chosen over Resend and Brevo because those verify a sending *domain*
+      # with DNS records first, which is the better answer eventually and the
+      # wrong answer on a Tuesday afternoon. Nothing about the domain changes
+      # and no third company holds a copy of the studio's mail.
+      #
+      # One thing to know about the host: Render blocks outbound SMTP on free
+      # instances. This service is paid (a disk requires it), so 465 is open.
+      # If email ever stops working right after an instance-type change, that
+      # is the first thing to check.
       - key: EMAIL_PROVIDER
-        value: brevo
-      - key: BREVO_API_KEY
+        value: smtp
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        # 465 is implicit TLS, which the transport infers from the port, so
+        # SMTP_SECURE does not need setting.
+        value: "465"
+      - key: SMTP_USER
+        sync: false
+      # A Google **app password**, not the mailbox's own password: sixteen
+      # characters, generated at myaccount.google.com/apppasswords with 2-step
+      # verification switched on. Google refuses a normal password here.
+      - key: SMTP_PASS
         sync: false
       - key: EMAIL_FROM
+        # Shown as the sender. Has to be the mailbox above, or an alias Google
+        # has been told it may send as, or Gmail rewrites it.
         sync: false
       - key: STUDIO_OPS_EMAIL
         value: info@ergonsite.com

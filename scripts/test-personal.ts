@@ -37,7 +37,6 @@ import {
   spendBlockReason,
 } from "../src/lib/credits";
 import { activeInstructors, upcomingAppointments } from "../src/lib/admin";
-import { notOnboarded } from "../src/lib/api-guard";
 import {
   CONDITION_MAX_CHARS,
   PILATES_EXPERIENCE,
@@ -1523,16 +1522,32 @@ async function main() {
   grantCredits({ userId: fresh.id, credits: 2, validityDays: 30 });
 
   check(
-    "an account created today is asked the three questions",
+    "an account created today is offered the three questions",
     intakeRequired({
       intakeAt: null,
       createdAt: new Date(),
       role: "MEMBER",
     }),
   );
+
+  /**
+   * And is not stopped by them, which is the part worth asserting.
+   *
+   * The questions were mandatory for a day: a member who skipped them could
+   * read the whole site and was then refused at the one moment they were trying
+   * to give the studio money. The studio removed the requirement, and this is
+   * the check that keeps it removed — booking has to work for a member who has
+   * answered nothing.
+   */
+  const skipped = await mkUser();
+  grantCredits({ userId: skipped.id, credits: 1, validityDays: 30 });
+  const clsSkipped = classAtDay(10);
+  scratch15.push(clsSkipped);
+  const bookedAnyway = bookClass(skipped.id, clsSkipped);
   check(
-    "the API refuses to book until they are answered",
-    notOnboarded({ role: "MEMBER", intakeAt: null, createdAt: new Date() }) !== null,
+    "and a member who answered nothing can still book",
+    bookedAnyway.ok,
+    bookedAnyway,
   );
 
   /**
@@ -1590,16 +1605,8 @@ async function main() {
     "nothing to declare is stored as nothing, not as a blank to chase",
     answered.healthCondition === null && answered.intakeAt !== null,
   );
-  check(
-    "and the gate opens",
-    notOnboarded({
-      role: "MEMBER",
-      intakeAt: answered.intakeAt,
-      createdAt: answered.createdAt,
-    }) === null,
-  );
   const nowBooks = bookClass(fresh.id, clsIntake);
-  check("so the booking goes through", nowBooks.ok, nowBooks);
+  check("and booking works after answering too", nowBooks.ok, nowBooks);
 
   /* A declared condition is kept as typed. */
   const declared = await mkUser();
@@ -1836,7 +1843,7 @@ async function main() {
     check(
       `the desk's booking refusals are written in ${lang}`,
       typeof desk.deskBookCta === "string" &&
-        ["NO_CREDITS", "CLASS_FULL", "EMAIL_UNVERIFIED", "INTAKE_REQUIRED"].every(
+        ["NO_CREDITS", "CLASS_FULL", "EMAIL_UNVERIFIED", "ALREADY_BOOKED"].every(
           (k) => typeof errors[k] === "string" && errors[k].length > 0,
         ) &&
         !JSON.stringify(errors).includes(EM_DASH),

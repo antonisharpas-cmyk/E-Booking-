@@ -407,7 +407,6 @@
     <tr><td>that class is full</td><td>Nothing. Five reformers is five reformers</td></tr>
     <tr><td>already booked into this class</td><td>They are in. Look at the list above the button</td></tr>
     <tr><td>their email has never been confirmed</td><td>Confirm it from their page, which takes half a minute while they are on the phone. See the chapter on email confirmation</td></tr>
-    <tr><td>they have not answered the questions about their pilates</td><td>Fill them in on their page: level, experience and anything to be careful of. See below</td></tr>
     <tr><td>that hour needs a Personal or Duet session</td><td>They are holding group sessions and this is a midday appointment. Sell them the right kind</td></tr>
     <tr><td>their plan allows one class a day</td><td>The Unlimited plan. They already have a class that day</td></tr>
   </table>
@@ -468,6 +467,7 @@
     <p>Members who signed up on the website answered these themselves, right after the emailed code, and can change them from their own account whenever anything changes. You fill them in for the member who joined over the counter, or when somebody mentions a shoulder on their way past. Answering any of the three from here also clears the question for them, so they are not asked again on their next visit.</p>
     <p><strong>This is the only screen it appears on.</strong> Not the day view, not the class lists. It is somebody's body, and those screens are read on a monitor in a room with other people in it.</p>
     <p>A blank condition on a member who has answered means they had <em>nothing to declare</em>, which is a real answer. A member who has never been asked says so instead.</p>
+    <p><strong>Answering is optional.</strong> New members are shown the questions straight after the emailed code and can skip them, and nothing on the site is withheld from somebody who did: they can book, pay and cancel like anybody else. If a member arrives with no answers on file, that is not an error and nothing needs fixing before they can train. Filling them in is worth doing when you get the chance, not a box to clear.</p>
   </div>
 
   <div class="money">
@@ -704,7 +704,7 @@
 
 <section class="chapter">
   <h2>Analytics: the owner only</h2>
-  <p class="lead">Six figures about the business. This tab does not exist for a reception account: the queries do not even run, so there is nothing on that computer to find.</p>
+  <p class="lead">Ten figures about the business, in four rows. This tab does not exist for a reception account: the queries do not even run, so there is nothing on that computer to find.</p>
 
   <figure>
     <img src="fig-owner-en-analytics.png" alt="The Analytics tab">
@@ -712,14 +712,32 @@
   </figure>
 
   <table class="wide">
-    <tr><th>Figure</th><th>What it counts</th></tr>
-    <tr><td>Members</td><td>Accounts, with how many are new in the period</td></tr>
+    <tr><th>Row</th><th>Figure</th><th>What it counts</th></tr>
+    <tr><td rowspan="2"><strong>1. Who the members are</strong></td><td>Members</td><td>Accounts, with how many are new in the period</td></tr>
     <tr><td>Members with sessions</td><td>Holding at least one right now: the people who can walk in tomorrow</td></tr>
-    <tr><td>Bookings</td><td>Classes booked in the period, and how many were cancelled</td></tr>
-    <tr><td>Sessions outstanding</td><td>Bought and not yet used. Money already taken for classes still owed</td></tr>
-    <tr><td>Sessions booked</td><td>Committed to classes still to come</td></tr>
-    <tr><td>Revenue (paid)</td><td>Money actually received: website payments plus cash and card at the desk</td></tr>
+    <tr><td rowspan="2"><strong>2. How busy it was</strong></td><td>Bookings</td><td><strong>Places filled in the classes that ran in the period</strong>, and how many of those places were cancelled. Counted by the date of the <em>class</em>, not by when the booking was made: see the note below</td></tr>
+    <tr><td>People who came</td><td>How many <em>different</em> members those places belong to. 55 places filled by 40 people is a studio with regulars coming twice a week; 55 filled by 55 is a studio that saw 55 strangers. Same headline, two different businesses</td></tr>
+    <tr><td rowspan="2"><strong>3. What the studio owes</strong></td><td>Sessions outstanding</td><td>Bought and not yet used. Money already taken for classes still owed</td></tr>
+    <tr><td>Upcoming Booked Sessions</td><td>Committed to classes still to come</td></tr>
+    <tr><td rowspan="4"><strong>4. The money</strong></td><td>Revenue online</td><td>Paid on the website. Already in the bank</td></tr>
+    <tr><td>Revenue cash</td><td>Sold at the desk for cash. Should be in the till</td></tr>
+    <tr><td>Revenue card at the desk</td><td>Sold at the desk on the card machine. On the terminal's own statement</td></tr>
+    <tr><td>Total revenue</td><td>The three above, added up</td></tr>
   </table>
+
+  <div class="note">
+    <span class="label">Bookings counts the class date, not the booking date</span>
+    <p>Choose yesterday to today and <strong>Bookings</strong> tells you how many people came through the door on those two days. It is a participation figure.</p>
+    <p>It is not "how many bookings were taken in those two days", and the difference matters: a member who booked this morning for a class next month belongs to next month, and today's classes count today even if they were booked last week. Row 2 answers "how busy were we", which is the question a date range is usually being asked.</p>
+  </div>
+
+  <div class="money">
+    <span class="label">Why the money is split three ways</span>
+    <p>One total tells you what the studio earned and nothing about what to go and check. Split, each figure points somewhere: <strong>online</strong> should match the payment provider's payouts, <strong>cash</strong> should match the till, and <strong>card at the desk</strong> should match the terminal's statement. Reconciling a Monday takes minutes instead of an afternoon.</p>
+    <p>The total is added from the three rather than counted separately, so it can never disagree with the numbers printed beside it.</p>
+  </div>
+
+  <p><strong>Rows 1 and 3 ignore the period.</strong> They are a position today, not a flow: how many members there are, and how many sessions are owed. Rows 2 and 4 follow whatever period is chosen.</p>
 
   <h3>Choosing a period</h3>
   <p><strong>From</strong> and <strong>To</strong> for any range you like, plus shortcuts for <strong>This month</strong>, <strong>Last month</strong> and <strong>All time</strong>. If the end is before the start it says so rather than showing zero.</p>

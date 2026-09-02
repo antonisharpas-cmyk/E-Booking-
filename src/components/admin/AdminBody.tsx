@@ -39,9 +39,13 @@ export function AdminBody({
     newMembers: number;
     membersWithSessions: number;
     bookings: number;
+    bookingPeople: number;
     cancellations: number;
     sessionsOutstanding: number;
     sessionsBooked: number;
+    revenueOnlineCents: number;
+    revenueCashCents: number;
+    revenueCardDeskCents: number;
     revenueCents: number;
     upcomingSessions: number;
   } | null;

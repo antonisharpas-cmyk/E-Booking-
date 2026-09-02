@@ -26,9 +26,13 @@ type Stats = {
   newMembers: number;
   membersWithSessions: number;
   bookings: number;
+  bookingPeople: number;
   cancellations: number;
   sessionsOutstanding: number;
   sessionsBooked: number;
+  revenueOnlineCents: number;
+  revenueCashCents: number;
+  revenueCardDeskCents: number;
   revenueCents: number;
   upcomingSessions: number;
 };
@@ -152,54 +156,95 @@ export function StatsRow({ initial }: { initial: Stats }) {
         </p>
       )}
 
-      <div
-        className={cn(
-          "mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3",
-          busy && "opacity-60 transition-opacity",
-        )}
-      >
-        <Kpi
-          label={d.kMembers}
-          value={String(stats.members)}
-          sub={
-            range.from || range.to
-              ? `+${stats.newMembers} ${d.kNew} · ${periodLabel}`
-              : undefined
-          }
-        />
-        <Kpi
-          label={d.kActive}
-          value={String(stats.membersWithSessions)}
-          sub={d.kActiveSub}
-        />
-        <Kpi
-          label={d.kBookings}
-          value={String(stats.bookings)}
-          /* Cancellations sit beside the total rather than being netted off it.
-             A quiet week and a week nine people pulled out of look the same in
-             one number, and they are not the same week. */
-          sub={
-            stats.cancellations > 0
-              ? `${periodLabel} · ${d.kCancelled.replace("{n}", String(stats.cancellations))}`
-              : periodLabel
-          }
-        />
-        <Kpi
-          label={d.kOutstanding}
-          value={String(stats.sessionsOutstanding)}
-          sub={d.kOutstandingSub}
-        />
-        <Kpi
-          label={d.kBooked}
-          value={String(stats.sessionsBooked)}
-          sub={d.kBookedSub}
-        />
-        <Kpi
-          label={d.kRevenue}
-          value={fmtMoney(stats.revenueCents)}
-          sub={periodLabel}
-          accent
-        />
+      {/**
+        * Four rows, each answering one kind of question.
+        *
+        * Written as four grids rather than one flowing grid on purpose. A single
+        * `grid-cols-3` reflowed the tiles by screen width, so "Cash" could end
+        * up beside "Members" on one monitor and under "Bookings" on another, and
+        * a figure's neighbours are half of what it means. These rows hold their
+        * shape: who the members are, how busy the studio was, what it owes in
+        * sessions, and what it took in money.
+        */}
+      <div className={cn("mt-6 space-y-4", busy && "opacity-60 transition-opacity")}>
+        {/* 1. The membership. */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Kpi
+            label={d.kMembers}
+            value={String(stats.members)}
+            sub={
+              range.from || range.to
+                ? `+${stats.newMembers} ${d.kNew} · ${periodLabel}`
+                : undefined
+            }
+          />
+          <Kpi
+            label={d.kActive}
+            value={String(stats.membersWithSessions)}
+            sub={d.kActiveSub}
+          />
+        </div>
+
+        {/* 2. How busy the studio was, over the chosen period. */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Kpi
+            label={d.kBookings}
+            value={String(stats.bookings)}
+            /* Cancellations sit beside the total rather than being netted off
+               it. A quiet week and a week nine people pulled out of look the
+               same in one number, and they are not the same week. */
+            sub={
+              stats.cancellations > 0
+                ? `${d.kBookingsSub} · ${periodLabel} · ${d.kCancelled.replace("{n}", String(stats.cancellations))}`
+                : `${d.kBookingsSub} · ${periodLabel}`
+            }
+          />
+          <Kpi
+            label={d.kBookingPeople}
+            value={String(stats.bookingPeople)}
+            sub={`${d.kBookingPeopleSub} · ${periodLabel}`}
+          />
+        </div>
+
+        {/* 3. What the studio owes in teaching, which the period does not
+               change: both of these are a position today, not a flow. */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Kpi
+            label={d.kOutstanding}
+            value={String(stats.sessionsOutstanding)}
+            sub={d.kOutstandingSub}
+          />
+          <Kpi
+            label={d.kBooked}
+            value={String(stats.sessionsBooked)}
+            sub={d.kBookedSub}
+          />
+        </div>
+
+        {/* 4. The money, split by where it physically went, then the total. */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Kpi
+            label={d.kRevenueOnline}
+            value={fmtMoney(stats.revenueOnlineCents)}
+            sub={periodLabel}
+          />
+          <Kpi
+            label={d.kRevenueCash}
+            value={fmtMoney(stats.revenueCashCents)}
+            sub={periodLabel}
+          />
+          <Kpi
+            label={d.kRevenueCard}
+            value={fmtMoney(stats.revenueCardDeskCents)}
+            sub={periodLabel}
+          />
+          <Kpi
+            label={d.kRevenue}
+            value={fmtMoney(stats.revenueCents)}
+            sub={periodLabel}
+            accent
+          />
+        </div>
       </div>
     </div>
   );

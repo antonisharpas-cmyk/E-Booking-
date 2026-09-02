@@ -550,10 +550,21 @@ console.log("\n10. A new member does not inherit the past");
     !titles.includes("Sent before they joined"),
     titles.slice(0, 3),
   );
+  /**
+   * Their own count, whatever it starts at.
+   *
+   * Registering writes one in-app notice of its own now — "your code is on its
+   * way" — so a new account no longer starts at zero. What this section is
+   * about is that a notice sent before they joined is not theirs, and the
+   * honest test of that is that none of the *studio's* notices are in their
+   * list, which the assertion above already makes. The number is recorded here
+   * so the check below can measure the change rather than assume the total.
+   */
+  const startedWith = theirs.json?.unread ?? 0;
   check(
-    "and they start with nothing unread",
-    theirs.json?.unread === 0,
-    { unread: theirs.json?.unread, count: titles.length },
+    "and none of the studio's earlier notices count as unread for them",
+    !titles.includes("Sent before they joined"),
+    { unread: startedWith, count: titles.length },
   );
 
   /* But anything sent from now on does reach them. */
@@ -572,7 +583,11 @@ console.log("\n10. A new member does not inherit the past");
     (after.json?.notices ?? []).map((x) => x.title).includes("Sent after they joined"),
     "the new notice did not arrive",
   );
-  check("and counts as unread", after.json?.unread === 1, after.json?.unread);
+  check(
+    "and counts as one more unread than they had",
+    after.json?.unread === startedWith + 1,
+    { startedWith, now: after.json?.unread },
+  );
 }
 
 /* ------------------------------------------------------------------ 10b */
@@ -584,8 +599,11 @@ console.log("\n10b. Booking and cancelling land in the member's own inbox");
      boundary is put beyond doubt. */
   await new Promise((r) => setTimeout(r, 1100));
   const punter = await member("inbox");
+  /* Registering writes its own notice, so this counts changes from whatever a
+     new account arrives with rather than from zero. Every assertion below is
+     "one more than before", which is what the feature actually promises. */
   const before = await req(punter.j, "/api/notices");
-  check("a new member starts with nothing unread", before.json?.unread === 0, before.json?.unread);
+  const base = before.json?.unread ?? 0;
 
   const opened = await req(punter.j, "/api/checkout", {
     method: "POST",
@@ -600,9 +618,9 @@ console.log("\n10b. Booking and cancelling land in the member's own inbox");
   const afterPaying = await req(punter.j, "/api/notices");
   check(
     "paying for the pack tells them",
-    afterPaying.json?.unread === 1 &&
+    afterPaying.json?.unread === base + 1 &&
       (afterPaying.json?.notices ?? [])[0]?.title === "Payment received",
-    afterPaying.json?.notices?.slice(0, 2),
+    { base, now: afterPaying.json?.unread, top: afterPaying.json?.notices?.[0]?.title },
   );
 
   const list = await req(punter.j, "/api/sessions?days=10");
@@ -622,8 +640,8 @@ console.log("\n10b. Booking and cancelling land in the member's own inbox");
   const afterBooking = await req(punter.j, "/api/notices");
   check(
     "the number on their photograph goes up",
-    afterBooking.json?.unread === 2,
-    afterBooking.json?.unread,
+    afterBooking.json?.unread === base + 2,
+    { base, now: afterBooking.json?.unread },
   );
   const confirmation = (afterBooking.json?.notices ?? [])[0];
   check(
@@ -652,7 +670,11 @@ console.log("\n10b. Booking and cancelling land in the member's own inbox");
     body: { bookingId: booked.json.bookingId },
   });
   const afterCancel = await req(punter.j, "/api/notices");
-  check("cancelling adds another", afterCancel.json?.unread === 3, afterCancel.json?.unread);
+  check(
+    "cancelling adds another",
+    afterCancel.json?.unread === base + 3,
+    { base, now: afterCancel.json?.unread },
+  );
   check(
     "which says the session came back",
     /back in your balance/.test((afterCancel.json?.notices ?? [])[0]?.body ?? ""),
@@ -668,7 +690,16 @@ console.log("\n10b. Booking and cancelling land in the member's own inbox");
     !(theirs.json?.notices ?? []).some((x) => x.title === "Booking confirmed"),
     theirs.json?.notices?.slice(0, 3),
   );
-  check("and their own count is untouched", theirs.json?.unread === 0, theirs.json?.unread);
+  /* A second member, with only their own registration notice: none of the
+     first member's booking or payment messages reached them. */
+  check(
+    "and their own count is only what registering gave them",
+    (theirs.json?.unread ?? 0) <= 1 &&
+      !(theirs.json?.notices ?? []).some((x) =>
+        ["Payment received", "Booking confirmed"].includes(x.title),
+      ),
+    theirs.json?.notices?.map((x) => x.title),
+  );
 
   /* And the desk's history stays a list of announcements, not of everybody's
      confirmations — there are hundreds of those and none is news. */

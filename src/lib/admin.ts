@@ -9,6 +9,7 @@ import {
   lt,
   lte,
   ne,
+  notInArray,
   or,
   sql,
 } from "drizzle-orm";
@@ -31,15 +32,46 @@ export type StudioStats = {
   newMembers: number;
   /** Members holding at least one live session — the studio's active list. */
   membersWithSessions: number;
-  /** Bookings made inside the period and still standing. */
+  /**
+   * Places filled in classes that ran inside the period.
+   *
+   * The question the studio actually asks of a date range is "how busy were we
+   * those days", so this counts by the *class* date and not by when the booking
+   * was made. Picking yesterday and today gives the people through the door on
+   * those two days, which is what a participation figure means. A booking taken
+   * this morning for next month belongs to next month.
+   */
   bookings: number;
-  /** Bookings made inside the period that were later cancelled. */
+  /**
+   * How many different people those places belong to.
+   *
+   * Beside the places, not instead of them: 55 places filled by 40 people is a
+   * studio with regulars coming twice a week, and 55 filled by 55 is a studio
+   * that saw 55 strangers. The same headline number, two completely different
+   * businesses, and only the second figure tells them apart.
+   */
+  bookingPeople: number;
+  /** Places in those same classes that were cancelled rather than used. */
   cancellations: number;
   /** Sessions members are holding right now, unspent and unexpired. */
   sessionsOutstanding: number;
   /** Sessions already spent on classes still to come. */
   sessionsBooked: number;
-  /** Money actually taken inside the period. */
+  /**
+   * Money actually taken inside the period, split by where it came from.
+   *
+   * The split is the useful part: online is money already in the bank, cash is
+   * money that has to be in the till, and card at the desk is money on the
+   * terminal's own statement. One total tells the owner what the studio earned
+   * and nothing about what to go and check.
+   *
+   * Online is defined as "not one of the two desk methods" rather than as
+   * "stripe", so it keeps working if the studio ever changes payment provider.
+   */
+  revenueOnlineCents: number;
+  revenueCashCents: number;
+  revenueCardDeskCents: number;
+  /** The three above, added up. */
   revenueCents: number;
   /** Classes on the books ahead of today, for the header line. */
   upcomingSessions: number;
@@ -147,15 +179,41 @@ export async function studioStats(
       )
       .get()?.n ?? 0;
 
+  /**
+   * Places filled in the classes that ran in the period.
+   *
+   * Joined to the class and filtered on **its** date, not on when the booking
+   * was made. Those are two different questions and only one of them is the one
+   * asked of a date range: "yesterday to today" means the people who came
+   * through the door on those two days. Counting by booking date would put a
+   * class booked this morning for next month into today's figure and leave
+   * today's actual classes out if they were booked last week.
+   */
   const bookingCount =
     db
       .select({ n: sql<number>`count(*)` })
       .from(bookings)
+      .innerJoin(classSessions, eq(bookings.sessionId, classSessions.id))
       .where(
         and(
           realMember(bookings.userId),
           ne(bookings.status, "CANCELLED"),
-          within(bookings.createdAt),
+          within(classSessions.startsAt),
+        ),
+      )
+      .get()?.n ?? 0;
+
+  /* The same places, counted as people. */
+  const bookingPeople =
+    db
+      .select({ n: sql<number>`count(distinct ${bookings.userId})` })
+      .from(bookings)
+      .innerJoin(classSessions, eq(bookings.sessionId, classSessions.id))
+      .where(
+        and(
+          realMember(bookings.userId),
+          ne(bookings.status, "CANCELLED"),
+          within(classSessions.startsAt),
         ),
       )
       .get()?.n ?? 0;
@@ -167,11 +225,12 @@ export async function studioStats(
     db
       .select({ n: sql<number>`count(*)` })
       .from(bookings)
+      .innerJoin(classSessions, eq(bookings.sessionId, classSessions.id))
       .where(
         and(
           realMember(bookings.userId),
           eq(bookings.status, "CANCELLED"),
-          within(bookings.createdAt),
+          within(classSessions.startsAt),
         ),
       )
       .get()?.n ?? 0;
@@ -213,18 +272,45 @@ export async function studioStats(
       )
       .get()?.n ?? 0;
 
+  /**
+   * Takings, by where the money physically went.
+   *
+   * `provider` carries the method: the two desk ones are written by
+   * `sellSessions`, and anything else is a payment the website took. Defined
+   * that way round on purpose — as "not a desk method" rather than as "stripe" —
+   * so that changing payment provider does not silently move a column of the
+   * studio's revenue into the wrong bucket.
+   *
+   * An adjustment writes no purchase at all, so a free session or a correction
+   * never appears here. That is right: a comped class is not money.
+   */
+  const DESK_METHODS = ["cash", "card_at_desk"];
+
+  const takings = (where: ReturnType<typeof and> | undefined) =>
+    Number(
+      db
+        .select({ n: sql<number>`coalesce(sum(${purchases.amountCents}),0)` })
+        .from(purchases)
+        .where(
+          and(
+            realMember(purchases.userId),
+            eq(purchases.status, "PAID"),
+            within(purchases.createdAt),
+            where,
+          ),
+        )
+        .get()?.n ?? 0,
+    );
+
+  const revenueOnlineCents = takings(
+    notInArray(purchases.provider, DESK_METHODS),
+  );
+  const revenueCashCents = takings(eq(purchases.provider, "cash"));
+  const revenueCardDeskCents = takings(eq(purchases.provider, "card_at_desk"));
+  /* Added rather than queried again, so the total can never disagree with the
+     three numbers printed beside it. */
   const revenueCents =
-    db
-      .select({ n: sql<number>`coalesce(sum(${purchases.amountCents}),0)` })
-      .from(purchases)
-      .where(
-        and(
-          realMember(purchases.userId),
-          eq(purchases.status, "PAID"),
-          within(purchases.createdAt),
-        ),
-      )
-      .get()?.n ?? 0;
+    revenueOnlineCents + revenueCashCents + revenueCardDeskCents;
 
   const upcoming =
     db
@@ -243,10 +329,14 @@ export async function studioStats(
     newMembers: Number(newMembers),
     membersWithSessions: Number(membersWithSessions),
     bookings: Number(bookingCount),
+    bookingPeople: Number(bookingPeople),
     cancellations: Number(cancelledCount),
     sessionsOutstanding: Number(sessionsOutstanding),
     sessionsBooked: Number(sessionsBooked),
-    revenueCents: Number(revenueCents),
+    revenueOnlineCents,
+    revenueCashCents,
+    revenueCardDeskCents,
+    revenueCents,
     upcomingSessions: Number(upcoming),
   };
 }

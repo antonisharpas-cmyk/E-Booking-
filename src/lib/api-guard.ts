@@ -138,17 +138,16 @@ export function notVerified(user: {
 }
 
 /**
- * The three questions, still unanswered.
+ * The three welcome questions, still unanswered.
  *
- * Used by the booking routes and nothing else. The welcome step is a screen a
- * member is *sent* to, and a screen can be walked around: typing a booking URL,
- * an old tab, a phone that restored yesterday's page. So the rule lives on the
- * routes that matter rather than on the redirect, which is the difference
- * between a prompt and a requirement.
+ * **Nothing calls this.** It guarded the booking route for a day and the studio
+ * removed the requirement: the emailed code is the only mandatory step, and a
+ * member who skipped the questions can book, pay and cancel like anybody else.
  *
- * Deliberately narrow. It guards taking a seat in a class, not reading the
- * timetable or the price list: somebody who has not answered can look at
- * everything, and is asked at the one moment the answer is needed.
+ * Kept rather than deleted because the decision may come back — a studio that
+ * finds instructors surprised by an injury will want it again — and the shape of
+ * the check is the part worth not having to work out twice. If it is ever
+ * reinstated it belongs in `POST /api/bookings`, where the comment says so.
  */
 export function notOnboarded(user: {
   role: string;

@@ -452,18 +452,55 @@ async function main() {
      The passwords here are development defaults, and the seed says so out loud.
      Real ones are set on the studio's own machine with `npm run staff`, so they
      never travel through a chat window or a git history. */
+  const ownerEmail = (
+    process.env.SEED_OWNER_EMAIL ?? "owner@apexpilates.cy"
+  )
+    .trim()
+    .toLowerCase();
+  const receptionEmail = (
+    process.env.SEED_RECEPTION_EMAIL ?? "reception@apexpilates.cy"
+  )
+    .trim()
+    .toLowerCase();
+
   const owner = upsertUser({
-    email: process.env.SEED_OWNER_EMAIL ?? "owner@apexpilates.cy",
+    email: ownerEmail,
     name: "Studio Owner",
     password: process.env.SEED_OWNER_PASSWORD ?? "ownerdev123",
     role: "ADMIN",
   });
-  upsertUser({
-    email: process.env.SEED_RECEPTION_EMAIL ?? "reception@apexpilates.cy",
-    name: "Reception",
-    password: process.env.SEED_RECEPTION_PASSWORD ?? "receptiondev123",
-    role: "STAFF",
-  });
+
+  /**
+   * The same address for both is a mistake, and it used to be a silent one.
+   *
+   * `upsertUser` matches on email, and reception is written second, so two
+   * identical addresses produced *one* account: created as the owner, then
+   * immediately overwritten to reception. The studio ended up with a console
+   * they could open, no Analytics tab anywhere, and nothing to explain why —
+   * the owner account did not exist and the logs said both had been created.
+   * That happened on the live database.
+   *
+   * Reception is the one that gives way. An owner account is the one you cannot
+   * work without: it can do everything reception can, and it is the only thing
+   * that can promote another account afterwards. A studio with only an owner is
+   * inconvenienced; a studio with only a reception account is locked out of its
+   * own figures with no way in.
+   */
+  if (receptionEmail === ownerEmail) {
+    console.error(
+      `\n  ✗ SEED_OWNER_EMAIL and SEED_RECEPTION_EMAIL are both ${ownerEmail}.\n` +
+        `    They must be different addresses: one account cannot be both.\n` +
+        `    Keeping ${ownerEmail} as the OWNER and creating no reception account.\n` +
+        `    Add one afterwards:  npm run staff -- add desk@your-studio.cy "Reception" reception\n`,
+    );
+  } else {
+    upsertUser({
+      email: receptionEmail,
+      name: "Reception",
+      password: process.env.SEED_RECEPTION_PASSWORD ?? "receptiondev123",
+      role: "STAFF",
+    });
+  }
   /**
    * The demo member exists so the booking flow is clickable with no Stripe and
    * no real person to sign up. It has a password written in this file and ten
@@ -522,9 +559,11 @@ async function main() {
       : "  ✓ desk accounts (development passwords, change before going live):",
   );
   console.log(`           ${owner.email} / ${ownerPass}        owner, everything`);
-  console.log(
-    `           ${process.env.SEED_RECEPTION_EMAIL ?? "reception@apexpilates.cy"} / ${receptionPass}   the desk, no analytics`,
-  );
+  if (receptionEmail !== ownerEmail) {
+    console.log(
+      `           ${receptionEmail} / ${receptionPass}   the desk, no analytics`,
+    );
+  }
   if (member) console.log("           member@example.com / member123   demo member");
   else console.log("           no demo member on this database, which is right for a live one");
   console.log("    → npm run staff   to set the real ones on this machine");

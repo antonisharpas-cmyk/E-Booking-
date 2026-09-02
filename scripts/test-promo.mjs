@@ -148,7 +148,15 @@ check("the timetable answers", all.length > 0, all.length);
  * couple of runs against one database those were full and four assertions
  * started failing with CLASS_FULL, which reads as a broken booking rule rather
  * than a suite that has eaten its own fixtures. */
-const free = (s) => (s.spotsLeft ?? 0) > 0;
+/* And not the midday appointments.
+ *
+ * Those hold one person and are paid for with a Personal or Duet session, which
+ * an ordinary pack does not contain, so booking one here fails with
+ * NEEDS_PERSONAL_CREDIT — a refusal about credit kinds in a suite that is about
+ * promotional windows. It surfaced when the offer moved a week and a different
+ * session happened to land at the index this suite reaches for, which is the
+ * kind of latent trap worth closing rather than working around. */
+const free = (s) => (s.spotsLeft ?? 0) > 0 && s.classType?.kind !== "PERSONAL";
 
 const inWeek = all.filter((s) => {
   const d = new Date(s.startsAt);

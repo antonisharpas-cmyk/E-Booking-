@@ -272,9 +272,6 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                     <span aria-hidden className="text-clay/70">
                       *
                     </span>
-                    <span className="mt-1 block text-clay">
-                      {t.auth.serviceOptInWhy}
-                    </span>
                   </span>
                 </label>
 
@@ -305,23 +302,26 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                       {t.legal.termsTitle}
                     </button>{" "}
                     {t.auth.termsAcceptJoin}{" "}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setReading("privacy");
-                      }}
-                      className="underline decoration-mocha-400 underline-offset-2 transition-colors hover:text-mocha-800"
-                    >
-                      {t.legal.privacyTitle}
-                    </button>
-                    <span aria-hidden className="text-clay/70">
-                      {" "}
-                      *
-                    </span>
-                    <span className="mt-1 block text-clay">
-                      {t.auth.termsAcceptWhy}
+                    {/* The link and the required marker are one unbreakable
+                        unit. Left to wrap on their own the asterisk dropped to
+                        a line by itself under the sentence, which reads as a
+                        stray character rather than a mark on this box. */}
+                    <span className="whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setReading("privacy");
+                        }}
+                        className="underline decoration-mocha-400 underline-offset-2 transition-colors hover:text-mocha-800"
+                      >
+                        {t.legal.privacyTitle}
+                      </button>
+                      <span aria-hidden className="text-clay/70">
+                        {" "}
+                        *
+                      </span>
                     </span>
                   </span>
                 </label>
@@ -333,12 +333,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                     name="marketingOptIn"
                     className="mt-0.5 h-4 w-4 shrink-0 rounded border-mocha-300 accent-mocha-600"
                   />
-                  <span>
-                    {t.auth.marketingOptIn}
-                    <span className="mt-1 block text-clay">
-                      {t.auth.marketingOptInWhy}
-                    </span>
-                  </span>
+                  <span>{t.auth.marketingOptIn}</span>
                 </label>
               </div>
             )}

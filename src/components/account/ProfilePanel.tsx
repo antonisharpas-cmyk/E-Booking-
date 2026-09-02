@@ -250,11 +250,15 @@ export function ProfilePanel({
   const remindersOn = values.reminderMinutes !== null;
 
   /* Things worth asking for, shown where the member already is rather than in
-     an email they have not agreed to receive yet. This is the studio's opening
-     for offers and birthday campaigns: ask once, in context, and let them say
-     no by simply not pressing it. */
+     an email they have not agreed to receive yet: ask once, in context, and let
+     them say no by simply not pressing it.
+
+     There used to be a second card here nudging members to add their date of
+     birth. Removed at the studio's request: it is genuinely optional, nothing
+     depends on it, and a card asking for it made an optional field look like an
+     outstanding task. The field itself is still on the form for anybody who
+     wants to fill it in. */
   const wantsMarketing = values.marketingOptIn;
-  const missingBirthday = !values.birthDate;
 
   return (
     /* Two columns for the profile and password sections, which have two cards.
@@ -430,14 +434,6 @@ export function ProfilePanel({
               </div>
             )}
 
-            {missingBirthday && (
-              <div className="card p-6">
-                <p className="eyebrow">{p.birthdayTitle}</p>
-                <p className="mt-3 text-[15px] leading-relaxed text-mocha-500">
-                  {p.birthdayBody}
-                </p>
-              </div>
-            )}
           </div>
 
           <div className="lg:col-span-2">

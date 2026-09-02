@@ -307,8 +307,18 @@ console.log("\n8. Paying tells the member, once");
      not theirs — so the boundary is put beyond doubt before counting. */
   await new Promise((r) => setTimeout(r, 1100));
 
+  /**
+   * Counted as a change, not as a total.
+   *
+   * Registering now writes its own in-app notice — the "your code is on its
+   * way" one — so a fresh account does not start at zero and never will again
+   * once the studio adds another welcome message. Asserting "unread === 0" made
+   * this section fail for a reason that had nothing to do with payments, which
+   * is exactly the kind of false alarm that gets a suite ignored. What matters
+   * is that paying adds exactly one, so that is what is measured.
+   */
   const start = await req(buyer, "/api/notices");
-  check("nothing unread to begin with", start.json?.unread === 0, start.json?.unread);
+  const before = start.json?.unread ?? 0;
 
   const opened = await req(buyer, "/api/checkout", {
     method: "POST",
@@ -319,8 +329,8 @@ console.log("\n8. Paying tells the member, once");
      arrived while the card form is still on screen would be a lie. */
   check(
     "opening the payment says nothing",
-    midway.json?.unread === 0,
-    midway.json?.unread,
+    midway.json?.unread === before,
+    { before, now: midway.json?.unread },
   );
 
   const settled = await req(buyer, "/api/payments/settle", {
@@ -330,7 +340,11 @@ console.log("\n8. Paying tells the member, once");
   check("the payment settles", settled.json?.status === "PAID", settled.json);
 
   const after = await req(buyer, "/api/notices");
-  check("the member is told", after.json?.unread === 1, after.json?.unread);
+  check(
+    "the member is told",
+    after.json?.unread === before + 1,
+    { before, now: after.json?.unread },
+  );
   const msg = (after.json?.notices ?? [])[0];
   check("with the payment named", msg?.title === "Payment received", msg?.title);
   check(
@@ -354,8 +368,8 @@ console.log("\n8. Paying tells the member, once");
   const again = await req(buyer, "/api/notices");
   check(
     "settling three times still tells them once",
-    again.json?.unread === 1,
-    again.json?.unread,
+    again.json?.unread === before + 1,
+    { before, now: again.json?.unread },
   );
   check(
     "and grants the sessions once",

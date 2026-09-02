@@ -228,48 +228,58 @@ check(
   [307, 302].includes((await req("/verify")).status),
 );
 
-console.log("\n3b-ii. And then the three questions, which are also mandatory");
+console.log("\n3b-ii. The three questions, which are asked but never required");
 /**
- * The second gate, answered over HTTP the way a member answers it.
+ * The welcome questions, and the thing that matters most about them: they do
+ * not block anything.
  *
- * Worth doing properly once rather than stepping over everywhere: the point of
- * the gate is that it cannot be walked around, and a suite that only ever writes
- * the columns directly would never notice if the route stopped enforcing it.
+ * They were mandatory for a day. The gate did exactly what a gate does — a
+ * member who skipped the questions could browse the whole site and was then
+ * refused at the one moment they were trying to give the studio money. The
+ * studio removed the requirement, and this section is what stops it coming
+ * back by accident: the emailed code is the only mandatory step.
  *
- * The redirect is checked as well as the refusal. A member who has confirmed
- * their email and not answered the questions is *sent* to /welcome, and a
- * booking they attempt anyway is refused: the redirect is the kindness and the
- * refusal is the rule.
+ * So: a confirmed account with no answers is still *offered* the questions, and
+ * can still do everything without them.
  */
 const sentToWelcome = await req("/verify");
 check(
-  "a confirmed account with no answers is sent to the welcome step",
+  "a confirmed account with no answers is offered the welcome step",
   (sentToWelcome.headers?.location ?? "").includes("/welcome"),
   sentToWelcome.headers?.location,
 );
 
-/* Its own fetch: the shared `list` is built further down, after this gate has
-   already had to be got past. */
+/* Its own fetch: the shared `list` is built further down. */
 const forGate = await req("/api/sessions?days=21");
 const openSlot = (forGate.json?.sessions ?? []).find(
   (s) => s.spotsLeft > 0 && s.classType?.kind !== "PERSONAL",
 );
-const tooEarly = await req("/api/bookings", {
+const unanswered = await req("/api/bookings", {
   method: "POST",
   body: { sessionId: openSlot?.id },
 });
 check(
-  "and booking is refused until they are answered",
-  tooEarly.status === 403 && tooEarly.json?.error === "INTAKE_REQUIRED",
-  tooEarly.json,
+  "and booking is NOT refused for not having answered them",
+  unanswered.json?.error !== "INTAKE_REQUIRED",
+  unanswered.json,
+);
+/* Whatever else it says, it must not be about the questionnaire. The fixture
+   has no sessions yet at this point, so NO_CREDITS is the expected answer and
+   is proof the request got all the way to the credit check. */
+check(
+  "it gets as far as the credit check, like any other member",
+  unanswered.json?.error === "NO_CREDITS" || unanswered.json?.ok === true,
+  unanswered.json,
 );
 
+/* The route still validates what it is given, which is a different thing from
+   requiring it to be given at all. */
 const halfAnswered = await req("/api/profile/intake", {
   method: "POST",
   body: { level: "BEGINNER" },
 });
 check(
-  "an incomplete answer is refused",
+  "a half-filled answer is still refused by the route",
   halfAnswered.status === 400,
   halfAnswered.json,
 );

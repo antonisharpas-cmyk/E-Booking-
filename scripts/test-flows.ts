@@ -106,6 +106,14 @@ async function main() {
      are paid for with a session an ordinary pack does not contain. Picking one
      of those here would fail three checks for reasons this suite is not
      about. */
+  /* With room left in them, which is not the same as existing.
+   *
+   * This suite books several classes per run and every class holds five, so
+   * taking the first four by date meant reaching for the same ones every time:
+   * after a few runs against one database they were full, `bookClass` refused,
+   * and the assertion that a credit came out of the soonest-expiring batch
+   * failed because no credit had been spent at all. That reads as a broken
+   * spending rule rather than a suite that has eaten its own fixtures. */
   const future = db
     .select({ s: classSessions })
     .from(classSessions)
@@ -116,9 +124,19 @@ async function main() {
         eq(classTypes.kind, "GROUP"),
       ),
     )
-    .limit(4)
     .all()
-    .map((r) => r.s);
+    .map((r) => r.s)
+    .filter(
+      (s) =>
+        (
+          sqlite
+            .prepare(
+              "select count(*) as n from bookings where session_id = ? and status != 'CANCELLED'",
+            )
+            .get(s.id) as { n: number }
+        ).n < s.capacity,
+    )
+    .slice(0, 4);
   check("seeded future sessions exist", future.length >= 3, future.length);
 
   const s1 = future[0]!;

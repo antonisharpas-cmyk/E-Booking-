@@ -261,6 +261,45 @@ export function promoWords(a: {
  * them that ignoring it is enough — an account nobody confirms is an account
  * nobody can use.
  */
+/**
+ * The same event, said without the code in it.
+ *
+ * For the in-app copy and the phone notification. The studio asked for the
+ * registration message on every channel, and it is on every channel — but the
+ * six digits stay in the email alone, deliberately.
+ *
+ * Two reasons. A notification sits on a lock screen and an in-app notice sits
+ * in a list that anybody already holding the unlocked phone can read, so
+ * putting the code in either files a credential next to the door it opens. And
+ * the whole point of the code is to prove that the person controls that
+ * mailbox: sending it anywhere else undoes the check it exists to perform.
+ *
+ * So the member gets told, on the channels they asked for, that a code is on
+ * its way and where to look. The code itself arrives in the one place that
+ * proves something.
+ */
+export function verifySentWords(a: { minutes: number }): Bilingual {
+  return {
+    en: {
+      subject: "Confirm your email address",
+      body:
+        `Your confirmation code is on its way by email. Type it into the site ` +
+        `to finish signing up.\n\nThe code expires in ${a.minutes} minutes, and ` +
+        `you can ask for a new one at any time.`,
+      url: "/verify",
+    },
+    el: {
+      subject: "Επιβεβαίωσε το email σου",
+      body:
+        `Ο κωδικός επιβεβαίωσης είναι στον δρόμο του με email. ` +
+        `Πληκτρολόγησέ τον στην ιστοσελίδα για να ολοκληρώσεις την εγγραφή.` +
+        `\n\nΟ κωδικός λήγει σε ${a.minutes} λεπτά και μπορείς να ζητήσεις νέο ` +
+        `όποτε θέλεις.`,
+      url: "/verify",
+    },
+  };
+}
+
 export function verifyWords(a: { code: string; minutes: number }): Bilingual {
   return {
     en: {

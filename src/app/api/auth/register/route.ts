@@ -137,7 +137,7 @@ export async function POST(req: Request) {
      * is, and the member goes to a screen with a "send it again" button on it.
      */
     const res = await Promise.race([
-      sendVerificationCode(user.email, code, OTP_TTL_MINUTES),
+      sendVerificationCode(user.email, code, OTP_TTL_MINUTES, user.id),
       new Promise<{ ok: false; error: string }>((resolve) =>
         setTimeout(() => resolve({ ok: false, error: "TIMED_OUT" }), 8_000),
       ),

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { bookClass, listMyBookings } from "@/lib/booking";
-import { notOnboarded, notVerified } from "@/lib/api-guard";
+import { notVerified } from "@/lib/api-guard";
 import { currentUser } from "@/lib/auth";
 import { getAvailableCredits } from "@/lib/credits";
 import { notifyBooked, nudgeReminders } from "@/lib/messaging/events";
@@ -28,12 +28,22 @@ export async function POST(req: Request) {
      holder it has moved. */
   const stop = notVerified(user);
   if (stop) return stop;
-  /* And the three questions, for an account that signed up after the studio
-     started asking. The seat is real: whoever is teaching should know who is
-     new and who has a shoulder before five people are on reformers, not
-     afterwards. See lib/intake.ts for why older accounts are not caught. */
-  const ask = notOnboarded(user);
-  if (ask) return ask;
+
+  /**
+   * The three welcome questions are NOT checked here, on purpose.
+   *
+   * They were for a day. The gate did what a gate does: a member who skipped
+   * past the questions could read the whole site and then be refused at the one
+   * moment they were trying to give the studio money, which is the worst
+   * possible place to put an obstacle. The studio's decision, and it is the
+   * right one: the emailed code is the only mandatory step, and everything
+   * after it is an invitation.
+   *
+   * The answers are still asked for straight after the code, still editable in
+   * the member's profile, and still fillable by the desk. They are simply not a
+   * condition of using the site. If that is ever revisited, `notOnboarded` in
+   * lib/api-guard.ts is the check and this is where it went.
+   */
 
   const parsed = bookSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

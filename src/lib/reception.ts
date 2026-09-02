@@ -22,6 +22,7 @@ import { bookClass } from "@/lib/booking";
 import {
   notifyBooked,
   notifyInstructorChanged,
+  notifyPurchased,
 } from "@/lib/messaging/events";
 import type { CreditKind } from "@/lib/packs";
 
@@ -330,6 +331,12 @@ export async function sellSessions(args: {
     : `At the desk, ${staffName}`;
 
   if (credits > 0) {
+    /* Set inside the transaction, read after it. The notification has to happen
+       outside: a slow email must not hold a SQLite write open while somebody at
+       the desk waits, and a failed one must not roll back a sale that was
+       already paid for in cash. */
+    let sold: string | null = null;
+
     db.transaction(() => {
       const purchase =
         method === "adjustment"
@@ -359,7 +366,28 @@ export async function sellSessions(args: {
         note: reason,
         kind,
       });
+
+      sold = purchase?.id ?? null;
     });
+
+    /**
+     * Tell the member their sessions have arrived.
+     *
+     * This sent nothing at all until the studio asked for it, which was a real
+     * gap: somebody paid cash at the counter, walked out, and had no record of
+     * it anywhere except a number on a screen they were no longer looking at.
+     * The same message as an online purchase, because it is the same event with
+     * a different till: the in-app copy, the phone notification, and the email
+     * that is the receipt.
+     *
+     * Only for money. `adjustment` writes no purchase, so a comped session or a
+     * correction stays quiet — an apology session does not need an invoice, and
+     * "your payment of €0.00" would be a strange thing to receive.
+     *
+     * Not awaited, and it can never fail the sale: the money is in the till
+     * whatever the mail server does.
+     */
+    if (sold) void notifyPurchased(sold).catch(() => {});
 
     return {
       ok: true,
