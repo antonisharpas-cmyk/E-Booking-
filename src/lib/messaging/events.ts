@@ -27,6 +27,7 @@ import {
   purchasedWords,
   reminderWords,
   studioAppointmentWords,
+  say,
   verifySentWords,
   verifyWords,
   whenWords,
@@ -151,6 +152,16 @@ type BookingFacts = {
   phone: string | null;
   notifyEmail: boolean;
   notifySms: boolean;
+  /**
+   * Which language they read the site in, straight off the row.
+   *
+   * Carried on the facts rather than looked up when a message is composed,
+   * because every one of these queries already joins `users` — a second read
+   * per notification, to answer a question the first read could have answered,
+   * is the kind of thing that is invisible until a reminder sweep does it two
+   * hundred times.
+   */
+  locale: string | null;
   startsAt: Date;
   classEn: string;
   classEl: string;
@@ -169,6 +180,7 @@ function factsFor(bookingId: string): BookingFacts | null {
       phone: users.phone,
       notifyEmail: users.notifyEmail,
       notifySms: users.notifySms,
+      locale: users.locale,
       startsAt: classSessions.startsAt,
       classEn: classTypes.nameEn,
       classEl: classTypes.nameEl,
@@ -290,14 +302,16 @@ async function tellStudio(f: BookingFacts, cancelled: boolean) {
    * belong to somebody to be readable at all.
    */
   const staff = db
-    .select({ id: users.id })
+    .select({ id: users.id, locale: users.locale })
     .from(users)
     .where(inArray(users.role, ["STAFF", "ADMIN"]))
     .all();
 
   for (const person of staff) {
     inbox(person.id, words);
-    void pushToUser(person.id, words.en).catch(() => {});
+    /* Each member of staff in their own language. The desk is two people and
+       they do not necessarily read the same one. */
+    void pushToUser(person.id, say(words, person.locale)).catch(() => {});
   }
 
   try {
@@ -337,6 +351,7 @@ export async function notifyPurchased(purchaseId: string) {
       phone: users.phone,
       notifyEmail: users.notifyEmail,
       notifySms: users.notifySms,
+      locale: users.locale,
       credits: purchases.credits,
       amountCents: purchases.amountCents,
       currency: purchases.currency,
@@ -357,6 +372,7 @@ export async function notifyPurchased(purchaseId: string) {
       phone: row.phone,
       notifyEmail: row.notifyEmail,
       notifySms: row.notifySms,
+      locale: row.locale,
       /* Not a class, so these are unused by the wording below. */
       startsAt: new Date(),
       classEn: "",
@@ -395,6 +411,7 @@ export async function notifyPromoGranted(
       phone: users.phone,
       notifyEmail: users.notifyEmail,
       notifySms: users.notifySms,
+      locale: users.locale,
     })
     .from(users)
     .where(eq(users.id, userId))
@@ -438,6 +455,7 @@ export async function notifyInstructorChanged(
   const rows = db
     .select({
       userId: users.id,
+      locale: users.locale,
       startsAt: classSessions.startsAt,
       classEn: classTypes.nameEn,
       classEl: classTypes.nameEl,
@@ -460,7 +478,7 @@ export async function notifyInstructorChanged(
     });
     inbox(row.userId, words);
     if (SENDS.instructor.push) {
-      await pushToUser(row.userId, words.en).catch(() => 0);
+      await pushToUser(row.userId, say(words, row.locale)).catch(() => 0);
     }
     told++;
   }
@@ -512,11 +530,19 @@ export async function sendVerificationCode(
   if (userId) {
     const heads_up = verifySentWords({ minutes });
     inbox(userId, heads_up);
+    /* The one place the language has to be read rather than carried: this is
+       called from the register route and the resend route, and neither of them
+       has a user row in hand — only an address and an id. */
+    const mine = db
+      .select({ locale: users.locale })
+      .from(users)
+      .where(eq(users.id, userId))
+      .get();
     /* Almost always reaches nobody, and that is fine. A member registering has
        not been asked for notification permission yet, so there is no device to
        send to; this earns its keep on a resend, and on the second device of
        somebody who already allowed it. */
-    void pushToUser(userId, heads_up.en).catch(() => {});
+    void pushToUser(userId, say(heads_up, mine?.locale)).catch(() => {});
   }
 
   return res;
@@ -539,7 +565,11 @@ async function deliverPersonal(
      their photograph. */
   inbox(f.userId, words);
 
-  let reached = sends.push ? await pushToUser(f.userId, words.en) : 0;
+  /* The phone and the text in the member's own language; the email carries
+     both, so it is not asked. */
+  const mine = say(words, f.locale);
+
+  let reached = sends.push ? await pushToUser(f.userId, mine) : 0;
 
   if (sends.email && f.notifyEmail && f.email) {
     const res = await emailTransport().send(f.email, forEmail(words));
@@ -549,8 +579,8 @@ async function deliverPersonal(
     const number = toE164(f.phone);
     if (number) {
       const res = await smsTransport().send(number, {
-        subject: words.en.subject,
-        body: `APEX pilates: ${words.en.subject}. ${words.en.body}`.slice(0, 300),
+        subject: mine.subject,
+        body: `APEX pilates: ${mine.subject}. ${mine.body}`.slice(0, 300),
       });
       if (res.ok) reached++;
     }
@@ -613,8 +643,10 @@ export async function runDueReminders(now = new Date()) {
     const use = (c: Channel) =>
       SENDS.reminder[c as "email" | "sms"] && rowChannels.includes(c);
 
+    const mine = say(words, r.userLocale);
+
     inbox(r.userId, words);
-    if (SENDS.reminder.push) pushed += await pushToUser(r.userId, words.en);
+    if (SENDS.reminder.push) pushed += await pushToUser(r.userId, mine);
 
     if (use("email") && r.userEmail) {
       const res = await emailTransport().send(r.userEmail, forEmail(words));
@@ -624,8 +656,8 @@ export async function runDueReminders(now = new Date()) {
       const number = toE164(r.userPhone);
       if (number) {
         const res = await smsTransport().send(number, {
-          subject: words.en.subject,
-          body: `APEX pilates: ${words.en.body}`.slice(0, 300),
+          subject: mine.subject,
+          body: `APEX pilates: ${mine.body}`.slice(0, 300),
         });
         if (res.ok) texted++;
       }

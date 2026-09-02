@@ -15,6 +15,7 @@ import {
   studioDayKeys,
   studioStartOfDay,
 } from "@/lib/time";
+import { pushPublicKey } from "@/lib/messaging/push";
 import { isPersonalBookable } from "@/lib/personal";
 import { STUDIO } from "@/lib/studio";
 import { isBookable } from "@/lib/utils";
@@ -104,6 +105,9 @@ export default async function TimetablePage() {
         personalCredits={summary?.personalCredits ?? 0}
         days={days}
         closedDays={closed}
+        /* For the notification offer made after a booking. Empty when the
+           server has no usable VAPID pair, and the panel then never appears. */
+        pushPublicKey={pushPublicKey()}
       />
     </TimetableIntro>
   );

@@ -18,11 +18,34 @@ import type { Outgoing } from "./types";
  *   email        both, English above Greek, separated by a rule — we have no
  *                idea which they prefer and guessing wrong is worse than
  *                showing two
- *   push         English only. A phone notification is one line and there is no
- *                room for a second language in it.
+ *   push         one language, the member's own — see `say` below. A phone
+ *                notification is one line and there is no room for two.
+ *   sms          the same, and for the same reason, only harder: Greek costs
+ *                three times the segments, so length is checked after the
+ *                language is chosen and not before.
  */
 
 export type Bilingual = { en: Outgoing; el: Outgoing };
+
+/**
+ * One of the two, for the channels that can only carry one.
+ *
+ * Push and SMS have room for a single language, and for a long time that
+ * language was English for everybody. A member who had used the switch at the
+ * top of every page to read the site in Greek got a Greek copy of a message in
+ * their account and an English copy of the same message on their phone, which
+ * is worse than either alone: it looks like the studio does not know which
+ * language it speaks to them in.
+ *
+ * The argument takes the raw column rather than a `Locale`, so every caller can
+ * pass `user.locale` straight from a query without a cast or a check. Anything
+ * that is not exactly "el" means English, which covers null, an old row, and a
+ * value somebody typed by hand — the safe direction, because English is the
+ * language the studio itself is administered in.
+ */
+export function say(m: Bilingual, locale?: string | null): Outgoing {
+  return locale === "el" ? m.el : m.en;
+}
 
 /* ------------------------------------------------------------------ the dates */
 

@@ -624,11 +624,18 @@
   <table class="wide">
     <tr><th>Channel</th><th>Cost</th><th>Reaches</th></tr>
     <tr><td>In their account</td><td>Free</td><td>Everyone in the audience, always. Not a choice</td></tr>
-    <tr><td>Push notification</td><td>Free</td><td>Members whose phone or browser allowed notifications</td></tr>
+    <tr><td>Push notification</td><td>Free</td><td>Members whose phone or browser allowed notifications, in the language they read the site in</td></tr>
     <tr><td>Email</td><td>Free</td><td>Members who left email switched on</td></tr>
     <tr><td>SMS</td><td><strong>About €0.02 each</strong></td><td>Members who deliberately turned SMS on</td></tr>
   </table>
   <p>Each button says <em>"reaches 38"</em> before you send. A channel with no provider connected says <em>"not connected yet"</em> rather than silently doing nothing.</p>
+
+  <div class="note">
+    <span class="label">Why the push number grows on its own</span>
+    <p>Notifications used to be offered only in the profile, which is a page a member visits once to add a photograph and then never again &mdash; so hardly anybody had them on, and <em>"reaches 38"</em> was 38 out of four hundred.</p>
+    <p>The site now asks <strong>once, straight after a member's booking</strong>: <em>"Shall we tell you if this class changes?"</em> That is the moment the question means something, because they have just expressed an interest in a particular class. <strong>Not now</strong> is taken as an answer and the offer does not come back on that device &mdash; but their phone is a separate device from their laptop, and each one is asked in its own right. The switch stays in their profile for whenever they change their mind.</p>
+    <p>You cannot turn this on for them. Not a limitation of this website: a browser permission is granted by a press on the handset it belongs to, and no site is allowed to grant it from anywhere else. What their page gives you instead is the count &mdash; <em>notifications on for 2 of their devices</em> &mdash; which is the answer to "why did they not hear".</p>
+  </div>
 
   <h3>The text message panel</h3>
   <p>Ticking SMS opens a panel showing the message <strong>exactly as it will arrive on a phone</strong>, with the cost underneath. There is nothing to type: the text follows the message you already wrote.</p>
@@ -848,7 +855,11 @@
     </tr>
     <tr>
       <td>A member says they got no reminder</td>
-      <td>Check <em>Reachable by</em> on their page, and whether they ever allowed notifications on that phone. Push has to be enabled by them, on each device</td>
+      <td>Their page now says it outright, under <em>Reachable by</em>: <em>Notifications on for 2 of their devices</em>, or that no device has allowed them. Zero devices is the answer. It cannot be switched on from the desk &mdash; only they can, on their own phone, from Profile &rarr; Enable on this device &mdash; because the permission belongs to their phone and no website is allowed to grant it from elsewhere. Ten seconds, standing at the counter</td>
+    </tr>
+    <tr>
+      <td>A member reads the site in Greek but gets English notifications</td>
+      <td>Fixed. The language switch is now remembered on their account, not only in their browser, so a notification sent while nobody is looking at a page goes out in their language. A member who has never touched the switch is written to in English. Their page shows which one is on file</td>
     </tr>
     <tr>
       <td>"Nobody matches these filters"</td>

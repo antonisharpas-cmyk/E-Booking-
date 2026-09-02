@@ -481,6 +481,14 @@ export const en = {
     chSms: "SMS",
     chPush: "Push",
     chOffers: "Offers and news",
+    /* What the desk can and cannot do about notifications. The chips above are
+       the studio's side of it; this is the member's phone, which is not ours to
+       switch on — see lib/reception.ts. */
+    pushDevices: "Notifications on for {n} of their devices.",
+    pushNoDevices:
+      "No device has allowed notifications yet, so nothing reaches their phone.",
+    pushCannotGrant:
+      "Only they can allow it, on their own phone: Profile, then Enable on this device. It cannot be switched on from here.",
     password: "Set a new password",
     passwordHelp:
       "Type one and read it out. They can change it from their account once they are in.",
@@ -755,6 +763,16 @@ export const en = {
       "This browser is blocking notifications. Click the icon to the left of the address bar, then Notifications → Allow, and reload. In a private window the choice is not kept.",
     pushUnsupported:
       "This browser cannot show notifications. On iPhone, add the site to your Home Screen first.",
+    /* The offer made once, straight after a first booking. Deliberately about
+       the one thing a member would be sorry to miss rather than about
+       "notifications", which is a permission dialog nobody wants. */
+    pushInviteTitle: "Shall we tell you if this class changes?",
+    pushInviteBody:
+      "If a class is cancelled or the instructor changes, your phone will say so. We also send a reminder before you are due in. Nothing else.",
+    pushInviteYes: "Yes, tell me",
+    pushInviteLater: "Not now",
+    pushInviteDone: "Done. Your phone will let you know.",
+    pushInviteProfile: "You can turn this on any time in your profile.",
     consentTitle: "What we send",
     consentService: "Studio and timetable notices",
     consentServiceWhy:
@@ -1575,6 +1593,11 @@ export const el: typeof en = {
     chSms: "SMS",
     chPush: "Push",
     chOffers: "Προσφορές και νέα",
+    pushDevices: "Ειδοποιήσεις ενεργές σε {n} από τις συσκευές του.",
+    pushNoDevices:
+      "Καμία συσκευή δεν έχει επιτρέψει ειδοποιήσεις, οπότε δεν φτάνει τίποτα στο κινητό του.",
+    pushCannotGrant:
+      "Μόνο ο ίδιος μπορεί να το επιτρέψει, από το δικό του κινητό: Προφίλ και μετά Ενεργοποίηση σε αυτή τη συσκευή. Δεν γίνεται από εδώ.",
     password: "Νέος κωδικός",
     passwordHelp:
       "Γράψε έναν και πες τον. Μπορεί να τον αλλάξει από τον λογαριασμό του μόλις μπει.",
@@ -1825,6 +1848,14 @@ export const el: typeof en = {
       "Αυτός ο browser μπλοκάρει τις ειδοποιήσεις. Πάτησε το εικονίδιο αριστερά από τη γραμμή διεύθυνσης, μετά Ειδοποιήσεις → Να επιτρέπονται, και ανανέωσε. Σε ιδιωτικό παράθυρο η επιλογή δεν διατηρείται.",
     pushUnsupported:
       "Αυτός ο browser δεν υποστηρίζει ειδοποιήσεις. Σε iPhone, πρόσθεσε πρώτα τη σελίδα στην αρχική οθόνη.",
+    pushInviteTitle: "Να σου πούμε αν αλλάξει αυτό το μάθημα;",
+    pushInviteBody:
+      "Αν ακυρωθεί το μάθημα ή αλλάξει ο εκπαιδευτής, θα το δεις στο κινητό σου. Στέλνουμε και μια υπενθύμιση πριν το μάθημα. Τίποτε άλλο.",
+    pushInviteYes: "Ναι, να ξέρω",
+    pushInviteLater: "Όχι τώρα",
+    pushInviteDone: "Έγινε. Το κινητό σου θα σε ενημερώνει.",
+    pushInviteProfile:
+      "Μπορείς να το ενεργοποιήσεις όποτε θέλεις από το προφίλ σου.",
     consentTitle: "Τι σου στέλνουμε",
     consentService: "Ενημερώσεις στούντιο και προγράμματος",
     consentServiceWhy:

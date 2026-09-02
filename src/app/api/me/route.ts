@@ -1,7 +1,12 @@
+import { eq } from "drizzle-orm";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { db } from "@/db";
+import { users } from "@/db/schema";
 import { currentUser } from "@/lib/auth";
 import { getAvailableCredits } from "@/lib/credits";
 import { unreadCount } from "@/lib/notices";
+import { LOCALE_COOKIE } from "@/i18n/dictionaries";
 
 /**
  * The two numbers on the header, and nothing else.
@@ -29,6 +34,31 @@ export async function GET() {
   const user = await currentUser();
   if (!user) {
     return NextResponse.json({ signedIn: false, unread: null, credits: null });
+  }
+
+  /**
+   * The one place a language already chosen gets written down.
+   *
+   * Members who were reading the site in Greek before the account learned to
+   * remember that have the cookie and nothing on the row, so their next
+   * notification would still be English — and they would have no reason to
+   * press a switch that is already on the language they want. This copies the
+   * cookie onto the account the first time the header asks after a page load,
+   * which happens within seconds of signing in.
+   *
+   * Only ever fills a blank. A member who *has* chosen owns their choice, and a
+   * stale cookie on a shared laptop must not be allowed to overwrite it — the
+   * switch is the only thing that changes an answer, this is the only thing
+   * that supplies a missing one.
+   */
+  if (!user.locale) {
+    const chose = (await cookies()).get(LOCALE_COOKIE)?.value;
+    if (chose === "el" || chose === "en") {
+      db.update(users)
+        .set({ locale: chose })
+        .where(eq(users.id, user.id))
+        .run();
+    }
   }
 
   return NextResponse.json({

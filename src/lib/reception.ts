@@ -16,6 +16,7 @@ import {
   users,
 } from "@/db/schema";
 import { hashPassword, isVerified } from "@/lib/auth";
+import { deviceCount } from "@/lib/messaging/push";
 import { toE164 } from "@/lib/messaging/sms";
 import { getCreditSummary, grantCredits, refundOneCredit } from "@/lib/credits";
 import { bookClass } from "@/lib/booking";
@@ -216,6 +217,25 @@ export async function memberDetail(userId: string) {
     notifyEmail: user.notifyEmail,
     notifySms: user.notifySms,
     notifyPush: user.notifyPush,
+    /**
+     * How many of this member's devices have allowed notifications.
+     *
+     * Here because the desk asked whether it could switch notifications on for
+     * a member, and it cannot: the permission belongs to the browser on the
+     * member's own phone, is only ever granted by a press on that phone, and
+     * there is no API — for us or for anyone — that grants it from somewhere
+     * else. That is deliberate on Apple's and Google's part and it is the whole
+     * reason the permission is worth anything.
+     *
+     * What the desk can have instead is the fact. Zero devices is the answer to
+     * "why did they not get the cancellation", and it turns an argument at the
+     * counter into a thing somebody can fix in ten seconds on the member's own
+     * phone while they are standing there.
+     */
+    pushDevices: deviceCount(user.id),
+    /* Which language the studio writes to them in. Null means they have never
+       touched the switch, which is not the same as choosing English. */
+    locale: user.locale,
     marketingOptIn: user.marketingOptIn,
     isTest: user.isTest,
     /* Both shown on the member's card. Unverified explains why somebody cannot

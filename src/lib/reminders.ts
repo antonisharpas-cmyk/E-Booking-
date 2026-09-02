@@ -108,6 +108,9 @@ export function dueReminders(now = new Date(), limit = 200) {
       userName: users.name,
       userEmail: users.email,
       userPhone: users.phone,
+      /* Read now rather than looked up per row when the sweep composes the
+         message. A sweep is up to 200 rows and this is one join column. */
+      userLocale: users.locale,
       startsAt: classSessions.startsAt,
     })
     .from(bookingReminders)

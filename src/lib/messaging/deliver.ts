@@ -178,9 +178,10 @@ export function recipientsFor(
     phone: u.phone,
     notifyEmail: u.notifyEmail,
     notifySms: u.notifySms,
-    /* No per-member language column yet: the studio's own language is used, and
-       the Greek text is sent when the notice has one. */
-    locale: "en" as const,
+    /* Whichever language they read the site in. Anything that is not exactly
+       "el" — including null, on an account that has never touched the switch —
+       is English, which is the language the studio is administered in. */
+    locale: u.locale === "el" ? ("el" as const) : ("en" as const),
   }));
 }
 
@@ -284,8 +285,22 @@ export async function deliverNotice(args: {
     if (channel === "push") {
       const subs = subscriptionsFor(people.map((p) => p.id));
       const reached = new Set<string>();
+      /**
+       * Which language each device gets, worked out once.
+       *
+       * A notification has room for one language, so unlike the email it cannot
+       * carry both and let the reader choose — it has to pick, and the only
+       * defensible pick is the one the member reads the site in. Falls back to
+       * the English text when the desk did not type a Greek version, which is
+       * the common case for a hurried "closed tomorrow": a Greek member is
+       * better served by an English notice than by nothing at all.
+       */
+      const greek = new Set(
+        people.filter((p) => p.locale === "el").map((p) => p.id),
+      );
       for (const sub of subs) {
-        const res = await sendPush(sub, args.en);
+        const text = greek.has(sub.userId) ? (args.el ?? args.en) : args.en;
+        const res = await sendPush(sub, text);
         if (res.ok) {
           report.sent++;
           reached.add(sub.userId);

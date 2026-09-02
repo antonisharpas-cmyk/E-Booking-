@@ -79,6 +79,27 @@ export const users = sqliteTable(
     healthCondition: text("health_condition"),
 
     /* ---- how we are allowed to reach them ---- */
+    /**
+     * Which language to write to them in. "en" | "el", null on accounts that
+     * have never chosen.
+     *
+     * The site has always known this — the language switch sets a cookie, and
+     * every page is rendered from it. What the *server* did not know was which
+     * language to use when nobody is looking at a page, which is the only time
+     * a notification is ever sent. So push and SMS went out in English to
+     * members reading the site in Greek, while the in-app copy of the same
+     * message sat in their account in Greek. A cookie could not have fixed it:
+     * a reminder for a class in two hours is composed by a cron sweep with no
+     * browser attached to it.
+     *
+     * Null rather than a default of "en" on purpose. It distinguishes "reads it
+     * in English" from "has never touched the switch", and only the first of
+     * those is a preference. Both are written to in English, so nothing behaves
+     * differently today — but the day the studio wants to ask its Greek members
+     * something, "who never chose" is a question this column can answer and a
+     * NOT NULL default could not.
+     */
+    locale: text("locale"),
     notifyEmail: integer("notify_email", { mode: "boolean" })
       .notNull()
       .default(true),

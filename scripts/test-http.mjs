@@ -547,6 +547,80 @@ check(
   maniJson?.icons?.map((i) => i.sizes),
 );
 
+console.log("\n8a-iii. Which language a phone notification goes out in");
+/**
+ * The language of a push notification, which used to be English for everybody.
+ *
+ * The site has always known which language a member reads it in — the switch at
+ * the top of every page sets a cookie, and every page is rendered from it. What
+ * the server did not know was which language to use when nobody is looking at a
+ * page, and that is the only time a notification is ever sent: a reminder two
+ * hours before a class is composed by a sweep with no browser attached to it.
+ * So a member reading the site in Greek got a Greek notice in their account and
+ * an English copy of the same message on their phone.
+ *
+ * The fix is a column, written when the switch is pressed. This asserts the
+ * plumbing end to end: the route accepts a choice, refuses nonsense, and the
+ * account remembers it.
+ */
+const badLocale = await req("/api/me/locale", {
+  method: "POST",
+  body: { locale: "fr" },
+});
+check(
+  "a language the site does not speak is refused",
+  badLocale.status === 400,
+  badLocale.status,
+);
+
+const toGreek = await req("/api/me/locale", {
+  method: "POST",
+  body: { locale: "el" },
+});
+check(
+  "pressing the switch records it on the account, not just in a cookie",
+  toGreek.status === 200 && toGreek.json?.saved === true,
+  toGreek.json,
+);
+
+/* Idempotent: pressing it twice is one answer, not an error. Which matters
+   because the switch is pressed twice by anybody comparing the two. */
+const twice = await req("/api/me/locale", {
+  method: "POST",
+  body: { locale: "el" },
+});
+check(
+  "and pressing it again is not an error",
+  twice.status === 200 && twice.json?.saved === true,
+  twice.json,
+);
+
+/* Put back, so the rest of the suite reads English. */
+await req("/api/me/locale", { method: "POST", body: { locale: "en" } });
+
+/**
+ * The Android status-bar mark, which has to be a glyph on transparency.
+ *
+ * Android throws this image's colours away and keeps only its alpha channel,
+ * then tints the result and crops it to a circle — so the square opaque logo
+ * that used to be here arrived on every Android phone as a solid white square.
+ * Asserted as a file rather than as pixels: the service worker names it, and a
+ * missing file is a notification with no mark at all.
+ */
+const badge = await fetch(`${BASE}/brand/notification-badge.png`);
+check(
+  "the notification badge is served",
+  badge.status === 200 &&
+    (badge.headers.get("content-type") ?? "").includes("png"),
+  badge.status,
+);
+
+const sw = await (await fetch(`${BASE}/sw.js`)).text();
+check(
+  "and the service worker points at it rather than the square logo",
+  /badge:\s*"\/brand\/notification-badge\.png"/.test(sw),
+);
+
 console.log("\n8b. What browsers are allowed to keep");
 /**
  * The cache rules, asserted rather than assumed.

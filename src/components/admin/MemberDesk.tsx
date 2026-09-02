@@ -50,6 +50,8 @@ type Detail = {
   notifyEmail: boolean;
   notifySms: boolean;
   notifyPush: boolean;
+  /** How many of their devices have allowed notifications. Read-only. */
+  pushDevices: number;
   marketingOptIn: boolean;
   isTest: boolean;
   emailVerifiedAt: string | null;
@@ -653,6 +655,25 @@ export function MemberDesk({
                 </button>
               ))}
             </div>
+
+            {/**
+              * Whether the member's phone actually rings, which the chips above
+              * cannot say.
+              *
+              * The push chip is the studio's side: we keep push on and there is
+              * no switch here that turns it off. The member's side is a browser
+              * permission on their own handset, granted only by a press on that
+              * handset — no API grants it from anywhere else, for us or for
+              * anybody. So reception is given the fact rather than a button
+              * that would have to lie: zero devices is the answer to "why did
+              * they not hear the class was cancelled", and it is fixable in ten
+              * seconds on the member's phone while they are at the counter.
+              */}
+            <p className="mt-2 text-[11px] leading-relaxed text-clay">
+              {member.pushDevices > 0
+                ? d.pushDevices.replace("{n}", String(member.pushDevices))
+                : `${d.pushNoDevices} ${d.pushCannotGrant}`}
+            </p>
 
             {/**
               * Their pilates, and anything to be careful of.

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useI18n } from "@/i18n/LanguageProvider";
+import { subscribeThisBrowser, supportsPush } from "@/lib/push-client";
 
 /**
  * Turning push notifications on, for this device.
@@ -44,12 +45,7 @@ export function PushEnroller({ publicKey }: { publicKey: string }) {
   const subscribeRef = useRef<(() => Promise<void>) | null>(null);
 
   const refresh = useCallback(async () => {
-    if (
-      typeof window === "undefined" ||
-      !("serviceWorker" in navigator) ||
-      !("PushManager" in window) ||
-      !publicKey
-    ) {
+    if (!supportsPush(publicKey)) {
       setState("unsupported");
       return;
     }
@@ -103,30 +99,10 @@ export function PushEnroller({ publicKey }: { publicKey: string }) {
   }, [refresh]);
 
   /** Registers this browser with the studio. Assumes permission is granted. */
-  const subscribe = useCallback(async () => {
-    const reg = await navigator.serviceWorker.register("/sw.js");
-    await navigator.serviceWorker.ready;
-
-    const existing = await reg.pushManager.getSubscription();
-    const sub =
-      existing ??
-      (await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
-      }));
-
-    const raw = sub.toJSON();
-    const res = await fetch("/api/push/subscribe", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        endpoint: raw.endpoint,
-        p256dh: raw.keys?.p256dh,
-        auth: raw.keys?.auth,
-      }),
-    });
-    if (!res.ok) throw new Error("SUBSCRIBE_FAILED");
-  }, [publicKey]);
+  const subscribe = useCallback(
+    () => subscribeThisBrowser(publicKey),
+    [publicKey],
+  );
 
   useEffect(() => {
     subscribeRef.current = subscribe;
@@ -217,14 +193,4 @@ export function PushEnroller({ publicKey }: { publicKey: string }) {
       {error && <p className="mt-3 text-[12px] text-red-700">{error}</p>}
     </div>
   );
-}
-
-/** The VAPID key travels as base64url and the browser wants raw bytes. */
-function urlBase64ToUint8Array(base64: string) {
-  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
-  const normal = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const raw = atob(normal);
-  const out = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
-  return out;
 }

@@ -26,8 +26,21 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || "",
-      icon: "/brand/logo-512.png",
-      badge: "/brand/logo-512.png",
+      /* 192 rather than 512: this is drawn at about 64px and Android downscales
+         it itself, so the larger file was 27kB of nothing on a phone network. */
+      icon: "/brand/logo-192.png",
+      /**
+       * The little mark Android puts in the status bar, and the reason members
+       * on Android saw a white square.
+       *
+       * `badge` is not a small icon. Android throws the image's colours away and
+       * keeps only its alpha channel, then tints the result and crops it to a
+       * circle — so any square, fully-opaque image, including a perfectly good
+       * logo, arrives as a solid filled square. What belongs here is a glyph on a
+       * transparent background and nothing else. iOS ignores this field, which is
+       * why the same notification looked right on iPhone all along.
+       */
+      badge: "/brand/notification-badge.png",
       /* Same tag for the same notice, so a member with the site open on two
          devices does not collect duplicates of one message. */
       tag: data.tag || title,

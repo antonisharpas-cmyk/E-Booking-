@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
@@ -8,6 +9,7 @@ import { notifyPromoGranted, sendVerificationCode } from "@/lib/messaging/events
 import { toE164 } from "@/lib/messaging/sms";
 import { activePromo } from "@/lib/promo";
 import { REMINDER_DEFAULT_MINUTES } from "@/lib/profile";
+import { LOCALE_COOKIE } from "@/i18n/dictionaries";
 import { registerSchema } from "@/lib/validation";
 import { OTP_TTL_MINUTES, issueCode } from "@/lib/verify";
 
@@ -21,6 +23,19 @@ export async function POST(req: Request) {
     );
   }
   const { name, email, phone, password, marketingOptIn } = parsed.data;
+
+  /**
+   * Which language they filled this form in, taken from the cookie the switch
+   * at the top of the page sets.
+   *
+   * Not asked as a question. Somebody who has read the whole sign-up form in
+   * Greek has already answered it, and a fourth field on a form that is
+   * deliberately short would be a worse way of finding out. Null when there is
+   * no cookie, which is what an account that never touched the switch is.
+   */
+  const jar = await cookies();
+  const chose = jar.get(LOCALE_COOKIE)?.value;
+  const locale = chose === "el" || chose === "en" ? chose : null;
 
   const existing = await db.query.users.findFirst({
     where: eq(users.email, email),
@@ -81,6 +96,9 @@ export async function POST(req: Request) {
            schema has already refused anything but a literal true. */
         termsAcceptedAt: new Date(),
         marketingOptIn: Boolean(marketingOptIn),
+        /* So the first thing they are sent — the code, and the promo email that
+           follows it — is in the language they signed up in. */
+        locale,
         /* Reachable by email and reminded two hours before class until they say
            otherwise. Push is always on — see lib/messaging/push.ts.
 

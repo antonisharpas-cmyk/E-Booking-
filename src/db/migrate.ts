@@ -27,6 +27,7 @@ const COLUMNS: Record<string, Column[]> = {
   users: [
     { name: "service_opt_in_at", ddl: "integer" },
     { name: "marketing_opt_in", ddl: "integer default 0 not null" },
+    { name: "locale", ddl: "text" },
     { name: "notify_email", ddl: "integer default 1 not null" },
     { name: "notify_sms", ddl: "integer default 0 not null" },
     { name: "notify_push", ddl: "integer default 1 not null" },

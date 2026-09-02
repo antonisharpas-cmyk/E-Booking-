@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/Button";
+import { PushInvite } from "@/components/booking/PushInvite";
 import { useI18n } from "@/i18n/LanguageProvider";
 import { isPersonalCancellable } from "@/lib/personal";
 import { studioAddDays, studioDateKey, studioStartOfDay } from "@/lib/time";
@@ -68,6 +69,7 @@ export function ScheduleClient({
   personalCredits = 0,
   days,
   closedDays,
+  pushPublicKey = "",
 }: {
   sessions: ScheduleSession[];
   types: Record<string, ScheduleClassType>;
@@ -81,6 +83,12 @@ export function ScheduleClient({
   personalCredits?: number;
   days: string[]; // ISO date strings, one per day shown
   closedDays: Set<string>;
+  /**
+   * For the offer made after a first booking. Empty when the server has no
+   * usable VAPID pair, which is the same as "push is off" — see
+   * lib/messaging/push.ts — and the panel then never appears.
+   */
+  pushPublicKey?: string;
 }) {
   const { t, locale, fmtTime, fmtLongDate, fmtDayNumber, fmtWeekdayShort } =
     useI18n();
@@ -103,6 +111,14 @@ export function ScheduleClient({
      swaps in place. */
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  /**
+   * Whether a booking has just gone through, which is the only moment the
+   * studio asks about notifications. See PushInvite for why here and not on
+   * arrival. Never unset: the panel decides for itself whether it has anything
+   * to say, and taking the offer away again while somebody is reading it would
+   * be worse than leaving it.
+   */
+  const [justBooked, setJustBooked] = useState(false);
   /**
    * The appointment panel's two questions: how many of you, and who is the
    * second one.
@@ -257,6 +273,7 @@ export function ScheduleClient({
         });
         setTwoOfUs(false);
         setGuestName("");
+        setJustBooked(true);
         router.refresh();
         return;
       }
@@ -564,6 +581,11 @@ export function ScheduleClient({
           )}
         </div>
       )}
+
+      {/* Directly under the "booked" message, so the question is read as being
+          about the class they just took. The toast clears itself after six
+          seconds; this does not, because it is asking something. */}
+      <PushInvite publicKey={pushPublicKey} show={justBooked} />
 
       {/* Times as chips, then one detail panel. No long list to scroll. */}
       <div className="mt-8">

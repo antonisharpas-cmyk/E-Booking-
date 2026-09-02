@@ -692,6 +692,62 @@ async function main() {
     );
   }
 
+  console.log("\n8b. Which language a phone notification goes out in");
+  /**
+   * The one-language channels, and the bug they had.
+   *
+   * Push and SMS carry a single language, and for a long time that language was
+   * English for everybody — while the in-app copy of the same message sat in the
+   * member's account in Greek, because that one stores both. A member reading the
+   * site in Greek therefore got the studio speaking two languages about one
+   * booking, which is worse than either alone.
+   *
+   * A cookie could never have fixed it: a reminder for a class in two hours is
+   * composed by a sweep with no browser anywhere near it. So the choice is a
+   * column on the account, and `say` is what reads it.
+   */
+  {
+    const W = await import("../src/lib/messaging/wording");
+    const { say } = W;
+    const words = W.bookedWords({
+      classEn: "Reformer Flow",
+      classEl: "Ροή Reformer",
+      startsAt: new Date(),
+    });
+
+    check(
+      "a Greek member's notification is the Greek text",
+      say(words, "el").subject === words.el.subject,
+    );
+    check(
+      "an English member's is the English text",
+      say(words, "en").subject === words.en.subject,
+    );
+    /**
+     * The three ways of not having chosen, all of which mean English: a member
+     * who has never touched the switch, a row from before the column existed,
+     * and anything somebody typed by hand. English is the safe direction —
+     * it is the language the studio itself is administered in.
+     */
+    check(
+      "and never having chosen means English, not an empty message",
+      say(words, null).subject === words.en.subject &&
+        say(words, undefined).subject === words.en.subject &&
+        say(words, "de").subject === words.en.subject,
+    );
+
+    /* The column itself, round-tripped, because the plumbing above is worth
+       nothing if the choice is not written down. */
+    db.update(users).set({ locale: "el" }).where(eq(users.id, user.id)).run();
+    const saved = db
+      .select({ locale: users.locale })
+      .from(users)
+      .where(eq(users.id, user.id))
+      .get();
+    check("the account remembers the language", saved?.locale === "el", saved);
+    db.update(users).set({ locale: null }).where(eq(users.id, user.id)).run();
+  }
+
   console.log("\n9. Ledger integrity");
   const ledgerSum =
     db

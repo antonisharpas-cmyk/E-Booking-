@@ -58,6 +58,29 @@ export function LanguageProvider({
     setLocaleState(l);
     document.cookie = `${LOCALE_COOKIE}=${l}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
     document.documentElement.lang = l;
+
+    /**
+     * And on the account, when there is one.
+     *
+     * The cookie makes this page Greek. It cannot make the *next notification*
+     * Greek, because a reminder for a class in two hours is composed by a sweep
+     * on the server with no browser and no cookie anywhere near it — which is
+     * exactly how members reading the site in Greek ended up with a Greek notice
+     * in their account and an English copy of it on their phone.
+     *
+     * Deliberately not awaited and deliberately swallowing its own failure. The
+     * switch has already done the thing the member pressed it for by the time
+     * this leaves; a slow network must not make the language take a moment to
+     * change, and a failed write is a notification in the wrong language, not a
+     * broken page. The route answers 200 for a signed-out visitor, for whom the
+     * cookie above is the whole story.
+     */
+    void fetch("/api/me/locale", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ locale: l }),
+      keepalive: true,
+    }).catch(() => {});
   }, []);
 
   const value = useMemo<Ctx>(() => {
