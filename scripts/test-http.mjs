@@ -505,6 +505,48 @@ const tt = await req("/timetable");
 check("timetable shows the fifty-minute end times", /\d:50/.test(tt.text));
 check("timetable never offers a Sunday", !/>\s*SUN\s*</i.test(tt.text));
 
+console.log("\n8a-ii. The two numbers the header keeps fresh, and the manifest");
+/**
+ * `/api/me` and the web app manifest, both of which exist for the same reason:
+ * a member who never closes the site.
+ *
+ * The header renders the badge and the balance on the server, which is stale
+ * from the second paint onwards, so it polls this route. And the manifest is
+ * what makes an iPhone treat an added-to-Home-Screen icon as an installed app
+ * rather than a bookmark — which is what web push requires there. Its absence
+ * was why notifications did nothing on iOS, silently, with everything else
+ * correctly configured. `display: standalone` is the load-bearing line.
+ */
+const me = await req("/api/me");
+check(
+  "the header can read its own badge and balance",
+  me.status === 200 &&
+    me.json?.signedIn === true &&
+    typeof me.json?.unread === "number" &&
+    typeof me.json?.credits === "number",
+  me.json,
+);
+
+const mani = await fetch(`${BASE}/manifest.webmanifest`);
+const maniJson = await mani.json().catch(() => null);
+check(
+  "the manifest is served, and to anybody",
+  mani.status === 200,
+  mani.status,
+);
+check(
+  "and declares standalone, without which iOS cannot do push at all",
+  maniJson?.display === "standalone",
+  maniJson?.display,
+);
+check(
+  "with the two icon sizes iOS refuses to install without",
+  ["192x192", "512x512"].every((size) =>
+    (maniJson?.icons ?? []).some((i) => i.sizes === size),
+  ),
+  maniJson?.icons?.map((i) => i.sizes),
+);
+
 console.log("\n8b. What browsers are allowed to keep");
 /**
  * The cache rules, asserted rather than assumed.

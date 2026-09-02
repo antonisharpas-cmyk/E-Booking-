@@ -21,12 +21,129 @@ export type HeaderUser = {
   unread: number;
 } | null;
 
+/**
+ * How often the header re-checks the badge and the balance while it is on
+ * screen.
+ *
+ * Fifteen seconds rather than the five that were asked for, and the reason is
+ * that the interval is not what fixes the complaint. A member looks at their
+ * phone, and what they want is for the number to be right *when they look* —
+ * which is what the visibility and focus listeners below do, instantly, with no
+ * interval involved at all. The timer only covers the case of somebody sitting
+ * on the page watching it, and for that, five seconds versus fifteen is
+ * invisible to a person and three times the requests, the battery and the
+ * server wake-ups on a phone that is doing nothing.
+ *
+ * If a faster tick is genuinely wanted, this is the one line to change.
+ */
+const REFRESH_MS = 15_000;
+
 export function Header({ user }: { user: HeaderUser }) {
   const { t } = useI18n();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+
+  /**
+   * The badge and the balance, kept current without a reload.
+   *
+   * Both arrive as server-rendered props, which is correct for the first paint
+   * and stale from then on. A member with the site open on their phone — the
+   * ordinary case for somebody who has added it to their Home Screen and never
+   * closes it — saw yesterday's numbers indefinitely: a notice written while
+   * they were on the timetable looked like it had never arrived, and sessions
+   * bought for them at the desk did not show up in their balance.
+   *
+   * Three triggers, and the two event ones matter more than the timer:
+   *
+   *   visible again   they have just come back to the app. Refresh at once,
+   *                   which is the moment the number is actually being read
+   *   window focus    the same thing on a desktop, where a tab can be visible
+   *                   and not focused
+   *   every 15s       only while visible, for somebody sitting on the page
+   *
+   * Nothing polls while the app is in the background. A phone in a pocket
+   * asking a server for two integers every few seconds is a battery complaint
+   * waiting to happen, and there is nobody there to read the answer.
+   */
+  const [live, setLive] = useState<{ unread: number; credits: number } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!user) return;
+
+    let stopped = false;
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const read = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const res = await fetch("/api/me", { cache: "no-store" });
+        const data = (await res.json()) as {
+          signedIn?: boolean;
+          unread?: number | null;
+          credits?: number | null;
+        };
+        if (stopped) return;
+        /* Signed out in another tab: leave the header alone rather than
+           blanking the numbers. The next navigation renders it correctly. */
+        if (!data.signedIn) return;
+        if (typeof data.unread === "number" && typeof data.credits === "number") {
+          setLive({ unread: data.unread, credits: data.credits });
+        }
+      } catch {
+        /* A dropped request means the numbers stay as they are, which is the
+           right failure: the header is not the place to report a network
+           problem. */
+      }
+    };
+
+    const start = () => {
+      if (timer) return;
+      timer = setInterval(read, REFRESH_MS);
+    };
+    const stop = () => {
+      if (!timer) return;
+      clearInterval(timer);
+      timer = null;
+    };
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void read();
+        start();
+      } else {
+        stop();
+      }
+    };
+
+    void read();
+    start();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+
+    return () => {
+      stopped = true;
+      stop();
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [user]);
+
+  /**
+   * What the header actually shows.
+   *
+   * The polled numbers win once they have arrived, and until then the
+   * server-rendered ones do. Two plain numbers rather than a merged object,
+   * because the markup below sits inside `user && (...)` blocks and TypeScript
+   * narrows `user` there but would not narrow a second variable derived from
+   * it. Read from here in every place, so none can be left behind on the stale
+   * value.
+   */
+  const unread = live?.unread ?? user?.unread ?? 0;
+  const credits = live?.credits ?? user?.credits ?? 0;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -198,7 +315,14 @@ export function Header({ user }: { user: HeaderUser }) {
                   open && "invisible",
                 )}
               >
-                <AccountMenu user={user} onDark={onDark} onSignOut={signOut} />
+                <AccountMenu
+                  /* The live numbers, not the ones this page was rendered
+                     with: the menu is where the badge and the balance are read
+                     from most often. */
+                  user={{ ...user, unread, credits }}
+                  onDark={onDark}
+                  onSignOut={signOut}
+                />
                 {/* Between lg and xl the bar is carrying six nav items, the
                     language toggle and the chip, and this was the piece that
                     buckled into three lines. A signed-in member has Timetable
@@ -343,7 +467,7 @@ export function Header({ user }: { user: HeaderUser }) {
                     </span>
                   </span>
                   <span className="shrink-0 rounded-full bg-mocha-600 px-2.5 py-1 text-cream">
-                    {user.credits} {t.common.credits}
+                    {credits} {t.common.credits}
                   </span>
                 </Link>
                 <button

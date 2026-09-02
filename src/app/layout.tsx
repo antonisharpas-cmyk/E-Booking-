@@ -25,7 +25,35 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
   ),
-  icons: { icon: "/brand/logo-512.png", apple: "/brand/logo-512.png" },
+  /**
+   * The manifest, and the icons iOS wants.
+   *
+   * `manifest` is what turns Add to Home Screen into an installed web app
+   * rather than a bookmark, which is what web push requires on iPhone. See
+   * app/manifest.ts — that omission is why notifications silently did nothing
+   * there for a while.
+   *
+   * The Apple icon is its own file at 180 and flattened onto the cream, because
+   * iOS does not composite transparency: a PNG with an alpha channel gets a
+   * black background on the Home Screen.
+   */
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/brand/logo-512.png",
+    apple: "/brand/apple-touch-icon.png",
+  },
+  /**
+   * The legacy pair of Apple meta tags, still read by iOS and still worth
+   * setting alongside the manifest: `capable` is what removes the browser bar,
+   * and the title is what appears under the icon instead of the page title,
+   * which would otherwise be the whole "APEX pilates | Reformer Pilates by
+   * APEX Fitness Centre" line truncated to nothing useful.
+   */
+  appleWebApp: {
+    capable: true,
+    title: "APEX pilates",
+    statusBarStyle: "default",
+  },
   openGraph: {
     title: "APEX pilates | Reformer Pilates by APEX Fitness Centre",
     description: dictionaries.en.meta.description,
