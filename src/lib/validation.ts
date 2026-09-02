@@ -1,11 +1,10 @@
 import { z } from "zod";
 import {
-  HEIGHT_MAX_CM,
-  HEIGHT_MIN_CM,
-  WEIGHT_MAX_KG,
-  WEIGHT_MIN_KG,
-  isValidReminderMinutes,
-} from "./profile";
+  CONDITION_MAX_CHARS,
+  PILATES_EXPERIENCE,
+  PILATES_LEVELS,
+} from "./intake";
+import { isValidReminderMinutes } from "./profile";
 
 export const PASSWORD_MIN = 8;
 
@@ -45,6 +44,17 @@ export const registerSchema = z.object({
   serviceOptIn: z.literal(true, {
     errorMap: () => ({ message: "SERVICE_CONSENT_REQUIRED" }),
   }),
+  /**
+   * The terms and the privacy notice.
+   *
+   * Validated as literally true rather than merely present, exactly like the
+   * service consent above: a payload arriving with `termsAccepted: false` is a
+   * member who has not accepted, and treating that as "the key was there" would
+   * record a consent nobody gave.
+   */
+  termsAccepted: z.literal(true, {
+    errorMap: () => ({ message: "TERMS_REQUIRED" }),
+  }),
   /* Offers and news. Never required. */
   marketingOptIn: z.boolean().optional(),
 });
@@ -70,8 +80,10 @@ export const profileSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "BIRTHDATE_INVALID")
     .optional()
     .or(z.literal("")),
-  heightCm: z.number().int().min(HEIGHT_MIN_CM, "HEIGHT_RANGE").max(HEIGHT_MAX_CM, "HEIGHT_RANGE").nullable().optional(),
-  weightKg: z.number().min(WEIGHT_MIN_KG, "WEIGHT_RANGE").max(WEIGHT_MAX_KG, "WEIGHT_RANGE").nullable().optional(),
+  /* No height or weight. Removed rather than left accepted-and-ignored: zod
+     strips keys it does not know about, so a browser tab left open on the old
+     form still saves the rest of the profile instead of failing on a field that
+     no longer exists. */
   marketingOptIn: z.boolean(),
   /* Members who registered before this consent existed have none on record.
      They are asked for it in the profile, so it can arrive here — but it can
@@ -172,4 +184,32 @@ export const attendanceSchema = z.object({
 
 export const generateSchema = z.object({
   weeks: z.number().int().min(1).max(26),
+});
+
+/**
+ * The three questions asked after the emailed code, and again in the profile.
+ *
+ * `condition` carries two answers in one field, which needs saying out loud:
+ * an empty string means "nothing to declare", and that is a real answer rather
+ * than a blank. It is stored as null and read back as "they were asked and said
+ * no", which is why the step records its own date: see lib/intake.ts.
+ */
+export const intakeSchema = z.object({
+  level: z.enum(PILATES_LEVELS, {
+    errorMap: () => ({ message: "LEVEL_REQUIRED" }),
+  }),
+  experience: z.enum(PILATES_EXPERIENCE, {
+    errorMap: () => ({ message: "EXPERIENCE_REQUIRED" }),
+  }),
+  /**
+   * Absent or empty is "nothing". Anything else is trimmed and kept as typed:
+   * this is a member describing their own body and the studio does not get to
+   * tidy it into categories.
+   */
+  condition: z
+    .string()
+    .trim()
+    .max(CONDITION_MAX_CHARS, "CONDITION_TOO_LONG")
+    .optional()
+    .nullable(),
 });

@@ -14,7 +14,7 @@
  * What it is really checking is one thing: that a free session tied to one week
  * cannot be spent anywhere else. Everything above that is scaffolding.
  */
-import { markVerified } from "./fixture-verify.mjs";
+import { markOnboarded, markVerified } from "./fixture-verify.mjs";
 
 const B = process.argv[2] ?? "http://localhost:3000";
 
@@ -72,12 +72,13 @@ async function member(tag) {
       email,
       phone: phone(),
       password: "test12345",
-      serviceOptIn: true,
+      serviceOptIn: true, termsAccepted: true,
     },
   });
   /* Confirm the address the way a member would. The free session is granted at
      registration, so nothing about the offer depends on this — but the member's
      own screens do, and this suite reads them. */
+  markOnboarded(email);
   if (reg.json?.ok && markVerified(email) !== 1) {
     throw new Error(`fixture ${email} did not verify`);
   }
@@ -114,12 +115,12 @@ const promoNote = (notes.json?.rows ?? []).find((r) => /free session/i.test(r.ti
 check("they are told about it", Boolean(promoNote), (notes.json?.rows ?? []).map((r) => r.title));
 check(
   "and the message names the week",
-  /14 September/.test(promoNote?.body ?? "") && /19 September/.test(promoNote?.body ?? ""),
+  /7 September/.test(promoNote?.body ?? "") && /12 September/.test(promoNote?.body ?? ""),
   promoNote?.body,
 );
 check(
   "and says when the session expires",
-  /expires on 19 September/i.test(promoNote?.body ?? ""),
+  /expires on 13 September/i.test(promoNote?.body ?? ""),
   promoNote?.body,
 );
 
@@ -153,12 +154,12 @@ const inWeek = all.filter((s) => {
   const d = new Date(s.startsAt);
   return (
     free(s) &&
-    d >= new Date("2026-09-14T00:00:00+03:00") &&
-    d <= new Date("2026-09-19T23:59:00+03:00")
+    d >= new Date("2026-09-07T00:00:00+03:00") &&
+    d <= new Date("2026-09-12T23:59:00+03:00")
   );
 });
 const outside = all.filter(
-  (s) => free(s) && new Date(s.startsAt) > new Date("2026-09-21T00:00:00+03:00"),
+  (s) => free(s) && new Date(s.startsAt) > new Date("2026-09-14T00:00:00+03:00"),
 );
 
 check("there are classes in the opening week", inWeek.length > 0, inWeek.length);

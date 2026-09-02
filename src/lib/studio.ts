@@ -29,7 +29,11 @@ export const STUDIO = {
   /** All class times are shown in the studio's timezone, whoever is looking.
    *  "Asia/Nicosia" is the IANA zone for the whole of Cyprus, Larnaca included. */
   timezone: "Asia/Nicosia",
-  classLengthMinutes: 60,
+  /** A class is fifty minutes on the mat, in an hourly slot: the ten minutes
+   *  between are the changeover, which is a real part of running five reformers
+   *  and not slack. Every generated class, every template and every line of copy
+   *  takes its length from here. */
+  classLengthMinutes: 50,
   /** Reformers in the room, so the cap on every class */
   capacity: 5,
   /** Monday to Saturday; the studio is closed on Sunday */

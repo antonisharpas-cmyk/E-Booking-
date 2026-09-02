@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useI18n } from "@/i18n/LanguageProvider";
+import {
+  CONDITION_MAX_CHARS,
+  PILATES_EXPERIENCE,
+  PILATES_LEVELS,
+} from "@/lib/intake";
 import { Pager } from "@/components/ui/Pager";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +55,10 @@ type Detail = {
   emailVerifiedAt: string | null;
   erasedAt: string | null;
   erasedBy: string | null;
+  pilatesLevel: string | null;
+  pilatesSince: string | null;
+  healthCondition: string | null;
+  intakeAt: string | null;
   upcoming: { id: string; startsAt: string; className: string }[];
   payments: {
     id: string;
@@ -120,6 +129,11 @@ export function MemberDesk({
      studio puts on an account, and mixing an administrative marker in with "may
      we email you" invites somebody to switch it by accident. */
   const [isTest, setIsTest] = useState(false);
+  /* The member's own three answers, editable here for the member who joined at
+     the counter or who mentions something in passing. */
+  const [level, setLevel] = useState<string>("");
+  const [since, setSince] = useState<string>("");
+  const [condition, setCondition] = useState<string>("");
   const [newPassword, setNewPassword] = useState("");
   /* Cleared whenever a different member is loaded, below: a typed confirmation
      left sitting in the box while the desk clicks onto somebody else is the one
@@ -184,6 +198,9 @@ export function MemberDesk({
       marketingOptIn: data.member.marketingOptIn,
     });
     setIsTest(data.member.isTest);
+    setLevel(data.member.pilatesLevel ?? "");
+    setSince(data.member.pilatesSince ?? "");
+    setCondition(data.member.healthCondition ?? "");
     setNewPassword("");
     setEraseConfirm("");
   }, []);
@@ -637,6 +654,77 @@ export function MemberDesk({
               ))}
             </div>
 
+            {/**
+              * Their pilates, and anything to be careful of.
+              *
+              * On the member's card and nowhere else. It is the one field on
+              * this screen that is about somebody's body, and the day view and
+              * the class lists are read on a monitor in a room with other
+              * people in it. Reception looks a member up to talk to them, which
+              * is exactly the moment this is worth having.
+              */}
+            <div className="mt-6 rounded-2xl border border-mocha-200 p-4">
+              <p className="text-[13px] text-mocha-700">
+                {t.intake.sectionTitle}
+              </p>
+              {!member.intakeAt && (
+                <p className="mt-1 text-[11px] text-clay">
+                  {t.intake.deskUnanswered}
+                </p>
+              )}
+
+              <label className="label mt-4 block" htmlFor="md-level">
+                {t.intake.deskLevel}
+              </label>
+              <select
+                id="md-level"
+                className="input"
+                value={level}
+                onChange={(e) => setLevel(e.currentTarget.value)}
+              >
+                <option value="">{t.intake.notAnswered}</option>
+                {PILATES_LEVELS.map((option) => (
+                  <option key={option} value={option}>
+                    {t.intake.levels[option]}
+                  </option>
+                ))}
+              </select>
+
+              <label className="label mt-4 block" htmlFor="md-since">
+                {t.intake.deskExperience}
+              </label>
+              <select
+                id="md-since"
+                className="input"
+                value={since}
+                onChange={(e) => setSince(e.currentTarget.value)}
+              >
+                <option value="">{t.intake.notAnswered}</option>
+                {PILATES_EXPERIENCE.map((option) => (
+                  <option key={option} value={option}>
+                    {t.intake.experience[option]}
+                  </option>
+                ))}
+              </select>
+
+              <label className="label mt-4 block" htmlFor="md-condition">
+                {t.intake.deskCondition}
+              </label>
+              <textarea
+                id="md-condition"
+                rows={3}
+                maxLength={CONDITION_MAX_CHARS}
+                className="input resize-y"
+                value={condition}
+                placeholder={
+                  member.intakeAt
+                    ? t.intake.deskNothing
+                    : t.intake.deskUnanswered
+                }
+                onChange={(e) => setCondition(e.currentTarget.value)}
+              />
+            </div>
+
             {/* A marker, not a preference. Deliberately below the channels and
                 deliberately spelt out: an account switched to a test stops
                 receiving campaigns and stops being counted as a member, and
@@ -678,7 +766,21 @@ export function MemberDesk({
               onClick={async () => {
                 const res = await post(
                   "/api/admin/member",
-                  { userId: member.id, email, phone, ...channels, isTest },
+                  {
+                    userId: member.id,
+                    email,
+                    phone,
+                    ...channels,
+                    isTest,
+                    /* Only sent when there is something to send: an empty
+                       level means nobody has answered, and writing "" would
+                       fail validation on a member the desk never asked. */
+                    ...(level ? { pilatesLevel: level } : {}),
+                    ...(since ? { pilatesSince: since } : {}),
+                    ...(condition !== (member.healthCondition ?? "")
+                      ? { healthCondition: condition }
+                      : {}),
+                  },
                   "contact",
                   "PATCH",
                 );

@@ -29,7 +29,7 @@ export const PERSONAL_SLOT_HOURS = [12, 13, 14] as const;
 export const PERSONAL_SLOT_DAYS = [1, 2, 3, 4, 5] as const;
 
 /** A full hour, longer than a group class, because it is one person's hour. */
-export const PERSONAL_DURATION_MINUTES = 60;
+export const PERSONAL_DURATION_MINUTES = 50;
 
 /**
  * Where the studio wants to be told about a new appointment.

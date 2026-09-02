@@ -3,7 +3,7 @@
  *   npm run build && npx next start -p 3100
  *   node scripts/test-http.mjs http://localhost:3100
  */
-import { markVerified } from "./fixture-verify.mjs";
+import { markOnboarded, markVerified } from "./fixture-verify.mjs";
 
 const BASE = process.argv[2] ?? "http://localhost:3000";
 
@@ -131,7 +131,7 @@ const reg = await req("/api/auth/register", {
     email,
     password: "test12345",
     phone: uniquePhone(),
-    serviceOptIn: true,
+    serviceOptIn: true, termsAccepted: true,
   },
 });
 check("registration succeeds", reg.status === 200 && reg.json?.ok === true, reg.json);
@@ -228,6 +228,62 @@ check(
   [307, 302].includes((await req("/verify")).status),
 );
 
+console.log("\n3b-ii. And then the three questions, which are also mandatory");
+/**
+ * The second gate, answered over HTTP the way a member answers it.
+ *
+ * Worth doing properly once rather than stepping over everywhere: the point of
+ * the gate is that it cannot be walked around, and a suite that only ever writes
+ * the columns directly would never notice if the route stopped enforcing it.
+ *
+ * The redirect is checked as well as the refusal. A member who has confirmed
+ * their email and not answered the questions is *sent* to /welcome, and a
+ * booking they attempt anyway is refused: the redirect is the kindness and the
+ * refusal is the rule.
+ */
+const sentToWelcome = await req("/verify");
+check(
+  "a confirmed account with no answers is sent to the welcome step",
+  (sentToWelcome.headers?.location ?? "").includes("/welcome"),
+  sentToWelcome.headers?.location,
+);
+
+/* Its own fetch: the shared `list` is built further down, after this gate has
+   already had to be got past. */
+const forGate = await req("/api/sessions?days=21");
+const openSlot = (forGate.json?.sessions ?? []).find(
+  (s) => s.spotsLeft > 0 && s.classType?.kind !== "PERSONAL",
+);
+const tooEarly = await req("/api/bookings", {
+  method: "POST",
+  body: { sessionId: openSlot?.id },
+});
+check(
+  "and booking is refused until they are answered",
+  tooEarly.status === 403 && tooEarly.json?.error === "INTAKE_REQUIRED",
+  tooEarly.json,
+);
+
+const halfAnswered = await req("/api/profile/intake", {
+  method: "POST",
+  body: { level: "BEGINNER" },
+});
+check(
+  "an incomplete answer is refused",
+  halfAnswered.status === 400,
+  halfAnswered.json,
+);
+
+const answered = await req("/api/profile/intake", {
+  method: "POST",
+  body: { level: "BEGINNER", experience: "NONE", condition: "" },
+});
+check("answering all three works", answered.json?.ok === true, answered.json);
+check(
+  "and /welcome then sends them on rather than asking again",
+  [307, 302].includes((await req("/welcome")).status),
+);
+
 console.log("\n3c. Closing the browser does not lose the account");
 /* The studio asked what happens to somebody who registers, never types the
    code, and comes back later. The answer this locks in: the account is kept, the
@@ -246,7 +302,7 @@ console.log("\n3c. Closing the browser does not lose the account");
       email: lapsedEmail,
       password: "test12345",
       phone: uniquePhone(),
-      serviceOptIn: true,
+      serviceOptIn: true, termsAccepted: true,
     },
   });
   check("registers", made.json?.ok === true, made.json);
@@ -389,7 +445,7 @@ const cancelled = await req("/api/bookings/cancel", { method: "POST", body: { bo
 check("cancel succeeds and refunds", cancelled.json?.ok && cancelled.json?.refunded, cancelled.json);
 check("balance back to 8", cancelled.json?.credits === 8, cancelled.json);
 
-/* Every group class the studio runs is 60 minutes with five places. */
+/* Every group class the studio runs is 50 minutes with five places. */
 const cap = list.every((s) => s.capacity === 5);
 check("every class has five places", cap, list.find((s) => s.capacity !== 5)?.capacity);
 /* And every appointment holds exactly one, which is the whole point of it. */
@@ -422,15 +478,72 @@ check(
     list[0]?.classType?.nameEn === "Reformer Flow",
   [...new Set(list.map((s) => s.classType?.nameEn))],
 );
-const oneHour = list.every(
-  (s) => !s.endsAt || new Date(s.endsAt).getTime() - new Date(s.startsAt).getTime() === 3600_000,
+const fiftyMinutes = list.every(
+  (s) => !s.endsAt || new Date(s.endsAt).getTime() - new Date(s.startsAt).getTime() === 3000_000,
 );
-check("class length is 60 minutes", oneHour);
+check("class length is 50 minutes", fiftyMinutes);
 
-/* The page must render the hour it ends, not 50 minutes past the hour. */
+/**
+ * And the page has to say so.
+ *
+ * This assertion used to read the other way round: whole-hour end times, and no
+ * ":50" anywhere. A class is fifty minutes on the mat in an hourly slot, so the
+ * end time a member reads is now ten to the hour, and a timetable still showing
+ * round hours would mean the display had been left behind by the data.
+ */
 const tt = await req("/timetable");
-check("timetable shows whole-hour end times", !/0\d:50|1\d:50|2\d:50/.test(tt.text));
+check("timetable shows the fifty-minute end times", /\d:50/.test(tt.text));
 check("timetable never offers a Sunday", !/>\s*SUN\s*</i.test(tt.text));
+
+console.log("\n8b. What browsers are allowed to keep");
+/**
+ * The cache rules, asserted rather than assumed.
+ *
+ * These decide whether a deploy is visible. The HTML points at hashed asset
+ * filenames, so a cached page is a browser serving last week's site to somebody
+ * who reloaded; the hashed assets themselves can be kept forever because their
+ * names change with their contents.
+ *
+ * Worth a test because the rules interact in a way that is easy to get wrong:
+ * Next applies *every* matching rule and the last one wins, so a broad rule
+ * placed after a narrow one silently undoes it. That happened while writing
+ * them, and it undid both the immutable caching and the service worker.
+ */
+const cc = async (path) => {
+  const res = await fetch(`${BASE}${path}`, { headers: { cookie: cookieHeader() } });
+  return res.headers.get("cache-control") ?? "";
+};
+
+const pageCache = await cc("/pricing");
+check(
+  "a page must be re-checked on every visit, so a deploy is seen",
+  /max-age=0/.test(pageCache) && /must-revalidate/.test(pageCache),
+  pageCache,
+);
+
+const chunk = (await req("/pricing")).text.match(
+  /\/_next\/static\/chunks\/[a-zA-Z0-9._-]+\.js/,
+)?.[0];
+const chunkCache = chunk ? await cc(chunk) : "";
+check(
+  "but a fingerprinted asset is kept forever, because its name changes with it",
+  /immutable/.test(chunkCache) && /max-age=31536000/.test(chunkCache),
+  { chunk, chunkCache },
+);
+
+const swCache = await cc("/sw.js");
+check(
+  "the push worker is never served from a cache",
+  /no-store/.test(swCache),
+  swCache,
+);
+
+/* The privacy half of the same rules lives in test-profile.mjs, under "the photo
+   is served privately": that suite has actually uploaded a photograph, so there
+   is a real response to read the header off. It is the assertion that caught a
+   blanket `public` rule here quietly overriding the avatar route's `private`,
+   which would have let a shared cache hold one member's photograph and hand it
+   to somebody else. Worth knowing where it is. */
 
 const cancelAgain = await req("/api/bookings/cancel", { method: "POST", body: { bookingId } });
 check("double cancel refused", cancelAgain.status === 409, cancelAgain.status);
@@ -446,7 +559,7 @@ await req("/api/auth/register", {
     email: otherEmail,
     password: "test12345",
     phone: uniquePhone(),
-    serviceOptIn: true,
+    serviceOptIn: true, termsAccepted: true,
   },
 });
 /* Refused twice over until the address is confirmed, which would hide the rule

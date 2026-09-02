@@ -1,4 +1,5 @@
 import { sqlite } from "@/db";
+import { PERSONAL_DURATION_MINUTES } from "./personal";
 import { STUDIO } from "./studio";
 import { studioStartOfDay } from "./time";
 import { repairTimetableOnce } from "./timetable-repair";
@@ -10,7 +11,9 @@ import { repairTimetableOnce } from "./timetable-repair";
  * per-class ones, but they are copied onto every generated class row. So a
  * database seeded when the studio was described as 50 minutes and eight places
  * keeps serving those numbers to the timetable for as long as those rows exist,
- * however many times the constants are corrected in code.
+ * however many times the constants are corrected in code. This is not
+ * hypothetical: the studio corrected the class length from an hour to fifty
+ * minutes after six weeks of classes had already been generated.
  *
  * Rather than make people remember to re-seed, this repairs the data on the
  * first read after boot:
@@ -68,5 +71,41 @@ export function repairSchedule(now = new Date()) {
     )
     .run(length, STUDIO.capacity, cutoff, STUDIO.capacity, length);
 
-  return info.changes;
+  /**
+   * The appointment slots, which have their own length and their own capacity.
+   *
+   * Kept apart from the clause above rather than folded into it, because every
+   * number in it is different: one reformer instead of five, and its own
+   * duration. Sharing the statement would mean a CASE per column and a reader
+   * having to hold both rotas in their head at once.
+   */
+  const personalLength = PERSONAL_DURATION_MINUTES * 60;
+  const appointments = sqlite
+    .prepare(
+      `update class_sessions
+          set ends_at = starts_at + ?
+        where starts_at >= ?
+          and class_type_id in (select id from class_types where kind = 'PERSONAL')
+          and (ends_at - starts_at) != ?`,
+    )
+    .run(personalLength, cutoff, personalLength);
+
+  /**
+   * And the templates the next six weeks will be generated from.
+   *
+   * Without this the repair is a treadmill: it corrects today's rows, the weekly
+   * roll-forward reads a template that still says the old length, and the next
+   * batch of classes arrives wrong for the repair to fix again. The class rows
+   * are the symptom and the template is the cause, so both are put right.
+   */
+  const templates = sqlite
+    .prepare(
+      `update class_templates
+          set duration_min = ?
+        where duration_min != ?
+          and class_type_id in (select id from class_types where kind = 'GROUP')`,
+    )
+    .run(STUDIO.classLengthMinutes, STUDIO.classLengthMinutes);
+
+  return info.changes + appointments.changes + templates.changes;
 }

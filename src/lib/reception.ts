@@ -1,4 +1,9 @@
 import { and, desc, eq, gt } from "drizzle-orm";
+import {
+  CONDITION_MAX_CHARS,
+  isPilatesExperience,
+  isPilatesLevel,
+} from "./intake";
 import { db } from "@/db";
 import {
   bookings,
@@ -13,7 +18,11 @@ import {
 import { hashPassword, isVerified } from "@/lib/auth";
 import { toE164 } from "@/lib/messaging/sms";
 import { getCreditSummary, grantCredits, refundOneCredit } from "@/lib/credits";
-import { notifyInstructorChanged } from "@/lib/messaging/events";
+import { bookClass } from "@/lib/booking";
+import {
+  notifyBooked,
+  notifyInstructorChanged,
+} from "@/lib/messaging/events";
 import type { CreditKind } from "@/lib/packs";
 
 /**
@@ -214,6 +223,18 @@ export async function memberDetail(userId: string) {
     emailVerifiedAt: user.emailVerifiedAt,
     erasedAt: user.erasedAt,
     erasedBy: user.erasedBy,
+    /**
+     * What the member said about their own pilates, and anything to be careful
+     * of. Shown on their page and nowhere else: it is on the member's card
+     * where reception already looks them up, and deliberately not on the day
+     * view or a class list, both of which are read on a screen in a room with
+     * other people in it.
+     */
+    pilatesLevel: user.pilatesLevel,
+    pilatesSince: user.pilatesSince,
+    healthCondition: user.healthCondition,
+    /* Told apart from "nothing to declare", which is also an answer. */
+    intakeAt: user.intakeAt,
     upcoming,
     payments,
     ledger,
@@ -462,6 +483,17 @@ export type ContactPatch = {
   marketingOptIn?: boolean;
   /** A dummy account for testing. Left out of campaigns unless included. */
   isTest?: boolean;
+  /**
+   * The three answers from the welcome step, as told to the desk.
+   *
+   * Reception fills these in for the member who joined over the counter, or
+   * corrects them for the member who mentions a shoulder on the way past. An
+   * empty string for `healthCondition` means "nothing to declare", which is a
+   * real answer and stored as null.
+   */
+  pilatesLevel?: string;
+  pilatesSince?: string;
+  healthCondition?: string;
 };
 
 export async function updateContact(userId: string, patch: ContactPatch) {
@@ -515,6 +547,46 @@ export async function updateContact(userId: string, patch: ContactPatch) {
     if (patch[key] !== undefined) next[key] = patch[key];
   }
 
+  /**
+   * The pilates answers, validated rather than trusted.
+   *
+   * A level of "Beginer" typed at the desk would sit in the column forever and
+   * match nothing the member's own screen offers, so an unrecognised value is a
+   * refusal and not a silent write.
+   */
+  if (patch.pilatesLevel !== undefined) {
+    if (!isPilatesLevel(patch.pilatesLevel)) {
+      return { ok: false as const, code: "LEVEL_INVALID" as const };
+    }
+    next.pilatesLevel = patch.pilatesLevel;
+  }
+  if (patch.pilatesSince !== undefined) {
+    if (!isPilatesExperience(patch.pilatesSince)) {
+      return { ok: false as const, code: "EXPERIENCE_INVALID" as const };
+    }
+    next.pilatesSince = patch.pilatesSince;
+  }
+  if (patch.healthCondition !== undefined) {
+    const text = patch.healthCondition.trim();
+    if (text.length > CONDITION_MAX_CHARS) {
+      return { ok: false as const, code: "CONDITION_TOO_LONG" as const };
+    }
+    next.healthCondition = text.length ? text : null;
+  }
+
+  /* Answering any of the three at the desk marks the step done, so a member
+     the desk has already asked in person is not stopped by the gate on the
+     booking route the first time they use the site. Only ever set, never
+     cleared: see lib/intake.ts. */
+  if (
+    !user.intakeAt &&
+    (patch.pilatesLevel !== undefined ||
+      patch.pilatesSince !== undefined ||
+      patch.healthCondition !== undefined)
+  ) {
+    next.intakeAt = new Date();
+  }
+
   if (!Object.keys(next).length) return { ok: true as const, changed: [] };
 
   db.update(users).set(next).where(eq(users.id, userId)).run();
@@ -540,6 +612,115 @@ export async function resetPassword(userId: string, plain: string) {
     .run();
 
   return { ok: true as const };
+}
+
+/* ------------------------------------------------ booking for a member ---- */
+
+export type DeskBookResult =
+  | { ok: true; bookingId: string; balance: number; guestName: string | null }
+  | { ok: false; code: string; until?: Date };
+
+/**
+ * Reception taking a booking over the telephone.
+ *
+ * The studio's reason for wanting this is worth writing down, because it shapes
+ * the rules: a class with three people in it and another with one is a Tuesday
+ * that could have been two full classes, and the fix is somebody at the desk
+ * ringing round to ask whether the member with the quiet class can come to the
+ * busy one. That call ends with "yes, put me in", and until now there was no way
+ * to put them in.
+ *
+ * **It books under the member's own rules, not the desk's.** This is the whole
+ * design of it, and it was a decision rather than the easy path: `bookClass` is
+ * called exactly as the member's own screen calls it, so a session comes out of
+ * the package that expires soonest, a group session cannot pay for a noon
+ * appointment, a full class is still full, the one-a-day cap on the Unlimited
+ * plan still applies, and a member with nothing left is refused.
+ *
+ * The alternative — a desk that can book without spending anything, or with an
+ * override for the member who has run out — is more convenient about twice a
+ * month and wrong every day after that. The balance on the member's screen stops
+ * matching what they have actually used, and the first person to notice is a
+ * member who counted differently from the studio. Reception can already sell
+ * sessions in ten seconds; a member who wants a class and has none should buy
+ * one, and that conversation is a better outcome for the studio than a free
+ * class nobody recorded.
+ *
+ * Two things it deliberately does *not* inherit. The cancellation window is not
+ * one of them, because cancelling is `cancelForMember` and that one does
+ * override the window: the difference is that a late cancellation is the desk
+ * exercising judgement about a member who rang with a reason, while a booking
+ * paid for by nothing is the desk creating money.
+ */
+export async function bookForMember(args: {
+  sessionId: string;
+  userId: string;
+  staffName: string;
+  /** For a duet, the second person. Same rule as the member's own screen. */
+  guestName?: string | null;
+  now?: Date;
+}): Promise<DeskBookResult> {
+  const { sessionId, userId, staffName, guestName = null, now } = args;
+
+  const member = db.select().from(users).where(eq(users.id, userId)).get();
+  if (!member) return { ok: false, code: "NOT_FOUND" };
+
+  /**
+   * An unconfirmed address cannot hold a seat, at the desk or anywhere else.
+   *
+   * The same rule the member's own booking route applies, and for the same
+   * reason: the seat is real and finite, and the studio has no way to tell the
+   * holder it has moved. The desk can confirm the address in half a minute
+   * while they are on the phone, which is why this is a refusal with an obvious
+   * next step rather than an obstacle.
+   */
+  if (!isVerified(member)) {
+    return { ok: false, code: "EMAIL_UNVERIFIED" };
+  }
+
+  const result = bookClass(userId, sessionId, {
+    guestName,
+    ...(now ? { now } : {}),
+  });
+
+  if (!result.ok) {
+    return { ok: false, code: result.code, until: result.until };
+  }
+
+  /**
+   * The member is told, exactly as if they had booked it themselves.
+   *
+   * They agreed to it on the telephone, so this is not news — but it is the
+   * only written record they get, and it carries the date, the time and the
+   * cancellation deadline. Somebody who says yes on Monday to a class on
+   * Thursday has forgotten the details by Tuesday.
+   *
+   * Not awaited: a push service being slow must not make the person at the desk
+   * wait, and a notification that fails must not read as a booking that failed.
+   */
+  void notifyBooked(result.bookingId).catch(() => {});
+
+  /* Who did it, in the ledger, next to the session it spent. The spend line is
+     already there from `bookClass`; this names the hand that made it, which is
+     the difference between "a session was used" and "reception booked them in
+     on the phone". */
+  db.insert(creditLedger)
+    .values({
+      userId,
+      delta: 0,
+      reason: "ADMIN_GRANT",
+      note: `Booked at the desk by ${staffName}`,
+      batchId: result.creditBatchId,
+      bookingId: result.bookingId,
+    })
+    .run();
+
+  return {
+    ok: true,
+    bookingId: result.bookingId,
+    guestName: result.guestName,
+    balance: (await getCreditSummary(userId)).available,
+  };
 }
 
 /* ------------------------------------------------------- who is teaching it */

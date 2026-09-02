@@ -77,6 +77,9 @@ export async function POST(req: Request) {
            checkbox that can quietly flip. Required to register, so it is always
            set here. */
         serviceOptInAt: new Date(),
+        /* Stamped in the same breath, because it was given in the same act. The
+           schema has already refused anything but a literal true. */
+        termsAcceptedAt: new Date(),
         marketingOptIn: Boolean(marketingOptIn),
         /* Reachable by email and reminded two hours before class until they say
            otherwise. Push is always on — see lib/messaging/push.ts.

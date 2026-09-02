@@ -329,6 +329,10 @@ async function main() {
       heightCm: 172,
       weightGrams: 68000,
       notes: "Sore left shoulder, lighter springs",
+      pilatesLevel: "INTERMEDIATE",
+      pilatesSince: "ONE_TO_TWO",
+      healthCondition: "Disc injury, no loaded flexion",
+      intakeAt: new Date(),
     })
     .where(eq(users.id, m.id))
     .run();
@@ -428,6 +432,12 @@ async function main() {
   check("height is gone", after.heightCm === null);
   check("weight is gone", after.weightGrams === null);
   check("the instructor's notes are gone", after.notes === null);
+  /* The health answer is the most sensitive column in the database: an erasure
+     that cleared the name and left "disc injury" behind would have erased
+     nothing that mattered. */
+  check("the health condition is gone", after.healthCondition === null);
+  check("the pilates level is gone", after.pilatesLevel === null);
+  check("and the experience with it", after.pilatesSince === null);
   check("the password is not the old one", after.passwordHash !== m.passwordHash);
   check("marketing consent is off", after.marketingOptIn === false);
   check("email and sms are off", !after.notifyEmail && !after.notifySms);

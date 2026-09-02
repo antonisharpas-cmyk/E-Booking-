@@ -5,10 +5,10 @@ import { AccountBody } from "@/components/account/AccountBody";
 import { currentUser, isVerified } from "@/lib/auth";
 import { listMyBookings } from "@/lib/booking";
 import { getCreditSummary, getLedger } from "@/lib/credits";
-import { gramsToKg } from "@/lib/profile";
 import { getMyPurchases } from "@/lib/purchases";
 import { hasAvatar } from "@/lib/avatars";
 import { noticesFor } from "@/lib/notices";
+import { isPilatesExperience, isPilatesLevel } from "@/lib/intake";
 import { pushPublicKey } from "@/lib/messaging/push";
 import { LOCALE_COOKIE } from "@/i18n/dictionaries";
 
@@ -82,8 +82,6 @@ export default async function AccountPage() {
         email: user.email,
         phone: user.phone,
         birthDate: user.birthDate,
-        heightCm: user.heightCm,
-        weightKg: user.weightGrams == null ? null : gramsToKg(user.weightGrams),
         marketingOptIn: user.marketingOptIn,
         serviceOptIn: user.serviceOptInAt !== null,
         notifyEmail: user.notifyEmail,
@@ -91,6 +89,15 @@ export default async function AccountPage() {
         notifyPush: user.notifyPush,
         reminderMinutes: user.reminderMinutes,
         hasPhoto: await hasAvatar(user.id),
+        /* Narrowed rather than cast: these are text columns, so a value written
+           by an older build or by hand is possible and must read as "unset"
+           instead of putting an unknown string into a group of buttons. */
+        pilatesLevel: isPilatesLevel(user.pilatesLevel) ? user.pilatesLevel : null,
+        pilatesSince: isPilatesExperience(user.pilatesSince)
+          ? user.pilatesSince
+          : null,
+        healthCondition: user.healthCondition ?? null,
+        intakeAnswered: user.intakeAt !== null,
       }}
       upcoming={bookings.upcoming.map(serialiseBooking)}
       past={bookings.past.slice(0, 20).map(serialiseBooking)}

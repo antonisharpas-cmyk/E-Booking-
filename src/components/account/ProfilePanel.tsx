@@ -5,17 +5,15 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { PushEnroller } from "@/components/account/PushEnroller";
 import { UserAvatar } from "@/components/account/UserAvatar";
+import { IntakeForm } from "@/components/auth/IntakeForm";
 import { useI18n } from "@/i18n/LanguageProvider";
+import type { PilatesExperience, PilatesLevel } from "@/lib/intake";
 import {
   AVATAR_EDGE_PX,
   AVATAR_MAX_BYTES,
-  HEIGHT_MAX_CM,
-  HEIGHT_MIN_CM,
   REMINDER_MAX_MINUTES,
   REMINDER_MIN_MINUTES,
   REMINDER_STEP_MINUTES,
-  WEIGHT_MAX_KG,
-  WEIGHT_MIN_KG,
   ageFromBirthDate,
   formatLeadTime,
 } from "@/lib/profile";
@@ -27,8 +25,6 @@ export type ProfileValues = {
   email: string;
   phone: string | null;
   birthDate: string | null;
-  heightCm: number | null;
-  weightKg: number | null;
   marketingOptIn: boolean;
   serviceOptIn: boolean;
   notifyEmail: boolean;
@@ -36,6 +32,12 @@ export type ProfileValues = {
   notifyPush: boolean;
   reminderMinutes: number | null;
   hasPhoto: boolean;
+  /* The three answers from the welcome step. Editable here for as long as they
+     stay true, which is the point of asking rather than assuming. */
+  pilatesLevel: PilatesLevel | null;
+  pilatesSince: PilatesExperience | null;
+  healthCondition: string | null;
+  intakeAnswered: boolean;
 };
 
 /**
@@ -189,8 +191,6 @@ export function ProfilePanel({
         body: JSON.stringify({
           name: v.name.trim(),
           birthDate: v.birthDate || "",
-          heightCm: v.heightCm,
-          weightKg: v.weightKg,
           marketingOptIn: v.marketingOptIn,
           serviceOptIn: v.serviceOptIn,
           notifyEmail: v.notifyEmail,
@@ -372,52 +372,38 @@ export function ProfilePanel({
                     </p>
                   )}
                 </div>
-                <div>
-                  <label className="label" htmlFor="pf-height">
-                    {p.height}
-                  </label>
-                  <input
-                    id="pf-height"
-                    type="number"
-                    inputMode="numeric"
-                    min={HEIGHT_MIN_CM}
-                    max={HEIGHT_MAX_CM}
-                    className="input"
-                    value={values.heightCm ?? ""}
-                    onChange={(e) =>
-                      setValues({
-                        ...values,
-                        heightCm: e.currentTarget.value
-                          ? Number(e.currentTarget.value)
-                          : null,
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="label" htmlFor="pf-weight">
-                    {p.weight}
-                  </label>
-                  <input
-                    id="pf-weight"
-                    type="number"
-                    inputMode="decimal"
-                    step="0.1"
-                    min={WEIGHT_MIN_KG}
-                    max={WEIGHT_MAX_KG}
-                    className="input"
-                    value={values.weightKg ?? ""}
-                    onChange={(e) =>
-                      setValues({
-                        ...values,
-                        weightKg: e.currentTarget.value
-                          ? Number(e.currentTarget.value)
-                          : null,
-                      })
-                    }
-                  />
-                </div>
               </div>
+            </div>
+          </section>
+
+          {/**
+            * Their pilates, in the same tab and saved by its own button.
+            *
+            * Kept out of the profile card's save on purpose. That button sends a
+            * whole profile and this is a different route with different rules;
+            * sharing one button would mean a member who came here only to add a
+            * shoulder injury also re-submitting their consents and their
+            * reminder time, and any validation failure in those would lose the
+            * injury.
+            */}
+          <section className="card p-7 md:p-8">
+            <h2 className="text-[13px] uppercase tracking-widest">
+              {t.intake.sectionTitle}
+            </h2>
+            <p className="mt-2 text-[13px] leading-relaxed text-mocha-500">
+              {t.intake.sectionBody}
+            </p>
+            <div className="mt-6">
+              <IntakeForm
+                embedded
+                initial={{
+                  level: values.pilatesLevel,
+                  experience: values.pilatesSince,
+                  condition: values.healthCondition,
+                  answered: values.intakeAnswered,
+                }}
+                onSaved={() => router.refresh()}
+              />
             </div>
           </section>
 

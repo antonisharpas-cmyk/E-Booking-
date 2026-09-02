@@ -49,6 +49,34 @@ export const users = sqliteTable(
     marketingOptIn: integer("marketing_opt_in", { mode: "boolean" })
       .notNull()
       .default(false),
+    /**
+     * When they accepted the terms and the privacy notice.
+     *
+     * A date rather than a flag, and for the same reason as the consent above:
+     * "did they agree" is not the useful question a year later. "When, and
+     * therefore to which version" is. Null on accounts that predate the ask.
+     */
+    termsAcceptedAt: integer("terms_accepted_at", { mode: "timestamp" }),
+
+    /* ---- what the studio needs to know before teaching somebody ---------
+       Asked once, after the email code, and editable by the member and by the
+       desk from then on. `intakeAt` is what marks the step as done: without it
+       a null level cannot be told apart from a member who has not been asked
+       yet, and the two need different treatment. */
+    intakeAt: integer("intake_at", { mode: "timestamp" }),
+    /** BEGINNER | INTERMEDIATE | ADVANCED */
+    pilatesLevel: text("pilates_level"),
+    /** NONE | UNDER_6M | UNDER_1Y | ONE_TO_TWO | OVER_TWO */
+    pilatesSince: text("pilates_since"),
+    /**
+     * Whatever they told us to be careful of, in their own words.
+     *
+     * Null with `intakeAt` set means they answered and had nothing to declare,
+     * which is a real answer and not a missing one. Kept apart from `notes`:
+     * that is what an instructor wrote about them, this is what they said about
+     * themselves, and merging the two would let one overwrite the other.
+     */
+    healthCondition: text("health_condition"),
 
     /* ---- how we are allowed to reach them ---- */
     notifyEmail: integer("notify_email", { mode: "boolean" })
@@ -100,8 +128,9 @@ export const users = sqliteTable(
      * When this member's personal details were erased, and by whom.
      *
      * A right-to-erasure request does not delete the row: the payments attached
-     * to it are accounting records Cyprus requires kept for six years, and
-     * cascading them away would rewrite the studio's own takings. So the person
+     * to it are accounting records the studio has to keep for seven years and
+     * then archive for a further seven, and cascading them away would rewrite
+     * the studio's own takings. So the person
      * is removed from the row and everything financial stays — see
      * lib/erasure.ts for exactly which columns are overwritten.
      *

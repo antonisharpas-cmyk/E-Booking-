@@ -1,6 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import {
+  SATURDAY_CLASS_HOURS,
+  WEEKDAY_CLASS_HOURS,
+  openingBlocks,
+} from "@/lib/rota";
 import Link from "next/link";
 import { LanguageToggle } from "@/components/site/LanguageToggle";
 import { Monogram } from "@/components/ui/Monogram";
@@ -131,7 +136,7 @@ export function Footer() {
               <p>
                 {t.home.timetable.weekday}
                 <span className="block lining-nums tabular-nums">
-                  06:00 – 12:00 · 15:00 – 20:00
+                  {openingBlocks(WEEKDAY_CLASS_HOURS).join(" · ")}
                 </span>
               </p>
               {/* The midday hours, for the same reason they are on the home
@@ -146,7 +151,7 @@ export function Footer() {
               <p>
                 {t.home.timetable.saturday}
                 <span className="block lining-nums tabular-nums">
-                  07:00 – 11:00
+                  {openingBlocks(SATURDAY_CLASS_HOURS).join(" · ")}
                 </span>
               </p>
               <p className="text-cream/45">

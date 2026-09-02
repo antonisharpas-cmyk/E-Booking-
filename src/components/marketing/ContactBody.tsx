@@ -1,6 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import {
+  SATURDAY_CLASS_HOURS,
+  WEEKDAY_CLASS_HOURS,
+  openingBlocks,
+} from "@/lib/rota";
 import { Button } from "@/components/ui/Button";
 import { Monogram } from "@/components/ui/Monogram";
 import { SocialLinks } from "@/components/ui/SocialLinks";
@@ -243,10 +248,12 @@ export function ContactBody() {
             <p className="eyebrow mb-3">{t.contactPage.hoursTitle}</p>
             <p className="text-[15px] leading-relaxed text-mocha-500">
               <span className="block">
-                {t.home.timetable.weekday}: 06:00 – 12:00 · 15:00 – 20:00
+                {t.home.timetable.weekday}:{" "}
+                {openingBlocks(WEEKDAY_CLASS_HOURS).join(" · ")}
               </span>
               <span className="block">
-                {t.home.timetable.saturday}: 07:00 – 11:00
+                {t.home.timetable.saturday}:{" "}
+                {openingBlocks(SATURDAY_CLASS_HOURS).join(" · ")}
               </span>
               <span className="block text-clay">
                 {t.home.timetable.sunday}: {t.home.timetable.closed}

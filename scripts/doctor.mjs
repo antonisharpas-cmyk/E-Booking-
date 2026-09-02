@@ -13,6 +13,24 @@ import Database from "better-sqlite3";
 import bcrypt from "bcryptjs";
 import { existsSync, readFileSync } from "node:fs";
 
+/**
+ * The class length and capacity, read out of lib/studio.ts.
+ *
+ * Doctor is plain ESM so it cannot import a TypeScript module, and the numbers
+ * were therefore written out here as 3600 and 5. That made the health check the
+ * last place to learn about a change: when the studio moved to fifty-minute
+ * classes, doctor reported every correctly generated class as "on an older
+ * rota". Reading the constants beats remembering them.
+ */
+const studioSrc = existsSync("src/lib/studio.ts")
+  ? readFileSync("src/lib/studio.ts", "utf8")
+  : "";
+const studioNumber = (key, fallback) =>
+  Number(new RegExp(`${key}:\\s*(\\d+)`).exec(studioSrc)?.[1] ?? fallback);
+const CLASS_MINUTES = studioNumber("classLengthMinutes", 50);
+const CLASS_SECONDS = CLASS_MINUTES * 60;
+const CAPACITY = studioNumber("capacity", 5);
+
 /* Read .env the way the server does, so this check reports what the app will
    actually see rather than what happens to be in the shell. Values are used to
    answer yes/no questions and are never printed. */
@@ -349,11 +367,11 @@ if (tables.has("class_sessions")) {
          join class_types ct on ct.id = cs.class_type_id
         where cs.starts_at >= ?
           and ct.kind = 'GROUP'
-          and (cs.capacity != 5 or (cs.ends_at - cs.starts_at) != 3600)`,
+          and (cs.capacity != ? or (cs.ends_at - cs.starts_at) != ?)`,
     )
-    .get(Math.floor(Date.now() / 1000)).n;
+    .get(Math.floor(Date.now() / 1000), CAPACITY, CLASS_SECONDS).n;
   wrong === 0
-    ? ok("every upcoming class is 60 minutes with five places")
+    ? ok(`every upcoming class is ${CLASS_MINUTES} minutes with ${CAPACITY} places`)
     : bad(`${wrong} upcoming classes are on an older rota`, "restart the server, or npm run db:seed");
 
   const upcoming = conn

@@ -26,6 +26,9 @@ export async function PATCH(req: Request) {
     notifyPush?: boolean;
     marketingOptIn?: boolean;
     isTest?: boolean;
+    pilatesLevel?: string;
+    pilatesSince?: string;
+    healthCondition?: string;
   }>(req);
 
   if (!data?.userId) {

@@ -185,6 +185,189 @@ export function BookingsPanel({ onNotice }: { onNotice: (s: string) => void }) {
    * and the fastest possible version of "who is taking this" is a list of four
    * names that opens where the finger already is.
    */
+  /**
+   * Book a member into this class, from the desk.
+   *
+   * Why it is on the class row rather than on the member's page: the question
+   * that starts this is always about the *class*. Reception is looking at a
+   * Tuesday with three people in one class and one in another, and is ringing
+   * round to fill the quiet one. Starting from the member would mean finding the
+   * class again afterwards.
+   *
+   * The search is by name, email or phone, which is how somebody rings up: they
+   * give a name, or the desk has their number on the screen from the call.
+   */
+  function BookMember({
+    sessionId,
+    full,
+    personal,
+  }: {
+    sessionId: string;
+    /** No places left. The control is not offered rather than offered and refused. */
+    full: boolean;
+    /** A duet may carry a second name, exactly as on the member's own screen. */
+    personal: boolean;
+  }) {
+    const [open, setOpen] = useState(false);
+    const [q, setQ] = useState("");
+    const [hits, setHits] = useState<
+      { id: string; name: string; email: string; phone: string | null; credits: number }[]
+    >([]);
+    const [looking, setLooking] = useState(false);
+    const [guest, setGuest] = useState("");
+    const [sending, setSending] = useState<string | null>(null);
+
+    /* Searched on demand rather than as they type. The membership is small and
+       the desk is on the telephone: a button they press when they have finished
+       typing a name beats a request per keystroke, and cannot half-load. */
+    async function search() {
+      if (q.trim().length < 2) return;
+      setLooking(true);
+      try {
+        const res = await fetch(
+          `/api/admin/members?q=${encodeURIComponent(q.trim())}&filter=real`,
+        );
+        const data = (await res.json()) as {
+          members?: {
+            id: string;
+            name: string;
+            email: string;
+            phone: string | null;
+            credits: number;
+          }[];
+        };
+        setHits((data.members ?? []).slice(0, 6));
+      } catch {
+        setHits([]);
+      }
+      setLooking(false);
+    }
+
+    async function book(userId: string, name: string) {
+      setSending(userId);
+      try {
+        const res = await fetch("/api/admin/bookings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId,
+            userId,
+            guestName: personal && guest.trim() ? guest.trim() : null,
+          }),
+        });
+        const data = (await res.json()) as { ok?: boolean; error?: string };
+        if (data.ok) {
+          onNotice(`${name}: ${d.deskBooked}`);
+          setOpen(false);
+          setQ("");
+          setHits([]);
+          setGuest("");
+          await load(day);
+        } else {
+          /* The code, said as a sentence. "No sessions left" and "that class is
+             full" send the person at the desk in completely different
+             directions, so a single "could not book" would be useless. */
+          onNotice(`${name}: ${d.deskBookErrors[data.error ?? ""] ?? data.error}`);
+        }
+      } catch {
+        onNotice(d.deskBookErrors.FAILED);
+      }
+      setSending(null);
+    }
+
+    if (full) return null;
+
+    if (!open) {
+      return (
+        <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
+          {d.deskBookCta}
+        </Button>
+      );
+    }
+
+    return (
+      <div className="mt-5 rounded-2xl border border-mocha-200 bg-white/70 p-4">
+        <p className="text-[12px] text-mocha-700">{d.deskBookTitle}</p>
+        <p className="mt-1 text-[11px] leading-relaxed text-clay">
+          {d.deskBookWhy}
+        </p>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          <input
+            autoFocus
+            className="input flex-1 min-w-[12rem]"
+            placeholder={d.deskBookSearch}
+            value={q}
+            onChange={(e) => setQ(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void search();
+              }
+            }}
+          />
+          <Button size="sm" variant="outline" onClick={() => void search()}>
+            {looking ? t.common.loading : d.deskBookFind}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+            {t.common.cancel}
+          </Button>
+        </div>
+
+        {personal && (
+          <input
+            className="input mt-2"
+            placeholder={d.deskBookGuest}
+            value={guest}
+            onChange={(e) => setGuest(e.currentTarget.value)}
+          />
+        )}
+
+        {hits.length > 0 && (
+          <ul className="mt-3 divide-y divide-mocha-200/70">
+            {hits.map((m) => (
+              <li
+                key={m.id}
+                className="flex flex-wrap items-center justify-between gap-3 py-2.5"
+              >
+                <span>
+                  <span className="text-[13px] text-mocha-600">{m.name}</span>
+                  <span className="ml-3 text-[11px] text-clay">
+                    {m.phone ?? m.email}
+                  </span>
+                  {/* The balance, on the row, before the button is pressed. A
+                      member with none will be refused, and knowing that while
+                      they are still on the telephone is the difference between
+                      selling them a pack and ringing them back. */}
+                  <span
+                    className={cn(
+                      "ml-3 rounded-full px-2 py-0.5 text-[10px] lining-nums tabular-nums",
+                      m.credits > 0
+                        ? "bg-mocha-100 text-mocha-600"
+                        : "bg-red-50 text-red-700",
+                    )}
+                  >
+                    {m.credits} {t.common.credits}
+                  </span>
+                </span>
+                <Button
+                  size="sm"
+                  disabled={sending === m.id}
+                  onClick={() => void book(m.id, m.name)}
+                >
+                  {sending === m.id ? t.common.loading : d.deskBookAdd}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {!looking && hits.length === 0 && q.trim().length >= 2 && (
+          <p className="mt-3 text-[12px] text-clay">{d.deskBookNobody}</p>
+        )}
+      </div>
+    );
+  }
+
   function TeacherPicker({
     sessionId,
     current,
@@ -425,6 +608,20 @@ export function BookingsPanel({ onNotice }: { onNotice: (s: string) => void }) {
                       </li>
                     ))}
                   </ul>
+                )}
+
+                {/* Only where a booking could actually be taken. A cancelled
+                    class and a full one both mean the control has nothing to
+                    offer, and offering it anyway would end in a refusal the
+                    desk had no way to see coming. */}
+                {s.status !== "CANCELLED" && live.length < s.capacity && (
+                  <div className="mt-4">
+                    <BookMember
+                      sessionId={s.id}
+                      full={live.length >= s.capacity}
+                      personal={s.kind === "PERSONAL"}
+                    />
+                  </div>
                 )}
               </li>
             );

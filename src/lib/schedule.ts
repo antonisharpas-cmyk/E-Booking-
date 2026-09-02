@@ -1,4 +1,9 @@
 import { and, eq, gte } from "drizzle-orm";
+import {
+  SATURDAY_CLASS_HOURS,
+  WEEKDAY_CLASS_HOURS,
+  openingBlocks,
+} from "./rota";
 import { db } from "@/db";
 import { bookings, classSessions, classTemplates } from "@/db/schema";
 import {
@@ -134,9 +139,18 @@ export async function countUpcomingSessions(from = new Date()) {
   return rows.length;
 }
 
-/** Studio opening hours, used by the marketing pages. */
+/**
+ * Studio opening hours, used by the marketing pages and the footer.
+ *
+ * Computed from the rota rather than written out, so the hours a member reads
+ * cannot disagree with the classes they can actually book. See lib/rota.ts.
+ */
 export const STUDIO_HOURS = [
-  { key: "weekday", days: [1, 2, 3, 4, 5], blocks: ["06:00 – 12:00", "15:00 – 20:00"] },
-  { key: "saturday", days: [6], blocks: ["07:00 – 11:00"] },
-  { key: "sunday", days: [0], blocks: [] },
+  {
+    key: "weekday",
+    days: [1, 2, 3, 4, 5],
+    blocks: openingBlocks(WEEKDAY_CLASS_HOURS),
+  },
+  { key: "saturday", days: [6], blocks: openingBlocks(SATURDAY_CLASS_HOURS) },
+  { key: "sunday", days: [0], blocks: [] as string[] },
 ] as const;

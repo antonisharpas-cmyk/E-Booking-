@@ -36,7 +36,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { markVerified } from "./fixture-verify.mjs";
+import { markOnboarded, markVerified } from "./fixture-verify.mjs";
 
 const BASE = process.argv[2] ?? "http://localhost:3000";
 const OUT_DIR = "docs/manual/figures";
@@ -120,7 +120,7 @@ async function makeFixtures(page) {
     email: member,
     phone: uniquePhone(),
     password: "test12345",
-    serviceOptIn: true,
+    serviceOptIn: true, termsAccepted: true,
   });
 
   /* One left unconfirmed, for the amber flag and the blocked sell panel. */
@@ -130,7 +130,7 @@ async function makeFixtures(page) {
     email: unverified,
     phone: uniquePhone(),
     password: "test12345",
-    serviceOptIn: true,
+    serviceOptIn: true, termsAccepted: true,
   });
 
   return { member, unverified };
@@ -238,6 +238,7 @@ async function captureAll(browser) {
        the blocked sell panel. The confirmation is written straight to the row by
        the same helper the test suites use, because this script cannot read the
        emailed code any more than they can. */
+    markOnboarded(fixtures.member);
     if (markVerified(fixtures.member) !== 1) {
       throw new Error(`figure fixture ${fixtures.member} did not confirm`);
     }

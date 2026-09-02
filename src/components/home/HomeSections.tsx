@@ -8,6 +8,11 @@ import { Parallax } from "@/components/ui/Parallax";
 import { Reveal, RevealGroup, RevealItem } from "@/components/ui/Reveal";
 import { Section, SectionHead } from "@/components/ui/Section";
 import { useI18n } from "@/i18n/LanguageProvider";
+import {
+  SATURDAY_CLASS_HOURS,
+  WEEKDAY_CLASS_HOURS,
+  openingBlocks,
+} from "@/lib/rota";
 import { STUDIO } from "@/lib/studio";
 
 /* ------------------------------------------------------------------ marquee */
@@ -286,7 +291,7 @@ export function TimetablePreview() {
   const rows = [
     {
       label: t.home.timetable.weekday,
-      blocks: ["06:00 – 12:00", "15:00 – 20:00"],
+      blocks: openingBlocks(WEEKDAY_CLASS_HOURS),
       note: null as string | null,
     },
     {
@@ -296,7 +301,7 @@ export function TimetablePreview() {
     },
     {
       label: t.home.timetable.saturday,
-      blocks: ["07:00 – 11:00"],
+      blocks: openingBlocks(SATURDAY_CLASS_HOURS),
       note: null as string | null,
     },
     { label: t.home.timetable.sunday, blocks: [], note: null as string | null },

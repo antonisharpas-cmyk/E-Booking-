@@ -135,6 +135,37 @@ if (dir && dir !== "." && !existsSync(dir)) {
   }
 }
 
+/**
+ * The signing key for session cookies.
+ *
+ * `lib/auth.ts` throws if this is missing or shorter than sixteen characters,
+ * and that throw lands in the middle of registering: the account row is already
+ * written when the cookie is signed, so the member gets a 500, the row survives,
+ * and every retry from then on says "that email is already registered". Two
+ * different-looking bugs, one cause, and neither of them mentions AUTH_SECRET.
+ *
+ * Nobody can sign in or register without it, so there is nothing this service
+ * can usefully do without one. Refusing here says so in one line.
+ */
+if (hosted && (process.env.AUTH_SECRET ?? "").length < 16) {
+  refuse(
+    process.env.AUTH_SECRET
+      ? `AUTH_SECRET is only ${process.env.AUTH_SECRET.length} characters long.`
+      : "AUTH_SECRET is not set.",
+    [
+      "It signs the session cookie, so without it nobody can register and nobody",
+      "can sign in. It has to be at least 16 characters, and a placeholder is",
+      "usually shorter than that.",
+      "",
+      "Set it to a long random string. On your own machine:",
+      "",
+      "    node -e \"console.log(require('crypto').randomBytes(32).toString('base64url'))\"",
+      "",
+      "Paste the result into the environment panel. It never goes in the repo.",
+    ],
+  );
+}
+
 if (
   hosted &&
   needsBuilding() &&

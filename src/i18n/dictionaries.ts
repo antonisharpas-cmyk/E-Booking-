@@ -75,7 +75,7 @@ export const en = {
       stat1: "Reformers in the room",
       stat1v: "Five",
       stat2: "Class length",
-      stat2v: "60 min",
+      stat2v: "50 min",
       stat3: "Equipment",
       stat3v: "Technogym",
     },
@@ -143,7 +143,7 @@ export const en = {
     classes: {
       eyebrow: "Class types",
       title: "Find your level.",
-      body: "Every class is 60 minutes and costs one session, so choose by intention rather than by price.",
+      body: "Every class is 50 minutes on the mat and costs one session, so choose by intention rather than by price.",
       cta: "See full class list",
     },
     timetable: {
@@ -209,7 +209,7 @@ export const en = {
         },
         {
           q: "Can I train one to one, or with just a friend?",
-          a: "Yes, in the middle of the day. Personal and Duet sessions run at 12:00, 13:00 and 14:00, Monday to Friday, in the hours between the morning and evening timetable. A Personal session is the studio to yourself for an hour, €30. A Duet is the same hour shared with one other person, €45 for the two of you, bought and booked by one of you.\n\nBook by the end of the day before, so we can arrange an instructor for your hour. The same deadline applies to cancelling: after it, somebody has already been asked to come in for you, and the session counts as used. These sessions are bought on their own and are valid only for those midday hours, so they are separate from any class pack you hold.",
+          a: "Yes, in the middle of the day. Personal and Duet sessions run at 12:00, 13:00 and 14:00, Monday to Friday, in the hours between the morning and evening timetable. A Personal session is the studio to yourself for 50 minutes, €30. A Duet is the same session shared with one other person, €45 for the two of you, bought and booked by one of you.\n\nBook by the end of the day before, so we can arrange an instructor for your session. The same deadline applies to cancelling: after it, somebody has already been asked to come in for you, and the session counts as used. These sessions are bought on their own and are valid only for those midday hours, so they are separate from any class pack you hold.",
         },
         {
           q: "How does the session system work?",
@@ -221,7 +221,7 @@ export const en = {
         },
         {
           q: "What is the cancellation policy?",
-          a: "Cancel at least 12 hours before the class starts and your session is returned to your balance instantly. Inside 12 hours, online cancellation is not available and the session is deducted.",
+          a: "Cancel at least 12 hours before the class starts and your session is returned to your balance instantly. Inside 12 hours, online cancellation is not available and the session is deducted. Personal and Duet appointments close earlier, at the end of the day before, because an instructor has been asked to come in for that slot.\n\nSessions are not refundable in money. Cancelling a class returns the session to your balance to use on another one; it is not a refund, and sessions that expire unused are not refunded or extended. If you decide to stop coming, whatever is left in your balance stays yours until its expiry date and cannot be paid back.",
         },
       ],
     },
@@ -258,7 +258,7 @@ export const en = {
       },
       {
         t: "The room to yourself",
-        d: "Between the morning and evening rota the studio keeps three hours free for Personal and Duet sessions, at 12:00, 13:00 and 14:00 on weekdays. Book by the end of the day before and an instructor is there for your hour. A Duet is the same hour for two, bought and booked by one of you.",
+        d: "Between the morning and evening rota the studio keeps three slots free for Personal and Duet sessions, at 12:00, 13:00 and 14:00 on weekdays. Book by the end of the day before and an instructor is there for you. A Duet is the same session for two, bought and booked by one of you.",
       },
     ],
     room: {
@@ -288,7 +288,7 @@ export const en = {
     hero: {
       eyebrow: "Classes",
       title: "One session. Any class.",
-      body: "Every class on the timetable runs 60 minutes and costs a single session. Move between formats as your body and week demand.",
+      body: "Every class on the timetable runs 50 minutes and costs a single session. Move between formats as your body and week demand.",
     },
     levelLabel: "Level",
     intensityLabel: "Intensity",
@@ -347,14 +347,14 @@ export const en = {
     offer: "Offer",
     included: "What's included",
     includes: [
-      "60 minute Reformer class on Technogym equipment",
+      "50 minute Reformer class on Technogym equipment",
       "Five reformers, so never more than five in the room",
       "Free cancellation up to 12 hours before a class",
       "Personal and Duet sessions at 12:00, 13:00 and 14:00 on weekdays",
     ],
     privateTitle: "How the midday hours work",
     privateBody:
-      "Personal and Duet sessions run at 12:00, 13:00 and 14:00, Monday to Friday. Book yours by the end of the day before and we arrange an instructor for that hour. A Duet is one session for two people, bought and booked by one of you.",
+      "Personal and Duet sessions run at 12:00, 13:00 and 14:00, Monday to Friday. Book yours by the end of the day before and we arrange an instructor for it. A Duet is one session for two people, bought and booked by one of you.",
     privateCta: "See what is free",
     corporateTitle: "Gym members",
     corporateBody:
@@ -620,11 +620,11 @@ export const en = {
       "This member registered but never typed the code we emailed, so they cannot book or pay yet. They can ask for a new code from the site at any time.",
     memberErased: "Personal data erased",
     memberErasedWhy:
-      "Erased by {who} on {when}. Their payments and class history are kept, because Cyprus requires accounting records for six years. There is no longer a person attached to this account, and it cannot be signed in to.",
+      "Erased by {who} on {when}. Their payments and class history are kept, because accounting records have to be held for seven years and archived for seven more. There is no longer a person attached to this account, and it cannot be signed in to.",
     /* The erasure panel. Owner only. */
     eraseTitle: "Erase personal data",
     eraseHelp:
-      "For a member who has asked to be forgotten. Their name, email, phone, date of birth, height, weight, notes, photograph and registered devices are overwritten or deleted, and the password is replaced with one nobody holds. Their payments, bookings and session history stay exactly as they are, because Cyprus requires accounting records to be kept for six years, so the studio's takings do not change.",
+      "For a member who has asked to be forgotten. Their name, email, phone, date of birth, notes, photograph, health details and registered devices are overwritten or deleted, and the password is replaced with one nobody holds. Their payments, bookings and session history stay exactly as they are, because accounting records have to be kept for seven years and archived for a further seven, so the studio's takings do not change.",
     eraseWarnBookings:
       "This member has {n} class(es) booked in the future. Erasing does not cancel them, and the roster will show \u201cErased member\u201d. Cancel them first if that is what they want.",
     eraseConfirmLabel: "Type this member's email address to confirm",
@@ -655,6 +655,34 @@ export const en = {
     priceLive: "Running now",
     priceNone: "No offer running. Every pack is at its list price.",
     priceNow: "now",
+    /* Reception booking a member in over the telephone. */
+    deskBookCta: "Book a member in",
+    deskBookTitle: "Book a member into this class",
+    deskBookWhy:
+      "Same rules as the member booking themselves: one session comes off the package that expires soonest, and a member with none is refused.",
+    deskBookSearch: "Name, email or phone",
+    deskBookFind: "Find",
+    deskBookAdd: "Book",
+    deskBookGuest: "Second person, for a duet (optional)",
+    deskBookNobody: "Nobody found. Try part of a surname or the last digits of a number.",
+    deskBooked: "booked in, and told",
+    deskBookErrors: {
+      NO_CREDITS: "no sessions left. Sell them one first.",
+      CLASS_FULL: "that class is full.",
+      ALREADY_BOOKED: "already booked into this class.",
+      EMAIL_UNVERIFIED: "their email has never been confirmed. Confirm it on their page first.",
+      INTAKE_REQUIRED: "they have not answered the questions about their pilates yet. Fill them in on their page.",
+      TOO_LATE: "that class has already started.",
+      SESSIONS_EXPIRE_FIRST: "their sessions expire before this class.",
+      CREDITS_NOT_VALID_HERE: "their sessions cannot be used for this class.",
+      NEEDS_PERSONAL_CREDIT: "that hour needs a Personal session.",
+      NEEDS_DUET_CREDIT: "that hour needs a Duet session.",
+      DUET_IS_FOR_TWO: "a Duet is for two, so it needs a second name.",
+      ONE_PER_DAY: "their plan allows one class a day, and they already have one.",
+      PERSONAL_TOO_LATE: "appointments close at the end of the day before.",
+      NOT_FOUND: "that member could not be found.",
+      FAILED: "that could not be saved. Try again.",
+    } as Record<string, string>,
     priceWas: "was",
   },
   notices: {
@@ -694,8 +722,6 @@ export const en = {
       "Your email and phone are how the studio reaches you when a class moves, so they are changed by asking us rather than here. Send a message from the contact page and we will update them.",
     birthDate: "Date of birth",
     ageIs: "{n} years old",
-    height: "Height (cm)",
-    weight: "Weight (kg)",
     photoAlt: "Your profile photo",
     photoAdd: "Add a photo",
     photoChange: "Change photo",
@@ -805,6 +831,12 @@ export const en = {
     hasAccount: "Already have an account?",
     signIn: "Sign in",
     signUp: "Create account",
+    termsAcceptPrefix: "I have read and accept the",
+    termsAcceptJoin: "and the",
+    termsAcceptWhy:
+      "Required. It covers how sessions and cancellations work, and what the studio does with your details.",
+    legalAcceptCta: "I accept",
+    errTerms: "Please read and accept the terms and the privacy policy.",
     marketingOptIn: "Send me offers, news and new class types",
     marketingOptInWhy: "Optional. You can turn this off any time.",
     serviceOptIn: "Studio and timetable notices",
@@ -872,6 +904,9 @@ export const en = {
     alreadyBooked: "You have already booked this class.",
     classFull: "This class is full.",
     tooLate: "Booking has closed for this class.",
+    intakeNeeded:
+      "One step left before you can book: three quick questions about your pilates, so we know the room before you walk into it.",
+    intakeNeededCta: "Answer them now",
     unverified:
       "Confirm your email address before booking. We sent a six-digit code when you signed up.",
     unverifiedCta: "Enter the code",
@@ -1044,6 +1079,46 @@ export const en = {
     errSendFailed:
       "We could not send the email just now. Please try again in a moment.",
   },
+  intake: {
+    eyebrow: "Almost there",
+    title: "Before your first class.",
+    body: "Three questions, so whoever is teaching knows the room before you walk into it. You can change any of them later from your account.",
+    levelLabel: "Where would you put yourself?",
+    levelWhy: "There is no wrong answer. It is not a test and it does not change which classes you can book.",
+    levels: {
+      BEGINNER: "Beginner",
+      INTERMEDIATE: "Intermediate",
+      ADVANCED: "Advanced",
+    },
+    experienceLabel: "How long have you been doing pilates?",
+    experience: {
+      NONE: "Never done it",
+      UNDER_6M: "Less than 6 months",
+      UNDER_1Y: "Up to a year",
+      ONE_TO_TWO: "1 to 2 years",
+      OVER_TWO: "More than 2 years",
+    },
+    conditionLabel: "Anything we should be careful of?",
+    conditionWhy: "An injury, a recent operation, pregnancy, anything that changes what you should be doing on a reformer. Only the studio sees it.",
+    conditionNone: "Nothing to mention",
+    conditionOther: "Yes, let me explain",
+    conditionPlaceholder: "For example: lower back pain, a knee that does not like deep flexion, six weeks post-partum.",
+    cta: "Done, take me to the timetable",
+    changeLater: "You can change all of this in your account whenever it changes.",
+    errIncomplete: "Please answer all three questions.",
+    errTooLong: "That is a little long. Please shorten it.",
+    errSaving: "That could not be saved. Please try again.",
+    saved: "Saved.",
+    /* The account and the desk both label the same three answers. */
+    sectionTitle: "Your pilates",
+    sectionBody: "What the studio knows about your experience and anything to be careful of.",
+    notAnswered: "Not answered yet",
+    deskLevel: "Level",
+    deskExperience: "Experience",
+    deskCondition: "To be careful of",
+    deskNothing: "Nothing declared",
+    deskUnanswered: "Never asked",
+  },
   legal: {
     privacyTitle: "Privacy policy",
     termsTitle: "Terms & studio policy",
@@ -1119,7 +1194,7 @@ export const el: typeof en = {
       stat1: "Reformers στην αίθουσα",
       stat1v: "Πέντε",
       stat2: "Διάρκεια",
-      stat2v: "60 λεπτά",
+      stat2v: "50 λεπτά",
       stat3: "Εξοπλισμός",
       stat3v: "Technogym",
     },
@@ -1186,7 +1261,7 @@ export const el: typeof en = {
     classes: {
       eyebrow: "Τύποι μαθημάτων",
       title: "Βρες το επίπεδό σου.",
-      body: "Κάθε μάθημα διαρκεί 60 λεπτά και κοστίζει μία συνεδρία, οπότε επίλεξε με βάση τον στόχο και όχι την τιμή.",
+      body: "Κάθε μάθημα διαρκεί 50 λεπτά και κοστίζει μία συνεδρία, οπότε επίλεξε με βάση τον στόχο και όχι την τιμή.",
       cta: "Δες όλα τα μαθήματα",
     },
     timetable: {
@@ -1244,7 +1319,7 @@ export const el: typeof en = {
         },
         {
           q: "Μπορώ να γυμναστώ ένας προς έναν, ή μόνο με έναν φίλο;",
-          a: "Ναι, στη μέση της μέρας. Οι Ατομικές και οι Duet συνεδρίες γίνονται στις 12:00, 13:00 και 14:00, Δευτέρα με Παρασκευή, στις ώρες ανάμεσα στο πρωινό και στο απογευματινό πρόγραμμα. Η Ατομική είναι το στούντιο δικό σου για μία ώρα, €30. Η Duet είναι η ίδια ώρα μοιρασμένη με ένα ακόμη άτομο, €45 και για τους δύο, με αγορά και κράτηση από τον ένα από τους δύο.\n\nΚάνε την κράτηση μέχρι το τέλος της προηγούμενης μέρας, ώστε να κανονίσουμε εκπαιδευτή για την ώρα σου. Η ίδια προθεσμία ισχύει και για την ακύρωση: μετά από αυτή, κάποιος έχει ήδη κληθεί να έρθει για εσένα και η συνεδρία μετράει ως χρησιμοποιημένη. Αυτές οι συνεδρίες αγοράζονται ξεχωριστά και ισχύουν μόνο για αυτές τις μεσημεριανές ώρες, οπότε είναι ανεξάρτητες από όποιο πακέτο μαθημάτων έχεις.",
+          a: "Ναι, στη μέση της μέρας. Οι Ατομικές και οι Duet συνεδρίες γίνονται στις 12:00, 13:00 και 14:00, Δευτέρα με Παρασκευή, στις ώρες ανάμεσα στο πρωινό και στο απογευματινό πρόγραμμα. Η Ατομική είναι το στούντιο δικό σου για 50 λεπτά, €30. Η Duet είναι η ίδια συνεδρία μοιρασμένη με ένα ακόμη άτομο, €45 και για τους δύο, με αγορά και κράτηση από τον ένα από τους δύο.\n\nΚάνε την κράτηση μέχρι το τέλος της προηγούμενης μέρας, ώστε να κανονίσουμε εκπαιδευτή για τη συνεδρία σου. Η ίδια προθεσμία ισχύει και για την ακύρωση: μετά από αυτή, κάποιος έχει ήδη κληθεί να έρθει για εσένα και η συνεδρία μετράει ως χρησιμοποιημένη. Αυτές οι συνεδρίες αγοράζονται ξεχωριστά και ισχύουν μόνο για αυτές τις μεσημεριανές ώρες, οπότε είναι ανεξάρτητες από όποιο πακέτο μαθημάτων έχεις.",
         },
         {
           q: "Πώς λειτουργούν οι συνεδρίες;",
@@ -1256,7 +1331,7 @@ export const el: typeof en = {
         },
         {
           q: "Ποια είναι η πολιτική ακυρώσεων;",
-          a: "Ακύρωσε τουλάχιστον 12 ώρες πριν την έναρξη και η συνεδρία επιστρέφει αμέσως στο υπόλοιπό σου. Εντός 12 ωρών, η ακύρωση από τον ιστότοπο δεν είναι διαθέσιμη και η συνεδρία χρεώνεται.",
+          a: "Ακύρωσε τουλάχιστον 12 ώρες πριν την έναρξη και η συνεδρία επιστρέφει αμέσως στο υπόλοιπό σου. Εντός 12 ωρών, η ακύρωση από τον ιστότοπο δεν είναι διαθέσιμη και η συνεδρία χρεώνεται. Οι Ατομικές και οι Duet κλείνουν πιο νωρίς, στο τέλος της προηγούμενης μέρας, γιατί έχει ήδη κληθεί εκπαιδευτής για εκείνη την ώρα.\n\nΟι συνεδρίες δεν επιστρέφονται σε χρήμα. Η ακύρωση ενός μαθήματος επιστρέφει τη συνεδρία στο υπόλοιπό σου για να τη χρησιμοποιήσεις σε άλλο· δεν είναι επιστροφή χρημάτων, και οι συνεδρίες που λήγουν αχρησιμοποίητες δεν επιστρέφονται ούτε παρατείνονται. Αν αποφασίσεις να σταματήσεις, ό,τι έχει μείνει στο υπόλοιπό σου παραμένει δικό σου μέχρι την ημερομηνία λήξης και δεν αποδίδεται σε χρήμα.",
         },
       ],
     },
@@ -1293,7 +1368,7 @@ export const el: typeof en = {
       },
       {
         t: "Ο χώρος δικός σου",
-        d: "Ανάμεσα στο πρωινό και στο απογευματινό πρόγραμμα, το στούντιο κρατάει τρεις ώρες ελεύθερες για Ατομικές και Duet συνεδρίες, στις 12:00, 13:00 και 14:00 τις καθημερινές. Κάνε κράτηση μέχρι το τέλος της προηγούμενης μέρας και θα υπάρχει εκπαιδευτής για την ώρα σου. Μια Duet είναι η ίδια ώρα για δύο, με αγορά και κράτηση από τον ένα από τους δύο.",
+        d: "Ανάμεσα στο πρωινό και στο απογευματινό πρόγραμμα, το στούντιο κρατάει τρεις ώρες ελεύθερες για Ατομικές και Duet συνεδρίες, στις 12:00, 13:00 και 14:00 τις καθημερινές. Κάνε κράτηση μέχρι το τέλος της προηγούμενης μέρας και θα υπάρχει εκπαιδευτής για εσένα. Μια Duet είναι η ίδια συνεδρία για δύο, με αγορά και κράτηση από τον ένα από τους δύο.",
       },
     ],
     room: {
@@ -1323,7 +1398,7 @@ export const el: typeof en = {
     hero: {
       eyebrow: "Μαθήματα",
       title: "Μία συνεδρία. Οποιοδήποτε μάθημα.",
-      body: "Κάθε μάθημα στο πρόγραμμα διαρκεί 60 λεπτά και κοστίζει μία συνεδρία. Άλλαξε μορφή ανάλογα με το σώμα και την εβδομάδα σου.",
+      body: "Κάθε μάθημα στο πρόγραμμα διαρκεί 50 λεπτά και κοστίζει μία συνεδρία. Άλλαξε μορφή ανάλογα με το σώμα και την εβδομάδα σου.",
     },
     levelLabel: "Επίπεδο",
     intensityLabel: "Έντασή",
@@ -1379,14 +1454,14 @@ export const el: typeof en = {
     offer: "Προσφορά",
     included: "Τι περιλαμβάνεται",
     includes: [
-      "Μάθημα Reformer 60 λεπτών σε εξοπλισμό Technogym",
+      "Μάθημα Reformer 50 λεπτών σε εξοπλισμό Technogym",
       "Πέντε reformers, άρα ποτέ πάνω από πέντε στην αίθουσα",
       "Δωρεάν ακύρωση έως 12 ώρες πριν από το μάθημα",
       "Ατομικές και Duet συνεδρίες στις 12:00, 13:00 και 14:00 τις καθημερινές",
     ],
     privateTitle: "Πώς δουλεύουν οι μεσημεριανές ώρες",
     privateBody:
-      "Οι Ατομικές και οι Duet συνεδρίες γίνονται στις 12:00, 13:00 και 14:00, Δευτέρα με Παρασκευή. Κάνε την κράτηση μέχρι το τέλος της προηγούμενης μέρας και κανονίζουμε εκπαιδευτή για αυτή την ώρα. Μια Duet είναι μία συνεδρία για δύο άτομα, με αγορά και κράτηση από τον ένα από τους δύο.",
+      "Οι Ατομικές και οι Duet συνεδρίες γίνονται στις 12:00, 13:00 και 14:00, Δευτέρα με Παρασκευή. Κάνε την κράτηση μέχρι το τέλος της προηγούμενης μέρας και κανονίζουμε εκπαιδευτή για αυτή. Μια Duet είναι μία συνεδρία για δύο άτομα, με αγορά και κράτηση από τον ένα από τους δύο.",
     privateCta: "Δες τι είναι ελεύθερο",
     corporateTitle: "Μέλη γυμναστηρίου",
     corporateBody:
@@ -1627,10 +1702,10 @@ export const el: typeof en = {
       "Το μέλος έκανε εγγραφή αλλά δεν καταχώρησε ποτέ τον κωδικό που στείλαμε, οπότε δεν μπορεί ακόμη να κλείσει θέση ή να πληρώσει. Μπορεί να ζητήσει νέο κωδικό από την ιστοσελίδα όποτε θέλει.",
     memberErased: "Τα προσωπικά δεδομένα διαγράφηκαν",
     memberErasedWhy:
-      "Διαγράφηκαν από {who} στις {when}. Οι πληρωμές και το ιστορικό μαθημάτων διατηρούνται, γιατί η Κύπρος απαιτεί λογιστικά αρχεία για έξι χρόνια. Δεν υπάρχει πλέον πρόσωπο συνδεδεμένο με αυτόν τον λογαριασμό και δεν είναι δυνατή η σύνδεση σε αυτόν.",
+      "Διαγράφηκαν από {who} στις {when}. Οι πληρωμές και το ιστορικό μαθημάτων διατηρούνται, γιατί τα λογιστικά αρχεία πρέπει να κρατηθούν επτά χρόνια και να αρχειοθετηθούν για άλλα επτά. Δεν υπάρχει πλέον πρόσωπο συνδεδεμένο με αυτόν τον λογαριασμό και δεν είναι δυνατή η σύνδεση σε αυτόν.",
     eraseTitle: "Διαγραφή προσωπικών δεδομένων",
     eraseHelp:
-      "Για μέλος που ζήτησε να διαγραφεί. Το όνομα, το email, το τηλέφωνο, η ημερομηνία γέννησης, το ύψος, το βάρος, οι σημειώσεις, η φωτογραφία και οι συνδεδεμένες συσκευές αντικαθίστανται ή διαγράφονται, και ο κωδικός πρόσβασης αντικαθίσταται με έναν που δεν γνωρίζει κανείς. Οι πληρωμές, οι κρατήσεις και το ιστορικό συνεδριών παραμένουν ως έχουν, επειδή η Κύπρος απαιτεί τη διατήρηση λογιστικών αρχείων για έξι χρόνια, οπότε τα έσοδα του στούντιο δεν αλλάζουν.",
+      "Για μέλος που ζήτησε να διαγραφεί. Το όνομα, το email, το τηλέφωνο, η ημερομηνία γέννησης, οι σημειώσεις, η φωτογραφία, τα στοιχεία υγείας και οι συνδεδεμένες συσκευές αντικαθίστανται ή διαγράφονται, και ο κωδικός πρόσβασης αντικαθίσταται με έναν που δεν γνωρίζει κανείς. Οι πληρωμές, οι κρατήσεις και το ιστορικό συνεδριών παραμένουν ως έχουν, επειδή τα λογιστικά αρχεία πρέπει να κρατηθούν επτά χρόνια και να αρχειοθετηθούν για άλλα επτά, οπότε τα έσοδα του στούντιο δεν αλλάζουν.",
     eraseWarnBookings:
       "Το μέλος έχει {n} μελλοντικό/ά μάθημα/τα κλεισμένο/α. Η διαγραφή δεν τα ακυρώνει, και στη λίστα παρουσιών θα φαίνεται «Erased member». Ακύρωσέ τα πρώτα αν αυτό θέλει.",
     eraseConfirmLabel: "Γράψε το email του μέλους για επιβεβαίωση",
@@ -1660,6 +1735,33 @@ export const el: typeof en = {
     priceLive: "Ενεργό τώρα",
     priceNone: "Καμία προσφορά. Όλα τα πακέτα στην κανονική τιμή.",
     priceNow: "τώρα",
+    deskBookCta: "Κράτηση για μέλος",
+    deskBookTitle: "Κράτηση μέλους σε αυτό το μάθημα",
+    deskBookWhy:
+      "Ίδιοι κανόνες με την κράτηση από το μέλος: μία συνεδρία αφαιρείται από το πακέτο που λήγει πρώτο, και μέλος χωρίς συνεδρίες δεν γίνεται δεκτό.",
+    deskBookSearch: "Όνομα, email ή τηλέφωνο",
+    deskBookFind: "Αναζήτηση",
+    deskBookAdd: "Κράτηση",
+    deskBookGuest: "Δεύτερο άτομο, για Duet (προαιρετικό)",
+    deskBookNobody: "Δεν βρέθηκε κανείς. Δοκίμασε μέρος του επωνύμου ή τα τελευταία ψηφία του τηλεφώνου.",
+    deskBooked: "μπήκε στο μάθημα και ενημερώθηκε",
+    deskBookErrors: {
+      NO_CREDITS: "δεν έχει συνεδρίες. Πούλησέ του πρώτα.",
+      CLASS_FULL: "το μάθημα είναι πλήρες.",
+      ALREADY_BOOKED: "έχει ήδη κράτηση σε αυτό το μάθημα.",
+      EMAIL_UNVERIFIED: "το email του δεν έχει επιβεβαιωθεί ποτέ. Επιβεβαίωσέ το από τη σελίδα του.",
+      INTAKE_REQUIRED: "δεν έχει απαντήσει ακόμη τις ερωτήσεις για το pilates του. Συμπλήρωσέ τις από τη σελίδα του.",
+      TOO_LATE: "το μάθημα έχει ήδη ξεκινήσει.",
+      SESSIONS_EXPIRE_FIRST: "οι συνεδρίες του λήγουν πριν από αυτό το μάθημα.",
+      CREDITS_NOT_VALID_HERE: "οι συνεδρίες του δεν μπορούν να χρησιμοποιηθούν σε αυτό το μάθημα.",
+      NEEDS_PERSONAL_CREDIT: "αυτή η ώρα χρειάζεται Ατομική συνεδρία.",
+      NEEDS_DUET_CREDIT: "αυτή η ώρα χρειάζεται Duet συνεδρία.",
+      DUET_IS_FOR_TWO: "η Duet είναι για δύο, οπότε χρειάζεται δεύτερο όνομα.",
+      ONE_PER_DAY: "το πακέτο του επιτρέπει ένα μάθημα την ημέρα και έχει ήδη ένα.",
+      PERSONAL_TOO_LATE: "οι κρατήσεις κλείνουν στο τέλος της προηγούμενης μέρας.",
+      NOT_FOUND: "το μέλος δεν βρέθηκε.",
+      FAILED: "δεν αποθηκεύτηκε. Δοκίμασε ξανά.",
+    } as Record<string, string>,
     priceWas: "ήταν",
   },
   notices: {
@@ -1698,8 +1800,6 @@ export const el: typeof en = {
       "Το email και το τηλέφωνό σου είναι ο τρόπος που σε βρίσκει το στούντιο όταν αλλάζει ένα μάθημα, γι' αυτό αλλάζουν με ένα μήνυμα σε εμάς και όχι από εδώ. Στείλε μας μήνυμα από τη σελίδα επικοινωνίας και τα ενημερώνουμε.",
     birthDate: "Ημερομηνία γέννησης",
     ageIs: "{n} ετών",
-    height: "Ύψος (εκ.)",
-    weight: "Βάρος (κιλά)",
     photoAlt: "Η φωτογραφία του προφίλ σου",
     photoAdd: "Πρόσθεσε φωτογραφία",
     photoChange: "Άλλαξε φωτογραφία",
@@ -1810,6 +1910,12 @@ export const el: typeof en = {
     hasAccount: "Έχεις ήδη λογαριασμό;",
     signIn: "Σύνδεση",
     signUp: "Δημιουργία λογαριασμού",
+    termsAcceptPrefix: "Έχω διαβάσει και αποδέχομαι τους",
+    termsAcceptJoin: "και την",
+    termsAcceptWhy:
+      "Υποχρεωτικό. Καλύπτει πώς λειτουργούν οι συνεδρίες και οι ακυρώσεις, και τι κάνει το στούντιο με τα στοιχεία σου.",
+    legalAcceptCta: "Αποδέχομαι",
+    errTerms: "Διάβασε και αποδέξου τους όρους και την πολιτική απορρήτου.",
     marketingOptIn: "Στείλτε μου προσφορές, νέα και νέα μαθήματα",
     marketingOptInWhy:
       "Προαιρετικό. Μπορείς να το απενεργοποιήσεις όποτε θέλεις.",
@@ -1875,6 +1981,9 @@ export const el: typeof en = {
     alreadyBooked: "Έχεις ήδη κλείσει αυτό το μάθημα.",
     classFull: "Το μάθημα είναι πλήρες.",
     tooLate: "Οι κρατήσεις για αυτό το μάθημα έκλεισαν.",
+    intakeNeeded:
+      "Μένει ένα βήμα πριν κλείσεις θέση: τρεις γρήγορες ερωτήσεις για το pilates σου, ώστε να ξέρουμε την αίθουσα πριν μπεις σε αυτή.",
+    intakeNeededCta: "Απάντησέ τις τώρα",
     unverified:
       "Επιβεβαίωσε τη διεύθυνση email σου πριν κλείσεις θέση. Σου στείλαμε εξαψήφιο κωδικό όταν έγινε η εγγραφή.",
     unverifiedCta: "Καταχώρησε τον κωδικό",
@@ -2034,6 +2143,45 @@ export const el: typeof en = {
       "Αρκετοί κωδικοί για τώρα. Δοκίμασε ξανά σε περίπου {n} λεπτά, ή ζήτησε βοήθεια από το στούντιο.",
     errSendFailed:
       "Δεν μπορέσαμε να στείλουμε το email τώρα. Δοκίμασε ξανά σε λίγο.",
+  },
+  intake: {
+    eyebrow: "Σχεδόν έτοιμα",
+    title: "Πριν το πρώτο σου μάθημα.",
+    body: "Τρεις ερωτήσεις, ώστε όποιος διδάσκει να ξέρει την αίθουσα πριν μπεις σε αυτή. Μπορείς να τις αλλάξεις αργότερα από τον λογαριασμό σου.",
+    levelLabel: "Πού θα έβαζες τον εαυτό σου;",
+    levelWhy: "Δεν υπάρχει λάθος απάντηση. Δεν είναι τεστ και δεν αλλάζει ποια μαθήματα μπορείς να κλείσεις.",
+    levels: {
+      BEGINNER: "Αρχάριος",
+      INTERMEDIATE: "Μέσο επίπεδο",
+      ADVANCED: "Προχωρημένος",
+    },
+    experienceLabel: "Πόσο καιρό κάνεις pilates;",
+    experience: {
+      NONE: "Δεν έχω κάνει ποτέ",
+      UNDER_6M: "Λιγότερο από 6 μήνες",
+      UNDER_1Y: "Έως έναν χρόνο",
+      ONE_TO_TWO: "1 με 2 χρόνια",
+      OVER_TWO: "Πάνω από 2 χρόνια",
+    },
+    conditionLabel: "Υπάρχει κάποια πάθηση που πρέπει να προσέξουμε;",
+    conditionWhy: "Τραυματισμός, πρόσφατο χειρουργείο, εγκυμοσύνη, οτιδήποτε αλλάζει το τι πρέπει να κάνεις στο reformer. Το βλέπει μόνο το στούντιο.",
+    conditionNone: "Τίποτα να αναφέρω",
+    conditionOther: "Ναι, να εξηγήσω",
+    conditionPlaceholder: "Για παράδειγμα: πόνος στη μέση, γόνατο που δεν αντέχει βαθύ κάμψιμο, έξι εβδομάδες μετά τη γέννα.",
+    cta: "Έτοιμος, πάμε στο πρόγραμμα",
+    changeLater: "Μπορείς να τα αλλάξεις όλα αυτά στον λογαριασμό σου όποτε αλλάξουν.",
+    errIncomplete: "Απάντησε και στις τρεις ερωτήσεις.",
+    errTooLong: "Είναι λίγο μεγάλο. Συντόμευσέ το.",
+    errSaving: "Δεν αποθηκεύτηκε. Δοκίμασε ξανά.",
+    saved: "Αποθηκεύτηκε.",
+    sectionTitle: "Το pilates σου",
+    sectionBody: "Τι γνωρίζει το στούντιο για την εμπειρία σου και για ό,τι πρέπει να προσέξει.",
+    notAnswered: "Δεν έχει απαντηθεί",
+    deskLevel: "Επίπεδο",
+    deskExperience: "Εμπειρία",
+    deskCondition: "Να προσέξετε",
+    deskNothing: "Δεν δήλωσε κάτι",
+    deskUnanswered: "Δεν ρωτήθηκε ποτέ",
   },
   legal: {
     privacyTitle: "Πολιτική απορρήτου",

@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { VerifyForm } from "@/components/auth/VerifyForm";
 import { currentUser, isVerified } from "@/lib/auth";
+import { intakePath, intakeRequired } from "@/lib/intake";
 import { challengeState } from "@/lib/verify";
 
 export const metadata: Metadata = { title: "Confirm your email" };
@@ -36,13 +37,23 @@ export default async function VerifyPage({
      redirect, so anything that is not a path on this site is ignored. */
   const to = next && /^\/[^/\\]/.test(next) ? next : "/timetable";
 
-  if (isVerified(user)) redirect(to);
+  if (isVerified(user)) redirect(intakeRequired(user) ? intakePath(to) : to);
+
+  /**
+   * And where the code screen sends them once it succeeds.
+   *
+   * The three questions come next for a new account, so the destination handed
+   * to the form is the welcome step carrying the real destination inside it.
+   * Doing it here rather than in the form keeps the decision on the server,
+   * where the account is: a client cannot decide it has answered.
+   */
+  const afterCode = intakeRequired(user) ? intakePath(to) : to;
 
   return (
     <Suspense>
       <VerifyForm
         email={user.email}
-        next={to}
+        next={afterCode}
         sendFailed={sent === "0"}
         state={(() => {
           const s = challengeState(user.id);

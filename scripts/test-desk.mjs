@@ -8,7 +8,7 @@
  * convenience for the studio; the lock is the thing standing between a public
  * room and four hundred people's phone numbers.
  */
-import { markVerified } from "./fixture-verify.mjs";
+import { markOnboarded, markVerified } from "./fixture-verify.mjs";
 
 const B = process.argv[2] ?? "http://localhost:3000";
 
@@ -75,11 +75,12 @@ async function member(tag) {
       email,
       phone: uniquePhone(),
       password: "test12345",
-      serviceOptIn: true,
+      serviceOptIn: true, termsAccepted: true,
     },
   });
   /* Confirm the address the way a member would; /account redirects to the code
      box until it is done, so the id below would come back null. */
+  markOnboarded(email);
   if (markVerified(email) !== 1) {
     throw new Error(`fixture ${email} did not verify`);
   }
@@ -802,7 +803,7 @@ console.log("\n11b. The desk cannot sell to an unconfirmed account either");
       email,
       phone: uniquePhone(),
       password: "test12345",
-      serviceOptIn: true,
+      serviceOptIn: true, termsAccepted: true,
     },
   });
   check("an account registers and stays unconfirmed", reg.json?.verify === true, reg.json);
@@ -850,6 +851,7 @@ console.log("\n11b. The desk cannot sell to an unconfirmed account either");
 
   /* The remedy, in the order reception would actually do it: confirm, then sell. */
   check("the member confirms", markVerified(email) === 1);
+  markOnboarded(email);
   const sold = await req(staff, "/api/admin/sessions", {
     method: "POST",
     body: { userId: id, credits: 8, amountCents: 11000, method: "cash" },

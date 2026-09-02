@@ -37,7 +37,19 @@ import {
   spendBlockReason,
 } from "../src/lib/credits";
 import { activeInstructors, upcomingAppointments } from "../src/lib/admin";
-import { assignInstructor } from "../src/lib/reception";
+import { notOnboarded } from "../src/lib/api-guard";
+import {
+  CONDITION_MAX_CHARS,
+  PILATES_EXPERIENCE,
+  PILATES_LEVELS,
+  intakeRequired,
+} from "../src/lib/intake";
+import {
+  assignInstructor,
+  bookForMember,
+  memberDetail,
+  updateContact,
+} from "../src/lib/reception";
 import {
   PERSONAL_DURATION_MINUTES,
   PERSONAL_SLOT_DAYS,
@@ -1490,6 +1502,347 @@ async function main() {
       Math.floor(comp!.usableTo!.getTime() / 1000) === closeOfDay,
     { usableTo: comp?.usableTo?.toISOString(), expected: closeOfDay },
   );
+
+  /* ------------------- 16. what a new member is asked before they train */
+  console.log("\n16. What a new member is asked before they train");
+
+  /**
+   * Three questions after the emailed code, and the gate that makes them real.
+   *
+   * A screen somebody is redirected to is a suggestion: an old tab, a typed
+   * URL, a phone restoring yesterday's page all walk straight past it. So the
+   * rule lives on the booking route, and this section is mostly about proving
+   * that the gate catches the right people and, just as important, lets
+   * everybody else through.
+   */
+  const clsIntake = classAtDay(9);
+  scratch15.push(clsIntake);
+
+  /* A member who signed up today: must answer before booking. */
+  const fresh = await mkUser();
+  grantCredits({ userId: fresh.id, credits: 2, validityDays: 30 });
+
+  check(
+    "an account created today is asked the three questions",
+    intakeRequired({
+      intakeAt: null,
+      createdAt: new Date(),
+      role: "MEMBER",
+    }),
+  );
+  check(
+    "the API refuses to book until they are answered",
+    notOnboarded({ role: "MEMBER", intakeAt: null, createdAt: new Date() }) !== null,
+  );
+
+  /**
+   * And the people who must not be caught by it.
+   *
+   * The studio asked for this of new sign-ups. A member from July has been
+   * booking classes for weeks, and stopping them at a new gate on their next
+   * visit would be a change they never agreed to. Staff are not members and do
+   * not train, so asking the owner for their pilates level before the console
+   * opens would be absurd.
+   */
+  const july = studioAddDays(new Date(), -40);
+  check(
+    "an account from before the studio started asking is not stopped",
+    !intakeRequired({ intakeAt: null, createdAt: july, role: "MEMBER" }),
+  );
+  check(
+    "and neither is a staff account",
+    !intakeRequired({ intakeAt: null, createdAt: new Date(), role: "ADMIN" }),
+  );
+  check(
+    "nor a member who has already answered",
+    !intakeRequired({
+      intakeAt: new Date(),
+      createdAt: new Date(),
+      role: "MEMBER",
+    }),
+  );
+
+  /* Answering it, the way the route does. */
+  const answer = (
+    userId: string,
+    level: string,
+    since: string,
+    condition: string | null,
+  ) => {
+    sqlite
+      .prepare(
+        `update users
+            set pilates_level = ?, pilates_since = ?, health_condition = ?,
+                intake_at = coalesce(intake_at, unixepoch())
+          where id = ?`,
+      )
+      .run(level, since, condition, userId);
+    return db.select().from(users).where(eq(users.id, userId)).get()!;
+  };
+
+  const answered = answer(fresh.id, "BEGINNER", "NONE", null);
+  check(
+    "answering records the date, so the step is done",
+    answered.intakeAt !== null,
+    answered.intakeAt,
+  );
+  check(
+    "nothing to declare is stored as nothing, not as a blank to chase",
+    answered.healthCondition === null && answered.intakeAt !== null,
+  );
+  check(
+    "and the gate opens",
+    notOnboarded({
+      role: "MEMBER",
+      intakeAt: answered.intakeAt,
+      createdAt: answered.createdAt,
+    }) === null,
+  );
+  const nowBooks = bookClass(fresh.id, clsIntake);
+  check("so the booking goes through", nowBooks.ok, nowBooks);
+
+  /* A declared condition is kept as typed. */
+  const declared = await mkUser();
+  const withCondition = answer(
+    declared.id,
+    "INTERMEDIATE",
+    "ONE_TO_TWO",
+    "Disc injury, no loaded flexion",
+  );
+  check(
+    "a declared condition is kept in the member's own words",
+    withCondition.healthCondition === "Disc injury, no loaded flexion",
+    withCondition.healthCondition,
+  );
+  check(
+    "with the level and the experience beside it",
+    withCondition.pilatesLevel === "INTERMEDIATE" &&
+      withCondition.pilatesSince === "ONE_TO_TWO",
+  );
+
+  /* The desk can answer for a member, and cannot invent a value. */
+  const overCounter = await mkUser();
+  const good = await updateContact(overCounter.id, {
+    pilatesLevel: "ADVANCED",
+    pilatesSince: "OVER_TWO",
+    healthCondition: "",
+  });
+  check("the desk can fill it in over the counter", good.ok, good);
+  const deskRow = db
+    .select()
+    .from(users)
+    .where(eq(users.id, overCounter.id))
+    .get()!;
+  check(
+    "which also marks the step done, so the member is not asked again",
+    deskRow.intakeAt !== null && deskRow.pilatesLevel === "ADVANCED",
+    { intakeAt: deskRow.intakeAt, level: deskRow.pilatesLevel },
+  );
+  check(
+    "an empty condition at the desk means nothing to declare",
+    deskRow.healthCondition === null,
+  );
+  const typo = await updateContact(overCounter.id, { pilatesLevel: "Beginer" });
+  check(
+    "a mistyped level is refused rather than written",
+    !typo.ok && typo.code === "LEVEL_INVALID",
+    typo,
+  );
+  const typo2 = await updateContact(overCounter.id, { pilatesSince: "AGES" });
+  check(
+    "and so is a mistyped experience",
+    !typo2.ok && typo2.code === "EXPERIENCE_INVALID",
+    typo2,
+  );
+  const tooLong = await updateContact(overCounter.id, {
+    healthCondition: "x".repeat(CONDITION_MAX_CHARS + 1),
+  });
+  check(
+    "an overlong condition is refused",
+    !tooLong.ok && tooLong.code === "CONDITION_TOO_LONG",
+    tooLong,
+  );
+
+  /* The desk sees it on the member's card, and only there. */
+  const card = await memberDetail(declared.id);
+  check(
+    "the member's own card carries the three answers",
+    card !== null &&
+      card.healthCondition === "Disc injury, no loaded flexion" &&
+      card.pilatesLevel === "INTERMEDIATE" &&
+      card.intakeAt !== null,
+    card
+      ? { level: card.pilatesLevel, condition: card.healthCondition }
+      : null,
+  );
+
+  /* The words, in both languages, and no em dash. */
+  for (const lang of ["en", "el"] as const) {
+    const w = dictionaries[lang].intake as Record<string, unknown>;
+    const levels = w.levels as Record<string, string>;
+    const experience = w.experience as Record<string, string>;
+    check(
+      `the questions are written in ${lang}`,
+      typeof w.title === "string" &&
+        typeof w.conditionLabel === "string" &&
+        !JSON.stringify(w).includes(EM_DASH),
+    );
+    check(
+      `and every level and experience option has a ${lang} label`,
+      PILATES_LEVELS.every((k) => typeof levels[k] === "string" && levels[k]) &&
+        PILATES_EXPERIENCE.every(
+          (k) => typeof experience[k] === "string" && experience[k],
+        ),
+      { levels, experience },
+    );
+  }
+
+  /* --------------------- 17. reception booking a member over the phone */
+  console.log("\n17. Reception booking a member over the phone");
+
+  /**
+   * The studio's reason for asking: three people in one class and one in
+   * another is a Tuesday that could have been two full classes, and the fix is
+   * somebody at the desk ringing round.
+   *
+   * The rules matter more than the feature. A desk that can book without
+   * spending a session, or with an override for the member who has run out, is
+   * convenient twice a month and wrong every day after that: the balance on the
+   * member's screen stops matching what they have used, and the first person to
+   * notice is a member who counted differently from the studio. So every check
+   * here is about the desk being held to exactly the member's own rules.
+   */
+  const deskClass = classAtDay(11);
+  const deskClass2 = classAtDay(12);
+  scratch15.push(deskClass, deskClass2);
+
+  const phoned = await mkUser();
+  answer(phoned.id, "BEGINNER", "NONE", null);
+  grantCredits({ userId: phoned.id, credits: 1, validityDays: 30 });
+
+  const desk1 = await bookForMember({
+    sessionId: deskClass,
+    userId: phoned.id,
+    staffName: "Suite",
+  });
+  check("the desk can book a member into a class", desk1.ok, desk1);
+  check(
+    "and it spends one of their sessions, not nothing",
+    desk1.ok && desk1.balance === 0,
+    desk1.ok ? desk1.balance : desk1,
+  );
+
+  /* The refusal that is the whole point of the design. */
+  const broke = await bookForMember({
+    sessionId: deskClass2,
+    userId: phoned.id,
+    staffName: "Suite",
+  });
+  check(
+    "a member with nothing left is refused rather than booked for free",
+    !broke.ok && broke.code === "NO_CREDITS",
+    broke,
+  );
+
+  /* And the ledger says who did it, which is the difference between "a session
+     was used" and "reception booked them in on the phone". */
+  const deskLine = sqlite
+    .prepare(
+      `select note from credit_ledger
+        where user_id = ? and note like 'Booked at the desk%'
+        order by created_at desc limit 1`,
+    )
+    .get(phoned.id) as { note: string } | undefined;
+  check(
+    "the ledger records which member of staff booked it",
+    Boolean(deskLine?.note?.includes("Suite")),
+    deskLine,
+  );
+
+  /* An unconfirmed address cannot hold a seat, at the desk either. */
+  const unconfirmed = db
+    .insert(users)
+    .values({
+      email: `desk-unverified-${Date.now()}@apex.test`,
+      name: "Never Confirmed",
+      phone: `+35799${String(Math.floor(Math.random() * 900000) + 100000)}`,
+      passwordHash: await hashPassword("x".repeat(12)),
+      isTest: true,
+      emailVerifiedAt: null,
+    })
+    .returning()
+    .get();
+  made.push(unconfirmed.id);
+  grantCredits({ userId: unconfirmed.id, credits: 2, validityDays: 30 });
+  const noEmail = await bookForMember({
+    sessionId: deskClass2,
+    userId: unconfirmed.id,
+    staffName: "Suite",
+  });
+  check(
+    "an account that never confirmed its email is refused at the desk too",
+    !noEmail.ok && noEmail.code === "EMAIL_UNVERIFIED",
+    noEmail,
+  );
+
+  /* A group session still cannot buy a noon appointment from the desk. */
+  const slots17 = openAppointments();
+  if (slots17.length) {
+    const wrongKind = await mkUser();
+    answer(wrongKind.id, "BEGINNER", "NONE", null);
+    grantCredits({ userId: wrongKind.id, credits: 1, validityDays: 30 });
+    const refused = await bookForMember({
+      sessionId: slots17[0]!.id,
+      userId: wrongKind.id,
+      staffName: "Suite",
+    });
+    check(
+      "and a group session still cannot pay for an appointment at the desk",
+      !refused.ok &&
+        (refused.code === "NEEDS_PERSONAL_CREDIT" ||
+          refused.code === "CREDITS_NOT_VALID_HERE"),
+      refused,
+    );
+  } else {
+    check("and a group session still cannot pay for an appointment at the desk", true);
+  }
+
+  /* A member who does not exist, and a class that is full. */
+  const ghost = await bookForMember({
+    sessionId: deskClass2,
+    userId: "not-a-real-id",
+    staffName: "Suite",
+  });
+  check("an unknown member is refused", !ghost.ok && ghost.code === "NOT_FOUND", ghost);
+
+  const full = await mkUser();
+  answer(full.id, "BEGINNER", "NONE", null);
+  grantCredits({ userId: full.id, credits: 1, validityDays: 30 });
+  const twice = await bookForMember({
+    sessionId: deskClass,
+    userId: phoned.id,
+    staffName: "Suite",
+  });
+  check(
+    "and booking the same member into the same class twice is refused",
+    !twice.ok,
+    twice,
+  );
+
+  /* The words the console shows, in both languages. */
+  for (const lang of ["en", "el"] as const) {
+    const desk = dictionaries[lang].desk as Record<string, unknown>;
+    const errors = desk.deskBookErrors as Record<string, string>;
+    check(
+      `the desk's booking refusals are written in ${lang}`,
+      typeof desk.deskBookCta === "string" &&
+        ["NO_CREDITS", "CLASS_FULL", "EMAIL_UNVERIFIED", "INTAKE_REQUIRED"].every(
+          (k) => typeof errors[k] === "string" && errors[k].length > 0,
+        ) &&
+        !JSON.stringify(errors).includes(EM_DASH),
+      errors,
+    );
+  }
 
   for (const id of scratch15) {
     sqlite.prepare("delete from bookings where session_id = ?").run(id);

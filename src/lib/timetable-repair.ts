@@ -4,7 +4,9 @@ import {
   PERSONAL_SLOT_DAYS,
   PERSONAL_SLOT_HOURS,
 } from "./personal";
+import { classHoursOn } from "./rota";
 import { generateSessions } from "./schedule";
+import { STUDIO } from "./studio";
 import { studioStartOfDay } from "./time";
 
 /**
@@ -55,6 +57,8 @@ export type TimetableSync = {
   withdrawn: number;
   /** Weekly appointment slots written in. */
   personalTemplates: number;
+  /** Group class slots the rota calls for that the database was missing. */
+  classTemplates: number;
 };
 
 /** The one name every group class on the timetable carries. */
@@ -63,9 +67,9 @@ const FLOW = {
   nameEn: "Reformer Flow",
   nameEl: "Reformer Flow",
   descEn:
-    "One hour on the reformer, five people, one instructor watching all five. The work is built to your day rather than to a level printed on a timetable.",
+    "Fifty minutes on the reformer, five people, one instructor watching all five. The work is built to your day rather than to a level printed on a timetable.",
   descEl:
-    "Μία ώρα στο reformer, πέντε άτομα, ένας εκπαιδευτής που βλέπει και τα πέντε. Η άσκηση προσαρμόζεται στη μέρα σου και όχι σε ένα επίπεδο τυπωμένο σε ένα πρόγραμμα.",
+    "Πενήντα λεπτά στο reformer, πέντε άτομα, ένας εκπαιδευτής που βλέπει και τα πέντε. Η άσκηση προσαρμόζεται στη μέρα σου και όχι σε ένα επίπεδο τυπωμένο σε ένα πρόγραμμα.",
   focusEn: "Strength, control, alignment",
   focusEl: "Δύναμη, έλεγχος, ευθυγράμμιση",
 } as const;
@@ -76,9 +80,9 @@ const PERSONAL = {
   nameEn: "Personal or Duet",
   nameEl: "Ατομική ή Duet",
   descEn:
-    "The room to yourself, or to the two of you. An hour on whatever you want to work on, booked by the end of the day before so an instructor can be there for it.",
+    "The room to yourself, or to the two of you. Fifty minutes on whatever you want to work on, booked by the end of the day before so an instructor can be there for it.",
   descEl:
-    "Ο χώρος δικός σου, ή των δυο σας. Μία ώρα πάνω σε ό,τι θέλεις να δουλέψεις, με κράτηση μέχρι το τέλος της προηγούμενης μέρας ώστε να είναι εκεί εκπαιδευτής για εσένα.",
+    "Ο χώρος δικός σου, ή των δυο σας. Πενήντα λεπτά πάνω σε ό,τι θέλεις να δουλέψεις, με κράτηση μέχρι το τέλος της προηγούμενης μέρας ώστε να είναι εκεί εκπαιδευτής για εσένα.",
   focusEn: "One to one attention",
   focusEl: "Προσοχή ένας προς έναν",
 } as const;
@@ -89,6 +93,7 @@ export function repairTimetable(now = new Date()): TimetableSync {
     sessionsMoved: 0,
     withdrawn: 0,
     personalTemplates: 0,
+    classTemplates: 0,
   };
 
   /* Nothing to repair before the schema exists. */
@@ -256,6 +261,53 @@ export function repairTimetable(now = new Date()): TimetableSync {
        who teaches it is decided when the studio rings round after the booking
        lands. A name printed on the slot before anybody has agreed to work it is
        a promise the site is not in a position to make. */
+
+    /**
+     * Every hour the rota calls for, as a group template.
+     *
+     * The rota used to exist only inside the seed, so changing it reached a live
+     * database by re-seeding — which nobody will do to a database holding real
+     * bookings. When Saturday's close moved from 11:00 to 12:00, the new 11:00
+     * class existed in the code and nowhere a member could book it.
+     *
+     * Missing slots are added; nothing is removed. A template the rota does not
+     * mention is left alone on purpose, because the desk can add a one-off class
+     * and having it quietly deleted on the next boot would be far worse than an
+     * extra row.
+     */
+    const flowType = sqlite
+      .prepare("select id from class_types where slug = ? limit 1")
+      .get(FLOW.slug) as { id: string } | undefined;
+
+    if (flowType) {
+      const findSlot = sqlite.prepare(
+        `select id from class_templates
+          where day_of_week = ? and start_minutes = ?
+            and class_type_id in (select id from class_types where kind = 'GROUP')
+          limit 1`,
+      );
+      const addSlot = sqlite.prepare(
+        `insert into class_templates
+           (id, class_type_id, instructor_id, day_of_week, start_minutes,
+            duration_min, capacity, active)
+         values (?, ?, null, ?, ?, ?, ?, 1)`,
+      );
+
+      for (let day = 0; day <= 6; day++) {
+        for (const hour of classHoursOn(day)) {
+          if (findSlot.get(day, hour * 60)) continue;
+          addSlot.run(
+            crypto.randomUUID(),
+            flowType.id,
+            day,
+            hour * 60,
+            STUDIO.classLengthMinutes,
+            STUDIO.capacity,
+          );
+          out.classTemplates++;
+        }
+      }
+    }
   })();
 
   /**
@@ -271,7 +323,7 @@ export function repairTimetable(now = new Date()): TimetableSync {
    * and nothing on every boot after. `generateSessions` is idempotent, so even
    * the pathological case of it running twice creates nothing twice.
    */
-  if (out.personalTemplates > 0) {
+  if (out.personalTemplates > 0 || out.classTemplates > 0) {
     try {
       generateSessions(GENERATE_WEEKS, now);
     } catch (err) {

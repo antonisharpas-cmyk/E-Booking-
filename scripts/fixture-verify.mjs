@@ -55,3 +55,35 @@ export function markVerified(email) {
     )
     .run(email).changes;
 }
+
+/**
+ * Answer the three welcome questions for a fixture, by writing to the database.
+ *
+ * The same bargain as `markVerified` above, one gate later. Registration now has
+ * two mandatory steps rather than one: the emailed code, and then three
+ * questions about the member's pilates and anything to be careful of. A booking
+ * is refused until both are done — deliberately, because the alternative is five
+ * people on reformers and an instructor who does not know which of them is new.
+ *
+ * Every suite that books a class therefore has to get past it. `test-http`
+ * proves the gate and answers the questions over HTTP, the way a member does,
+ * because that is worth testing once properly. Everywhere else it is scaffolding
+ * in the way of the thing actually being tested, so it is stepped over here:
+ * three columns and the date the step was completed, nothing else touched.
+ *
+ * Returns rows changed, so a suite can assert rather than assume: a silent 0
+ * would leave the rest of the run testing an account that cannot book, and every
+ * failure afterwards would point at the wrong thing.
+ */
+export function markOnboarded(email, condition = null) {
+  return db()
+    .prepare(
+      `update users
+          set pilates_level  = coalesce(pilates_level, 'BEGINNER'),
+              pilates_since  = coalesce(pilates_since, 'NONE'),
+              health_condition = coalesce(health_condition, ?),
+              intake_at      = coalesce(intake_at, unixepoch())
+        where email = ?`,
+    )
+    .run(condition, email).changes;
+}

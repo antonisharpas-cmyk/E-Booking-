@@ -9,7 +9,7 @@
  * Runs against the test provider (no card, nothing charged), which exercises
  * exactly the same routes and the same fulfilment path as a real provider.
  */
-import { markVerified } from "./fixture-verify.mjs";
+import { markOnboarded, markVerified } from "./fixture-verify.mjs";
 
 const B = process.argv[2] ?? "http://localhost:3000";
 
@@ -87,11 +87,12 @@ async function member(tag) {
       email,
       phone: uniquePhone(),
       password: "test12345",
-      serviceOptIn: true,
+      serviceOptIn: true, termsAccepted: true,
     },
   });
   /* Confirm the address the way a member would. Without this every fixture in
      this suite is an account that may not pay for anything. */
+  markOnboarded(email);
   if (markVerified(email) !== 1) {
     throw new Error(`fixture ${email} did not verify`);
   }
@@ -293,10 +294,11 @@ console.log("\n8. Paying tells the member, once");
       email,
       phone: uniquePhone(),
       password: "test12345",
-      serviceOptIn: true,
+      serviceOptIn: true, termsAccepted: true,
     },
   });
   if (markVerified(email) !== 1) throw new Error(`fixture ${email} did not verify`);
+  markOnboarded(email);
   await req(buyer, "/api/auth/login", {
     method: "POST",
     body: { email, password: "test12345" },

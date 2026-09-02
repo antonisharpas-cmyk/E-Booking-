@@ -21,9 +21,10 @@ import { hashPassword } from "@/lib/auth";
  * wrong twice over.
  *
  * It is wrong legally. Every payment that member ever made is an accounting
- * record, and Cyprus requires those kept for six years; the obligation to keep
- * them is itself a lawful basis that survives the erasure request. Deleting the
- * person is required, deleting the invoice is not permitted.
+ * record, and the studio keeps those for seven years and then archives them for
+ * a further seven, fourteen in all; the obligation to keep them is itself a
+ * lawful basis that survives the erasure request. Deleting the person is
+ * required, deleting the invoice is not permitted.
  *
  * And it is wrong practically. Nine tables cascade off `users` — bookings,
  * purchases, credit batches, the credit ledger, reminders, notice reads, push
@@ -173,6 +174,19 @@ export async function erasePersonalData(
       heightCm: null,
       weightGrams: null,
       notes: null,
+      /**
+       * The three answers from the welcome step, and the condition above all.
+       *
+       * "Six weeks post-partum" or "recovering from a disc injury" is health
+       * data about a named person, and it is the single most sensitive thing
+       * this database holds. An erasure that left it behind would be the one
+       * field that mattered. The level and the experience go with it: on their
+       * own they are harmless, and attached to a row that is being erased they
+       * are still somebody's information.
+       */
+      healthCondition: null,
+      pilatesLevel: null,
+      pilatesSince: null,
       /* A password nobody has, rather than an empty string that some future
          comparison might treat as a match. Hashed properly so every code path
          that reads this column keeps reading the same shape of value. */

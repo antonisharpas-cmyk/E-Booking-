@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { bookClass, listMyBookings } from "@/lib/booking";
-import { notVerified } from "@/lib/api-guard";
+import { notOnboarded, notVerified } from "@/lib/api-guard";
 import { currentUser } from "@/lib/auth";
 import { getAvailableCredits } from "@/lib/credits";
 import { notifyBooked, nudgeReminders } from "@/lib/messaging/events";
@@ -28,6 +28,12 @@ export async function POST(req: Request) {
      holder it has moved. */
   const stop = notVerified(user);
   if (stop) return stop;
+  /* And the three questions, for an account that signed up after the studio
+     started asking. The seat is real: whoever is teaching should know who is
+     new and who has a shoulder before five people are on reformers, not
+     afterwards. See lib/intake.ts for why older accounts are not caught. */
+  const ask = notOnboarded(user);
+  if (ask) return ask;
 
   const parsed = bookSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

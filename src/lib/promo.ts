@@ -20,8 +20,8 @@ import { studioWallTimeToInstant } from "./time";
  *   spendUntil    the last class it can be spent *on*
  *
  * The credit system already understood the first and not the second, and without
- * the second the offer does not work: a member granted a free session on the 5th
- * could spend it on the 6th to book a class in November. The free session would
+ * the second the offer does not work: a member granted a free session on the 1st
+ * could spend it on the 2nd to book a class in November. The free session would
  * leak straight into the paid schedule and the opening-week constraint would mean
  * nothing. See `spendOneCredit`, which now takes the class date for exactly this.
  *
@@ -29,9 +29,9 @@ import { studioWallTimeToInstant } from "./time";
  *
  * **If the week fills up, widen it here.**
  *
- * The rota puts 59 classes and 295 seats in the week of the 14th, and Sunday the
- * 20th has none — the studio is closed Sundays, so the real last chance is
- * Saturday the 19th. One free session each therefore fits about 295 members if
+ * The rota puts a full week of classes and roughly 300 seats in the week of the
+ * 7th, and Sunday the 13th has none — the studio is closed Sundays, so the real
+ * last class is Saturday the 12th. One free session each therefore fits about 295 members if
  * every single one redeems, which is comfortable but not enormous. If the week
  * runs out, moving `spendUntil` and `expiresAt` a week later is a one-line change
  * and no member loses anything by it. That escape hatch is the reason the dates
@@ -66,22 +66,38 @@ export const PROMO = {
    * accounts predating the offer are development and staff ones.
    */
   grantFrom: at(2026, 8, 28),
-  grantUntil: at(2026, 9, 20),
+  /**
+   * And it stops when the offer does.
+   *
+   * This has to move whenever `spendUntil` moves, and it is the easy one to
+   * forget: leave it a week later than the spendable window and somebody who
+   * registers after the last class is handed a free session that cannot buy
+   * anything, ever. They would see it in their balance, try to use it, and be
+   * refused by a rule they were never told about. Better to make no promise than
+   * an empty one.
+   */
+  grantUntil: at(2026, 9, 13, 0, 0),
 
   /**
-   * The classes it may be spent on. Monday the 14th to the end of Saturday the
-   * 19th: Sunday the 20th has no classes at all, so ending on the 19th is
+   * The classes it may be spent on. Monday the 7th to the end of Saturday the
+   * 12th: Sunday the 13th has no classes at all, so ending on the 12th is
    * honest rather than restrictive.
    */
-  spendFrom: at(2026, 9, 14, 0, 0),
-  spendUntil: at(2026, 9, 19, 23, 59),
+  spendFrom: at(2026, 9, 7, 0, 0),
+  spendUntil: at(2026, 9, 12, 23, 59),
 
   /**
-   * And the last moment it can be spent at all. The same evening as the last
-   * class, because a session that cannot be spent on anything is not worth
-   * leaving in somebody's balance to confuse them.
+   * And the last moment it can be spent at all.
+   *
+   * The end of Sunday the 13th, a day *after* the last class it can buy. The two
+   * were the same evening before, which was tidy and slightly unkind: a member
+   * looking at their balance on Saturday night saw a session and a date that had
+   * both just gone. Giving the spend deadline one more day costs the studio
+   * nothing — there are no classes on Sunday for it to buy — and means the offer
+   * ends on a date the member can read rather than in the middle of the evening
+   * they were told about.
    */
-  expiresAt: at(2026, 9, 19, 23, 59),
+  expiresAt: at(2026, 9, 13, 23, 59),
 } as const;
 
 /** The offer, if a new account right now would qualify for it. */

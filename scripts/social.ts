@@ -268,7 +268,7 @@ const T = {
     single: "Just trying it?",
     singleLine: (p: string) => `A single class is ${p}.`,
     timetable: "The week",
-    timetableSub: "Every class 60 minutes · five reformers · book online",
+    timetableSub: "Every class 50 minutes · five reformers · book online",
     monFri: "Monday to Friday",
     sat: "Saturday",
     sun: "Sunday: closed",
@@ -278,7 +278,7 @@ const T = {
     factsHead: "What to expect",
     facts: [
       ["Five places", "Never a class you disappear into"],
-      ["60 minutes", "Every class, six days a week"],
+      ["50 minutes", "Every class, six days a week"],
       ["All levels", "One class, built around the five people in it"],
       ["Bring", "A towel, water, and gripped socks"],
     ],

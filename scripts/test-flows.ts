@@ -1027,20 +1027,36 @@ async function main() {
         month: "2-digit",
         day: "2-digit",
       }).format(d);
-    check("the week starts Monday 14 September", key(P.PROMO.spendFrom) === "2026-09-14", key(P.PROMO.spendFrom));
-    check("and ends Saturday 19 September", key(P.PROMO.spendUntil) === "2026-09-19", key(P.PROMO.spendUntil));
-    check("granting stops on 20 September", key(P.PROMO.grantUntil) === "2026-09-20", key(P.PROMO.grantUntil));
+    check("the week starts Monday 7 September", key(P.PROMO.spendFrom) === "2026-09-07", key(P.PROMO.spendFrom));
+    check("and ends Saturday 12 September", key(P.PROMO.spendUntil) === "2026-09-12", key(P.PROMO.spendUntil));
+    check("granting stops on 13 September", key(P.PROMO.grantUntil) === "2026-09-13", key(P.PROMO.grantUntil));
+    /* The one that would go unnoticed: granting must never outlive the window
+       the session can be spent in, or a new account is handed a dead credit. */
+    check(
+      "and never outlives the last class it could buy",
+      P.PROMO.grantUntil.getTime() <= P.PROMO.spendUntil.getTime() + 24 * 60 * 60 * 1000,
+      { grantUntil: key(P.PROMO.grantUntil), spendUntil: key(P.PROMO.spendUntil) },
+    );
     /* The studio is closed on Sundays, so a window ending on the 20th would
        promise a day with no classes in it. */
     check("the last day of the window is not a Sunday", studioDayOfWeek(P.PROMO.spendUntil) !== 0);
 
     /* The wording has to name the window, or the offer is unusable. */
     const W = await import("../src/lib/messaging/wording");
-    const words = W.promoWords({ credits: 1, from: P.PROMO.spendFrom, to: P.PROMO.spendUntil });
-    check("the message names both dates", /14 September/.test(words.en.body) && /19 September/.test(words.en.body), words.en.body);
+    /* Called the way events.ts calls it, expiry included. The two dates used to
+       be the same evening, so leaving `expires` out still produced the right
+       words; now that the spend deadline outlives the last class by a day, a
+       caller that omits it quietly advertises the wrong date. */
+    const words = W.promoWords({
+      credits: 1,
+      from: P.PROMO.spendFrom,
+      to: P.PROMO.spendUntil,
+      expires: P.PROMO.expiresAt,
+    });
+    check("the message names both dates", /7 September/.test(words.en.body) && /12 September/.test(words.en.body), words.en.body);
     /* The expiry date has to be in the words, or a member saves the session for
        a week that no longer accepts it. */
-    check("and says when it expires", /expires on 19 September/.test(words.en.body), words.en.body);
+    check("and says when it expires", /expires on 13 September/.test(words.en.body), words.en.body);
     /* No em dash: the studio reads one as machine-written. */
     check("and is written without an em dash", !words.en.body.includes("—") && !words.el.body.includes("—"), words.en.body);
     check("the Greek version names them too", /Σεπτεμβρίου/.test(words.el.body), words.el.body);

@@ -15,6 +15,7 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { repairCatalogue } from "@/lib/catalogue-repair";
 import { PACKS } from "@/lib/packs";
+import { SATURDAY_CLASS_HOURS, WEEKDAY_CLASS_HOURS } from "@/lib/rota";
 import { REMINDER_DEFAULT_MINUTES } from "@/lib/profile";
 import { STUDIO } from "@/lib/studio";
 import { db, sqlite } from "./index";
@@ -224,8 +225,10 @@ const INSTRUCTORS = [
 const CLASS_LENGTH_MIN = STUDIO.classLengthMinutes;
 const CLASS_CAPACITY = STUDIO.capacity;
 
-const WEEKDAY_SLOTS = [6, 7, 8, 9, 10, 11, 15, 16, 17, 18, 19];
-const SATURDAY_SLOTS = [7, 8, 9, 10];
+/* The rota itself lives in lib/rota.ts, so a live database can be repaired to
+   match it without being re-seeded. See the note at the top of that file. */
+const WEEKDAY_SLOTS = [...WEEKDAY_CLASS_HOURS];
+const SATURDAY_SLOTS = [...SATURDAY_CLASS_HOURS];
 
 /** Deterministic class-type rota so the week has a sensible mix. */
 function typeForSlot(

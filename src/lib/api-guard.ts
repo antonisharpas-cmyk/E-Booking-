@@ -8,6 +8,7 @@ import {
   requireUser,
   requireVerified,
 } from "@/lib/auth";
+import { intakeRequired } from "@/lib/intake";
 
 /**
  * The two guards every route starts with, in one place.
@@ -134,6 +135,28 @@ export function notVerified(user: {
 }): NextResponse | null {
   if (isVerified(user)) return null;
   return NextResponse.json({ error: "EMAIL_UNVERIFIED" }, { status: 403 });
+}
+
+/**
+ * The three questions, still unanswered.
+ *
+ * Used by the booking routes and nothing else. The welcome step is a screen a
+ * member is *sent* to, and a screen can be walked around: typing a booking URL,
+ * an old tab, a phone that restored yesterday's page. So the rule lives on the
+ * routes that matter rather than on the redirect, which is the difference
+ * between a prompt and a requirement.
+ *
+ * Deliberately narrow. It guards taking a seat in a class, not reading the
+ * timetable or the price list: somebody who has not answered can look at
+ * everything, and is asked at the one moment the answer is needed.
+ */
+export function notOnboarded(user: {
+  role: string;
+  intakeAt: Date | null;
+  createdAt: Date;
+}): NextResponse | null {
+  if (!intakeRequired(user)) return null;
+  return NextResponse.json({ error: "INTAKE_REQUIRED" }, { status: 403 });
 }
 
 /** Reads a JSON body without throwing on an empty or malformed one. */

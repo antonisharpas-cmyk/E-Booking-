@@ -8,7 +8,7 @@
  * cosmetic bug: it is either a member who was not told their class was
  * cancelled, or an offer sent to somebody who explicitly said no.
  */
-import { markVerified } from "./fixture-verify.mjs";
+import { markOnboarded, markVerified } from "./fixture-verify.mjs";
 
 const B = process.argv[2] ?? "http://localhost:3000";
 const OWNER = { email: "owner@apexpilates.cy", password: "ownerdev123" };
@@ -86,13 +86,14 @@ async function member(tag, { marketing = false } = {}) {
       email,
       phone: nextPhone(),
       password: "test12345",
-      serviceOptIn: true,
+      serviceOptIn: true, termsAccepted: true,
       marketingOptIn: marketing,
     },
   });
   /* Confirm the address the way a member would. An unverified account is left
      out of nothing — consent is consent — but it cannot reach /account, and
      several checks below read the member's own screen. */
+  markOnboarded(email);
   if (reg.json?.ok && markVerified(email) !== 1) {
     throw new Error(`fixture ${email} did not verify`);
   }
@@ -129,7 +130,7 @@ const fresh = await member("fresh");
     body: {
       name: "Notify fresh",
       marketingOptIn: false,
-      serviceOptIn: true,
+      serviceOptIn: true, termsAccepted: true,
       notifyEmail: true,
       notifySms: false,
       notifyPush: false,
@@ -158,7 +159,7 @@ console.log("\n2. Turning the channels that are theirs to turn");
     body: {
       name: "Notify fresh",
       marketingOptIn: true,
-      serviceOptIn: true,
+      serviceOptIn: true, termsAccepted: true,
       notifyEmail: false,
       notifySms: true,
       notifyPush: true,
@@ -419,7 +420,7 @@ console.log("\n7. Accepting offers opens SMS");
     body: {
       name: "Notify later",
       marketingOptIn: true,
-      serviceOptIn: true,
+      serviceOptIn: true, termsAccepted: true,
       notifyEmail: true,
       notifySms: false,
       notifyPush: true,
@@ -436,7 +437,7 @@ console.log("\n7. Accepting offers opens SMS");
     body: {
       name: "Notify later",
       marketingOptIn: true,
-      serviceOptIn: true,
+      serviceOptIn: true, termsAccepted: true,
       notifyEmail: true,
       notifySms: false,
       notifyPush: true,
@@ -1021,7 +1022,7 @@ console.log("\n17. One phone number, one account");
       email: `phone-one-${Date.now()}@apex.test`,
       phone,
       password: "test12345",
-      serviceOptIn: true,
+      serviceOptIn: true, termsAccepted: true,
     },
   });
   check("the first account is created", first.json?.ok === true, first.json);
@@ -1033,7 +1034,7 @@ console.log("\n17. One phone number, one account");
       email: `phone-two-${Date.now()}@apex.test`,
       phone,
       password: "test12345",
-      serviceOptIn: true,
+      serviceOptIn: true, termsAccepted: true,
     },
   });
   check("the same number is refused", same.status === 409, same.status);
@@ -1048,7 +1049,7 @@ console.log("\n17. One phone number, one account");
       email: `phone-three-${Date.now()}@apex.test`,
       phone: phone.replace("+357", "00357").replace(/(\d{2})(\d{6})$/, "$1 $2"),
       password: "test12345",
-      serviceOptIn: true,
+      serviceOptIn: true, termsAccepted: true,
     },
   });
   check(
@@ -1064,7 +1065,7 @@ console.log("\n17. One phone number, one account");
       email: `phone-short-${Date.now()}@apex.test`,
       phone: "9912",
       password: "test12345",
-      serviceOptIn: true,
+      serviceOptIn: true, termsAccepted: true,
     },
   });
   check("too few digits is refused", short.status === 400, short.status);
@@ -1076,7 +1077,7 @@ console.log("\n17. One phone number, one account");
       email: `phone-long-${Date.now()}@apex.test`,
       phone: "+35799123456789012345",
       password: "test12345",
-      serviceOptIn: true,
+      serviceOptIn: true, termsAccepted: true,
     },
   });
   check("too many digits is refused", long.status === 400, long.status);
@@ -1088,7 +1089,7 @@ console.log("\n17. One phone number, one account");
       email: "cristiano",
       phone: "+35799000111",
       password: "test12345",
-      serviceOptIn: true,
+      serviceOptIn: true, termsAccepted: true,
     },
   });
   check("an address with no @ is refused", badEmail.status === 400, badEmail.status);

@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { LegalModal } from "@/components/auth/LegalModal";
 import { Button } from "@/components/ui/Button";
 import { Monogram } from "@/components/ui/Monogram";
 import { useI18n } from "@/i18n/LanguageProvider";
+import type { LegalKind } from "@/lib/legal";
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const { t } = useI18n();
@@ -28,6 +30,17 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * The terms box, held in state rather than left to the DOM.
+   *
+   * It can be ticked in two places — the box itself, and the accept button
+   * inside the document — and both have to mean the same thing. A plain
+   * uncontrolled checkbox would let the modal's button and the box disagree,
+   * which is the one thing consent must never do.
+   */
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [reading, setReading] = useState<LegalKind | null>(null);
+
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
@@ -44,6 +57,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             password: form.get("password"),
             serviceOptIn: form.get("serviceOptIn") === "on",
             marketingOptIn: form.get("marketingOptIn") === "on",
+            termsAccepted,
           };
 
     /* Said here in the reader's own language rather than leaving them to
@@ -86,6 +100,9 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       }
       if (form.get("serviceOptIn") !== "on") {
         return stop(t.auth.errServiceConsent);
+      }
+      if (!termsAccepted) {
+        return stop(t.auth.errTerms);
       }
     }
 
@@ -131,6 +148,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         PHONE_REQUIRED: t.auth.errPhone,
         PHONE_INVALID: t.auth.errPhone,
         SERVICE_CONSENT_REQUIRED: t.auth.errServiceConsent,
+        TERMS_REQUIRED: t.auth.errTerms,
         NAME_REQUIRED: t.auth.errName,
         EMAIL_INVALID: t.auth.errEmail,
         PASSWORD_SHORT: t.auth.errPassword,
@@ -260,6 +278,54 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                   </span>
                 </label>
 
+                {/* Required, and the only consent here with a document behind
+                    it. The two links open that document over the form rather
+                    than navigating away from it: see LegalModal. */}
+                <label className="flex cursor-pointer items-start gap-3 text-[12px] text-mocha-600">
+                  <input
+                    type="checkbox"
+                    name="termsAccepted"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.currentTarget.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-mocha-300 accent-mocha-600"
+                  />
+                  <span>
+                    {t.auth.termsAcceptPrefix}{" "}
+                    <button
+                      type="button"
+                      /* Inside a label, so a click here would otherwise also
+                         toggle the box on the way past. */
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setReading("terms");
+                      }}
+                      className="underline decoration-mocha-400 underline-offset-2 transition-colors hover:text-mocha-800"
+                    >
+                      {t.legal.termsTitle}
+                    </button>{" "}
+                    {t.auth.termsAcceptJoin}{" "}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setReading("privacy");
+                      }}
+                      className="underline decoration-mocha-400 underline-offset-2 transition-colors hover:text-mocha-800"
+                    >
+                      {t.legal.privacyTitle}
+                    </button>
+                    <span aria-hidden className="text-clay/70">
+                      {" "}
+                      *
+                    </span>
+                    <span className="mt-1 block text-clay">
+                      {t.auth.termsAcceptWhy}
+                    </span>
+                  </span>
+                </label>
+
                 {/* Optional, and clearly so. */}
                 <label className="flex cursor-pointer items-start gap-3 text-[12px] text-mocha-500">
                   <input
@@ -307,6 +373,17 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           </p>
         </form>
       </div>
+
+      {/* Mounted outside the form on purpose: a dialog inside a form inherits
+          its submit behaviour, and a stray Enter in there would have posted a
+          half-filled registration. */}
+      {reading && (
+        <LegalModal
+          kind={reading}
+          onAccept={() => setTermsAccepted(true)}
+          onClose={() => setReading(null)}
+        />
+      )}
     </div>
   );
 }

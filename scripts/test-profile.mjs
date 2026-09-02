@@ -3,7 +3,7 @@
  *   npm run build && npx next start -p 3100
  *   node scripts/test-profile.mjs http://localhost:3100
  */
-import { markVerified } from "./fixture-verify.mjs";
+import { markOnboarded, markVerified } from "./fixture-verify.mjs";
 
 const B = process.argv[2] ?? "http://localhost:3000";
 const jar=new Map();
@@ -23,16 +23,25 @@ const email=`prof-${Date.now()}@apex.test`;
    fail on PHONE_TAKEN forever — a green run that expires is worse than a
    red one, because it looks like a regression in the app. */
 const phone=`+35799${String(400000+(Date.now()%500000)).slice(0,6)}`;
-console.log('\n1. Registration now demands a phone and the service consent');
-let r=await req('/api/auth/register',{method:'POST',body:{name:'Prof Test',email,password:'test12345',serviceOptIn:true}});
+console.log('\n1. Registration demands a phone, the service consent and the terms');
+let r=await req('/api/auth/register',{method:'POST',body:{name:'Prof Test',email,password:'test12345',serviceOptIn:true, termsAccepted:true}});
 check('no phone is refused', r.json?.error==='PHONE_REQUIRED', r.json);
-r=await req('/api/auth/register',{method:'POST',body:{name:'Prof Test',email,phone:'123',password:'test12345',serviceOptIn:true}});
+r=await req('/api/auth/register',{method:'POST',body:{name:'Prof Test',email,phone:'123',password:'test12345',serviceOptIn:true, termsAccepted:true}});
 check('a too-short phone is refused', r.json?.error==='PHONE_REQUIRED'||r.json?.error==='PHONE_INVALID', r.json);
 r=await req('/api/auth/register',{method:'POST',body:{name:'Prof Test',email,phone,password:'test12345'}});
 check('missing service consent is refused', r.json?.error==='SERVICE_CONSENT_REQUIRED', r.json);
 r=await req('/api/auth/register',{method:'POST',body:{name:'Prof Test',email,phone,password:'test12345',serviceOptIn:false}});
 check('declining the service consent is refused', r.json?.error==='SERVICE_CONSENT_REQUIRED', r.json);
+/* The terms are the other required consent, and it has a document behind it, so
+   an account created without one is an account the studio cannot show agreed to
+   anything. Both the missing and the explicitly-declined case, because a form
+   that fails to send the key and a member who unticked the box are different
+   bugs with the same correct answer. */
 r=await req('/api/auth/register',{method:'POST',body:{name:'Prof Test',email,phone,password:'test12345',serviceOptIn:true}});
+check('missing terms acceptance is refused', r.json?.error==='TERMS_REQUIRED', r.json);
+r=await req('/api/auth/register',{method:'POST',body:{name:'Prof Test',email,phone,password:'test12345',serviceOptIn:true,termsAccepted:false}});
+check('declining the terms is refused', r.json?.error==='TERMS_REQUIRED', r.json);
+r=await req('/api/auth/register',{method:'POST',body:{name:'Prof Test',email,phone,password:'test12345',serviceOptIn:true, termsAccepted:true}});
 check('registers with a phone and consent', r.json?.ok===true, r.json);
 check('and is asked for the emailed code', r.json?.verify===true, r.json);
 check('marketing consent is optional and defaults off', true);
@@ -41,12 +50,13 @@ check('marketing consent is optional and defaults off', true);
    member editing their own account, and an unverified one may not — so leaving
    it out would turn this suite into twenty-five reports of the same one fact. */
 check('the fixture verifies', markVerified(email)===1);
+check('and answers the welcome questions', markOnboarded(email)===1);
 /* And signs in again: the middleware reads the cookie, not the row, so without
    this every request below is still redirected to the code box. */
 await req('/api/auth/login',{method:'POST',body:{email,password:'test12345'}});
 
 console.log('\n2. Profile updates');
-r=await req('/api/profile',{method:'PATCH',body:{name:'Prof Test',birthDate:'1990-05-14',heightCm:178,weightKg:72.5,marketingOptIn:true,notifyEmail:true,notifySms:true,notifyPush:false,reminderMinutes:180}});
+r=await req('/api/profile',{method:'PATCH',body:{name:'Prof Test',birthDate:'1990-05-14',marketingOptIn:true,notifyEmail:true,notifySms:true,notifyPush:false,reminderMinutes:180}});
 check('saves height, weight, birth date and channels', r.json?.ok===true, r.json);
 r=await req('/api/profile',{method:'PATCH',body:{name:'Prof Test',birthDate:'2015-01-01',marketingOptIn:false,notifyEmail:true,notifySms:false,notifyPush:false,reminderMinutes:0}});
 check('a child date of birth is refused', r.json?.error==='BIRTHDATE_AGE', r.json);
@@ -56,8 +66,14 @@ r=await req('/api/profile',{method:'PATCH',body:{name:'Prof Test',marketingOptIn
 check('an off-step reminder is refused', r.json?.error==='REMINDER_INVALID', r.json);
 r=await req('/api/profile',{method:'PATCH',body:{name:'Prof Test',marketingOptIn:false,notifyEmail:true,notifySms:false,notifyPush:false,reminderMinutes:750}});
 check('a reminder past 720 minutes is refused', r.json?.error==='REMINDER_INVALID', r.json);
-r=await req('/api/profile',{method:'PATCH',body:{name:'Prof Test',heightCm:400,marketingOptIn:false,notifyEmail:true,notifySms:false,notifyPush:false,reminderMinutes:0}});
-check('an impossible height is refused', r.json?.error==='HEIGHT_RANGE', r.json);
+/* Height and weight are no longer asked for. A browser tab left open on the old
+   form still sends them, and it must save the rest of the profile rather than
+   failing on a field that no longer exists: the member would have no idea what
+   was wrong, and nothing on the page they were looking at would explain it. */
+r=await req('/api/profile',{method:'PATCH',body:{name:'Prof Test',heightCm:400,weightKg:999,marketingOptIn:false,notifyEmail:true,notifySms:false,notifyPush:false,reminderMinutes:0}});
+check('a stale form still saves, height and weight ignored', r.json?.ok===true, r.json);
+const noBody=await req('/account');
+check('and neither field is offered any more', !/pf-height|pf-weight/.test(noBody.text));
 r=await req('/api/profile',{method:'PATCH',body:{name:'Prof Test',email:'hacker@evil.test',phone:'+000',marketingOptIn:false,notifyEmail:true,notifySms:false,notifyPush:false,reminderMinutes:120}});
 check('email and phone in the payload are ignored', r.json?.ok===true, r.json);
 const acct=await req('/account');

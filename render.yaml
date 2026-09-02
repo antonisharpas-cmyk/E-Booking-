@@ -63,6 +63,10 @@ services:
         sync: false
       - key: PROMO_ENABLED
         value: "false"
+      # Nothing to set for the cache buster: `next.config.ts` reads Render's own
+      # RENDER_GIT_COMMIT and stamps it onto every asset request, so each deploy
+      # gets its own asset URLs. Named here only so nobody wonders where the
+      # ?dpl= in the page source comes from.
       # Deliberately NOT setting NODE_ENV. Next sets it for itself when it
       # serves, and setting it here would reach npm as well: devDependencies
       # would be skipped, and drizzle-kit and tsx are needed at runtime by the

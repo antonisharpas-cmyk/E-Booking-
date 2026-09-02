@@ -2,48 +2,18 @@
 
 import { Section } from "@/components/ui/Section";
 import { useI18n } from "@/i18n/LanguageProvider";
+import { legalSections } from "@/lib/legal";
 
 /**
- * Starting templates. Replace the body copy with the studio's final wording —
- * this is not legal advice and has not been reviewed by a lawyer.
+ * One of the two readers of lib/legal.ts, the other being the modal on the
+ * sign-up form. The words live there so that accepting them at sign-up and
+ * reading them on this page cannot be two different documents.
  */
 export function LegalBody({ kind }: { kind: "privacy" | "terms" }) {
   const { t, locale } = useI18n();
-  const el = locale === "el";
 
-  const privacy = el
-    ? [
-        ["Ποια δεδομένα συλλέγουμε", "Όνομα, email, τηλέφωνο, ιστορικό κρατήσεων και ιστορικό αγορών. Τα στοιχεία κάρτας δεν αποθηκεύονται ποτέ στους διακομιστές μας. Η πληρωμή γίνεται εξ ολοκλήρου μέσω του παρόχου πληρωμών."],
-        ["Γιατί", "Για να διαχειριστούμε τις κρατήσεις, τα credits και τις πληρωμές σου, και για να επικοινωνήσουμε μαζί σου σχετικά με το μάθημά σου."],
-        ["Πόσο", "Όσο διατηρείς λογαριασμό. Μπορείς να ζητήσεις διαγραφή οποτεδήποτε."],
-        ["Τα δικαιώματά σου", "Πρόσβαση, διόρθωση, διαγραφή και φορητότητα των δεδομένων σου, σύμφωνα με τον GDPR."],
-        ["Επικοινωνία", "Για οποιοδήποτε αίτημα σχετικά με τα δεδομένα σου, επικοινώνησε με το στούντιο."],
-      ]
-    : [
-        ["What we collect", "Your name, email, phone, booking history and purchase history. Card details are never stored on our servers. Payment is handled entirely by our payment provider."],
-        ["Why", "To manage your bookings, credits and payments, and to contact you about your classes."],
-        ["How long", "For as long as you keep an account. You can request deletion at any time."],
-        ["Your rights", "Access, correction, deletion and portability of your data under GDPR."],
-        ["Contact", "For any request about your data, contact the studio."],
-      ];
-
-  const terms = el
-    ? [
-        ["Credits", "Ένα credit αντιστοιχεί σε ένα μάθημα. Τα credits αφαιρούνται κατά την κράτηση και έχουν ημερομηνία λήξης που εμφανίζεται πριν την αγορά."],
-        ["Ακυρώσεις", "Δωρεάν ακύρωση έως 12 ώρες πριν την έναρξη. Μετά από αυτό το credit καταναλώνεται."],
-        ["Καθυστερημένη άφιξη", "Για ασφάλεια, η είσοδος δεν επιτρέπεται μετά την έναρξη της προθέρμανσης."],
-        ["Επιστροφές χρημάτων", "Τα πακέτα δεν επιστρέφονται χρηματικά, εκτός όπου απαιτείται από τον νόμο."],
-        ["Υγεία", "Ενημέρωσε το στούντιο για τραυματισμούς, εγκυμοσύνη ή ιατρικές καταστάσεις πριν το μάθημα."],
-      ]
-    : [
-        ["Credits", "One credit equals one class. Credits are deducted at the time of booking and carry an expiry date shown before purchase."],
-        ["Cancellations", "Free cancellation up to 12 hours before the class starts. After that the credit is used."],
-        ["Late arrival", "For safety, entry is not permitted once the warm-up has begun."],
-        ["Refunds", "Credit packs are non-refundable except where required by law."],
-        ["Health", "Tell the studio about injuries, pregnancy or medical conditions before class."],
-      ];
-
-  const items = kind === "privacy" ? privacy : terms;
+  /* One copy of the text, shared with the sign-up modal. See lib/legal.ts. */
+  const items = legalSections(kind, locale);
 
   return (
     <Section className="pt-12 md:pt-16">
@@ -57,10 +27,16 @@ export function LegalBody({ kind }: { kind: "privacy" | "terms" }) {
         </p>
 
         <div className="mt-12 space-y-10">
-          {items.map(([title, body]) => (
+          {items.map(({ title, body }) => (
             <div key={title} className="border-t border-mocha-200/70 pt-8">
               <h2 className="text-[13px] uppercase tracking-widest">{title}</h2>
-              <p className="mt-3 text-[15px] leading-[1.9] text-mocha-500">{body}</p>
+              {/* `whitespace-pre-line` because some sections are two paragraphs and HTML
+                  collapses the blank line between them. Written as text with a
+                  blank line rather than as an array, so the words stay readable
+                  in lib/legal.ts where a lawyer will edit them. */}
+              <p className="mt-3 whitespace-pre-line text-[15px] leading-[1.9] text-mocha-500">
+                {body}
+              </p>
             </div>
           ))}
         </div>

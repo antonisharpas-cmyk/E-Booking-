@@ -5,7 +5,6 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { currentUser } from "@/lib/auth";
 import {
-  kgToGrams,
   parseBirthDate,
   ageFromBirthDate,
   MAX_AGE_YEARS,
@@ -97,8 +96,10 @@ export async function PATCH(req: Request) {
       serviceOptInAt:
         user.serviceOptInAt ?? (d.serviceOptIn ? new Date() : null),
       birthDate,
-      heightCm: d.heightCm ?? null,
-      weightGrams: d.weightKg == null ? null : kgToGrams(d.weightKg),
+      /* Height and weight are no longer asked for: the studio decided they were
+         not its business and never used them. The columns are left in place
+         rather than dropped, so nobody's stored numbers are destroyed by a
+         deploy, and erasure still clears them. Nothing writes them any more. */
       marketingOptIn: d.marketingOptIn,
       notifyEmail: d.notifyEmail,
       /* Accepting offers switches SMS on: it is the studio's most reliable way
